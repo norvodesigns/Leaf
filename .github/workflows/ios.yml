@@ -1,0 +1,68 @@
+name: iOS
+
+# Compile check, unit tests and simulator screenshots on a GitHub-hosted Mac.
+# No signing and no secrets: this never uploads anything to Apple.
+# TestFlight uploads happen from Xcode on your Mac (see docs/TESTFLIGHT.md).
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['docs/**', '**.md']
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          ls -d /Applications/Xcode*.app
+          XCODE=$(ls -d /Applications/Xcode_*.app | grep -v -i beta | sort -V | tail -1)
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
+          xcrun simctl list runtimes
+
+      - name: Pick simulators
+        run: |
+          python3 scripts/ci_pick_simulators.py >> "$GITHUB_ENV"
+          cat "$GITHUB_ENV"
+
+      - name: Build and test (iPhone + embedded watch app)
+        run: |
+          set -o pipefail
+          xcodebuild -project Leaf.xcodeproj -scheme Leaf \
+            -destination "id=$IOS_SIM" -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO \
+            test 2>&1 | tee build-ios.log | xcbeautify --quieter || { echo "::group::Errors"; grep -E "error:|failed|Failing tests|✘" build-ios.log | sort -u | head -300; echo "::endgroup::"; exit 1; }
+
+      - name: Build watch app for the watch simulator
+        if: env.WATCH_SIM != ''
+        run: |
+          set -o pipefail
+          xcodebuild -project Leaf.xcodeproj -scheme LeafWatch \
+            -destination "id=$WATCH_SIM" -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO \
+            build 2>&1 | tee build-watch.log | xcbeautify --quieter || { echo "::group::Errors"; grep -E "error:" build-watch.log | sort -u | head -300; echo "::endgroup::"; exit 1; }
+
+      - name: Warnings
+        if: always()
+        run: grep -h -E "warning:" build-*.log 2>/dev/null | grep -v -E "appintents|Metadata extraction" | sort -u | head -150 || true
+
+      - name: Screenshots
+        if: success()
+        run: bash scripts/ci_screenshots.sh screenshots
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: screenshots
+          if-no-files-found: ignore
+          retention-days: 7

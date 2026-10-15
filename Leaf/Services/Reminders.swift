@@ -1,0 +1,144 @@
+import Foundation
+import UserNotifications
+
+/// Identifiers shared with notification delegate callbacks (kept outside the main actor).
+enum ReminderID {
+    static let dailyPrefix = "leaf.daily."
+    static let goal = "leaf.session.goal"
+    static let category = "leaf.reading"
+    static let startAction = "leaf.start"
+    static let bookKey = "bookID"
+}
+
+/// Daily reading reminders, personalised with each day's assignment, plus the "goal reached" nudge during a session.
+@MainActor
+final class Reminders: NSObject {
+    static let shared = Reminders()
+
+    private let center = UNUserNotificationCenter.current()
+    private weak var store: LibraryStore?
+    private var refreshTask: Task<Void, Never>?
+
+    /// Called when someone taps "Start reading" on a reminder.
+    var onStartReading: ((String?) -> Void)?
+
+    func configure(store: LibraryStore) {
+        self.store = store
+        center.delegate = self
+        let start = UNNotificationAction(identifier: ReminderID.startAction, title: "Start reading", options: [.foreground])
+        center.setNotificationCategories([
+            UNNotificationCategory(identifier: ReminderID.category, actions: [start], intentIdentifiers: [], options: [])
+        ])
+    }
+
+    func requestAuthorization() async -> Bool {
+        (try? await center.requestAuthorization(options: [.alert, .sound, .badge])) ?? false
+    }
+
+    func authorizationStatus() async -> UNAuthorizationStatus {
+        await center.notificationSettings().authorizationStatus
+    }
+
+    /// Coalesces bursts of changes into one reschedule.
+    func scheduleRefresh() {
+        refreshTask?.cancel()
+        refreshTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(600))
+            guard !Task.isCancelled else { return }
+            await self?.reschedule()
+        }
+    }
+
+    func reschedule() async {
+        guard let store else { return }
+        let existing = await center.pendingNotificationRequests().map(\.identifier)
+        center.removePendingNotificationRequests(withIdentifiers: existing.filter { $0.hasPrefix(ReminderID.dailyPrefix) || $0 == ReminderID.goal })
+
+        let status = await authorizationStatus()
+        guard status == .authorized || status == .provisional || status == .ephemeral else { return }
+
+        scheduleGoalNudge(store: store)
+
+        let prefs = store.preferences
+        guard prefs.reminderEnabled else { return }
+        let calendar = Calendar.current
+        let now = Date()
+        var scheduled = 0
+        for (offset, day) in store.plan.days.enumerated() where scheduled < 60 {
+            guard day.isReadingDay else { continue }
+            var components = calendar.dateComponents([.year, .month, .day], from: day.date)
+            components.hour = prefs.reminderHour
+            components.minute = prefs.reminderMinute
+            guard let fireDate = calendar.date(from: components), fireDate > now else { continue }
+            if offset == 0 && (store.goalMetToday || store.activeSession != nil) { continue }
+
+            let content = UNMutableNotificationContent()
+            let copy = Self.copy(for: day, offset: offset, store: store)
+            content.title = copy.title
+            content.body = copy.body
+            content.sound = .default
+            content.categoryIdentifier = ReminderID.category
+            content.threadIdentifier = "leaf.daily"
+            if let bookID = day.assignments.first?.bookID { content.userInfo = [ReminderID.bookKey: bookID] }
+
+            let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+            let id = ReminderID.dailyPrefix + Self.dayKey(day.date, calendar: calendar)
+            try? await center.add(UNNotificationRequest(identifier: id, content: content, trigger: trigger))
+            scheduled += 1
+        }
+    }
+
+    /// While a session runs, a quiet tap when today's goal is reached (useful with the phone face down).
+    private func scheduleGoalNudge(store: LibraryStore) {
+        guard let active = store.activeSession, !active.isPaused, !store.goalMetToday else { return }
+        let remaining = (Double(store.preferences.dailyMinutes) - store.minutesReadToday) * 60 - active.elapsed()
+        guard remaining > 5 else { return }
+        let content = UNMutableNotificationContent()
+        content.title = "That's today's \(store.preferences.dailyMinutes) minutes"
+        content.body = "Goal reached. Keep going while it's good, or stop here and log your page."
+        content.sound = .default
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: remaining, repeats: false)
+        center.add(UNNotificationRequest(identifier: ReminderID.goal, content: content, trigger: trigger))
+    }
+
+    static func copy(for day: PlanDay, offset: Int, store: LibraryStore) -> (title: String, body: String) {
+        let titles = ["Time to read", "Your reading hour", "A chapter is waiting", "Page time", "Back to the story"]
+        let title = titles[abs(Calendar.current.ordinality(of: .day, in: .era, for: day.date) ?? offset) % titles.count]
+        let parts = day.assignments.compactMap { assignment -> (String, Assignment)? in
+            store.item(assignment.bookID).map { ($0.book.title, assignment) }
+        }
+        guard let first = parts.first else {
+            return (title, store.data.items.isEmpty
+                ? "Find a book you'll love. Leaf will plan the rest."
+                : "Your list is clear. Pick your next book and keep the streak going.")
+        }
+        if parts.count == 1 {
+            let a = first.1
+            let pages = LeafFormat.pages(from: a.fromPage, to: a.toPage)
+            if a.finishesBook { return ("Last stretch", "\(LeafFormat.duration(minutes: a.minutes)) to finish \(first.0), \(pages).") }
+            return (title, "\(LeafFormat.duration(minutes: a.minutes)) of \(first.0), \(pages).")
+        }
+        let list = parts.prefix(3).map { "\(LeafFormat.duration(minutes: $0.1.minutes)) of \($0.0)" }
+        return (title, ListFormatter.localizedString(byJoining: list) + ".")
+    }
+
+    static func dayKey(_ date: Date, calendar: Calendar) -> String {
+        let c = calendar.dateComponents([.year, .month, .day], from: date)
+        return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
+    }
+}
+
+extension Reminders: UNUserNotificationCenterDelegate {
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
+        // In the app, the session screen celebrates the goal itself.
+        notification.request.identifier == ReminderID.goal ? [] : [.banner, .list, .sound]
+    }
+
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
+        let bookID = response.notification.request.content.userInfo[ReminderID.bookKey] as? String
+        let isStart = response.actionIdentifier == ReminderID.startAction
+        await MainActor.run {
+            if isStart { Reminders.shared.onStartReading?(bookID) }
+        }
+    }
+}
