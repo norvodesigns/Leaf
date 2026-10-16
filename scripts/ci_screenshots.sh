@@ -50,7 +50,7 @@ for appearance in light dark; do
   shot "10-today$suffix" 5 -LeafDemo YES -LeafScreen today
   shot "11-library$suffix" 5 -LeafDemo YES -LeafScreen library
   shot "12-plan$suffix" 5 -LeafDemo YES -LeafScreen plan
-  shot "15-book$suffix" 5 -LeafDemo YES -LeafScreen book:OL262758W
+  shot "15-book$suffix" 5 -LeafDemo YES -LeafScreen book:OL27482W
   shot "16-session$suffix" 5 -LeafDemo YES -LeafScreen session
 done
 xcrun simctl ui "$IOS_SIM" appearance light

@@ -57,6 +57,7 @@ jobs:
 
       - name: Screenshots
         if: success()
+        timeout-minutes: 15
         run: bash scripts/ci_screenshots.sh screenshots
 
       - uses: actions/upload-artifact@v4

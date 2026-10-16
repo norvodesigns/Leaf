@@ -194,11 +194,11 @@ final class LibraryStore {
     // MARK: - Sessions
 
     @discardableResult
-    func startSession(bookID: String, origin: SessionDevice = .phone) -> ActiveSession? {
+    func startSession(bookID: String, origin: SessionDevice = .phone, startedAt: Date = Date()) -> ActiveSession? {
         if let active = data.activeSession { return active }
         guard let item = item(bookID) else { return nil }
         if item.shelf != .reading { move(bookID, to: .reading) }
-        let session = ActiveSession(bookID: bookID, startedAt: Date(), startPage: self.item(bookID)?.currentPage ?? 0, origin: origin)
+        let session = ActiveSession(bookID: bookID, startedAt: startedAt, startPage: self.item(bookID)?.currentPage ?? 0, origin: origin)
         data.activeSession = session
         commit()
         return session
@@ -375,4 +375,8 @@ final class LibraryStore {
             try? persistence.save(snapshot)
         }
     }
+}
+
+extension SessionOutcome: Identifiable {
+    var id: UUID { session.id }
 }

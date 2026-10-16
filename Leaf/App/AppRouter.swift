@@ -27,6 +27,10 @@ final class AppRouter {
     var showSpeedTest = false
     /// Set after a session ends, to show the wrap-up moment.
     var lastOutcome: SessionOutcome?
+    /// Which shelf the Library tab shows.
+    var libraryShelf: Shelf = .reading
+    /// A query to pre-fill on the Search tab (used by "Find a book" buttons and screenshots).
+    var searchQuery: String?
 
     func open(_ book: Book) {
         let route = BookRoute(book: book)

@@ -6,16 +6,16 @@ enum DemoData {
         Book(id: id, title: title, author: author, year: year, pages: pages, words: words, coverID: cover, genres: genres, popularity: 1000)
     }
 
-    static let hobbit = book("OL262758W", "The Hobbit", "J. R. R. Tolkien", 1937, pages: 310, words: 95_000, genres: ["fantasy", "classics"])
-    static let circe = book("OL20049549W", "Circe", "Madeline Miller", 2018, pages: 393, words: 117_000, genres: ["fantasy", "historical"])
-    static let hailMary = book("OL21745884W", "Project Hail Mary", "Andy Weir", 2021, pages: 476, genres: ["science-fiction"])
-    static let piranesi = book("OL20814563W", "Piranesi", "Susanna Clarke", 2020, pages: 272, words: 85_000, genres: ["fantasy"])
-    static let remains = book("OL1834669W", "The Remains of the Day", "Kazuo Ishiguro", 1989, pages: 245, words: 72_000, genres: ["literary", "classics"])
-    static let gentleman = book("OL17892349W", "A Gentleman in Moscow", "Amor Towles", 2016, pages: 462, genres: ["historical", "literary"])
-    static let klara = book("OL20893680W", "Klara and the Sun", "Kazuo Ishiguro", 2021, pages: 303, genres: ["science-fiction", "literary"])
-    static let midnight = book("OL20839488W", "The Midnight Library", "Matt Haig", 2020, pages: 288, genres: ["fiction"])
-    static let educated = book("OL17930368W", "Educated", "Tara Westover", 2018, pages: 334, genres: ["memoir"])
-    static let nightCircus = book("OL15936512W", "The Night Circus", "Erin Morgenstern", 2011, pages: 387, genres: ["fantasy"])
+    static let hobbit = book("OL27482W", "The Hobbit", "J. R. R. Tolkien", 1937, pages: 310, words: 95_000, cover: 14627509, genres: ["fantasy", "classics"])
+    static let circe = book("OL18012166W", "Circe", "Madeline Miller", 2018, pages: 404, words: 109_080, cover: 8739376, genres: ["fantasy", "historical"])
+    static let hailMary = book("OL21745884W", "Project Hail Mary", "Andy Weir", 2021, pages: 496, words: 133_920, cover: 11200092, genres: ["science-fiction"])
+    static let piranesi = book("OL20893680W", "Piranesi", "Susanna Clarke", 2020, pages: 272, words: 73_440, cover: 10226290, genres: ["fantasy"])
+    static let remains = book("OL59048W", "The Remains of the Day", "Kazuo Ishiguro", 1989, pages: 254, words: 68_580, cover: 95742, genres: ["literary", "classics"])
+    static let gentleman = book("OL17797130W", "A Gentleman in Moscow", "Amor Towles", 2016, pages: 511, words: 137_970, cover: 11326818, genres: ["historical", "literary"])
+    static let klara = book("OL20883297W", "Klara and the Sun", "Kazuo Ishiguro", 2021, pages: 334, words: 90_180, cover: 10648686, genres: ["science-fiction", "literary"])
+    static let midnight = book("OL20965973W", "The Midnight Library", "Matt Haig", 2020, pages: 304, words: 82_080, cover: 10313767, genres: ["fiction"])
+    static let educated = book("OL18139176W", "Educated", "Tara Westover", 2018, pages: 384, words: 103_680, cover: 8314077, genres: ["memoir"])
+    static let nightCircus = book("OL16086747W", "The Night Circus", "Erin Morgenstern", 2011, pages: 512, words: 138_240, cover: 8773134, genres: ["fantasy"])
 
     static func make(now: Date = Date(), calendar: Calendar = .current) -> LeafData {
         func daysAgo(_ days: Int, hour: Int = 21) -> Date {
@@ -53,7 +53,7 @@ enum DemoData {
             page += pages
         }
         data.sessions.append(ReadingSession(bookID: hobbit.id, startedAt: daysAgo(0, hour: 8), seconds: 12 * 60, fromPage: 133, toPage: 142))
-        data.speedTests = [SpeedTestResult(date: daysAgo(30), passageID: "lighthouse", words: 302, seconds: 69, correct: 3, total: 3)]
+        data.speedTests = [SpeedTestResult(date: daysAgo(30), passageID: "bindery", words: 302, seconds: 69, correct: 3, total: 3)]
         return data
     }
 }
