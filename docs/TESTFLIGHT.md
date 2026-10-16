@@ -73,6 +73,23 @@ profiles for you.
 Apple takes about 5–15 minutes to process the build. Then it shows up under
 **App Store Connect → your app → TestFlight**.
 
+### Or from Terminal
+
+`scripts/testflight.sh` does the same archive and upload with Xcode's
+command-line tools. Do steps 2 and 4 once first, then:
+
+```bash
+sudo xcode-select -s /Applications/Xcode.app    # use the full Xcode, not just the Command Line Tools
+cd leaf
+TEAM_ID=ABCDE12345 scripts/testflight.sh       # your Team ID: developer.apple.com/account → Membership details
+```
+
+It signs with the Apple ID you're signed in with in **Xcode → Settings → Accounts**.
+Each run uses a timestamp as the build number, so every upload is accepted.
+To use an App Store Connect API key instead (**Users and Access → Integrations →
+App Store Connect API**, role *App Manager*), save the `.p8` file to
+`~/.appstoreconnect/private_keys/` and put `ASC_KEY_ID=… ASC_ISSUER_ID=…` before the command.
+
 ## 6. Invite testers
 
 - **Internal testing** (you and up to 100 people on your App Store Connect team):

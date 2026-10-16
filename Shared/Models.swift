@@ -197,6 +197,19 @@ struct SpeedTestResult: Codable, Hashable, Sendable {
     var effectiveWPM: Double { ReadingSpeed.effectiveWPM(words: words, seconds: seconds, correct: correct, total: total) }
 }
 
+/// How much haptic feedback Leaf plays.
+enum HapticsLevel: String, Codable, CaseIterable, Sendable {
+    /// Core Haptics signature patterns plus UIKit feedback.
+    case full
+    /// UIKit feedback generators only.
+    case subtle
+    case off
+}
+
+enum AppearancePreference: String, Codable, CaseIterable, Sendable {
+    case system, day, night
+}
+
 enum PlanMode: String, Codable, CaseIterable, Sendable {
     /// Finish one book before starting the next.
     case focus
@@ -214,6 +227,12 @@ struct ReadingPreferences: Codable, Hashable, Sendable {
     var reminderHour: Int = 20
     var reminderMinute: Int = 30
     var hasOnboarded: Bool = false
+    /// When onboarding finished; Today's "No. 42" issue number counts from here.
+    var onboardedAt: Date?
+    /// Let real sessions refine the words-per-minute estimate.
+    var learnFromSessions: Bool = true
+    var hapticsLevel: HapticsLevel = .full
+    var appearance: AppearancePreference = .system
 
     init() {}
 
@@ -228,6 +247,10 @@ struct ReadingPreferences: Codable, Hashable, Sendable {
         reminderHour = try c.decodeIfPresent(Int.self, forKey: .reminderHour) ?? d.reminderHour
         reminderMinute = try c.decodeIfPresent(Int.self, forKey: .reminderMinute) ?? d.reminderMinute
         hasOnboarded = try c.decodeIfPresent(Bool.self, forKey: .hasOnboarded) ?? d.hasOnboarded
+        onboardedAt = try c.decodeIfPresent(Date.self, forKey: .onboardedAt)
+        learnFromSessions = try c.decodeIfPresent(Bool.self, forKey: .learnFromSessions) ?? d.learnFromSessions
+        hapticsLevel = try c.decodeIfPresent(HapticsLevel.self, forKey: .hapticsLevel) ?? d.hapticsLevel
+        appearance = try c.decodeIfPresent(AppearancePreference.self, forKey: .appearance) ?? d.appearance
     }
 }
 

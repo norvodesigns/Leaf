@@ -6,8 +6,13 @@ The product brief is [`BRIEF.md`](BRIEF.md).
 ## Ground rules
 
 - SwiftUI only, **iOS 26.0** / **watchOS 26.0** deployment targets, **Swift 5 language
-  mode**, Xcode 26 SDK. No third-party packages. Do not use APIs introduced after iOS 26.0
-  unless they're wrapped in `if #available`.
+  mode**. CI builds with **Xcode 26.6** (iOS 26.5 SDK). No third-party packages. APIs
+  introduced after iOS 26.0 (e.g. `tabViewBottomAccessory(isEnabled:content:)` in 26.1) must
+  be wrapped in `if #available(iOS 26.1, *)` with a sensible fallback.
+- You can't compile SwiftUI on this Linux box, but you **must** syntax-check every file you
+  write: `/home/user/tools/swift-6.4.1-RELEASE-ubuntu24.04/usr/bin/swiftc -parse <files>`.
+  Then re-read your code against the real type and method names in `Shared/`, `Leaf/Services/`,
+  `Leaf/App/` and `Leaf/DesignSystem/`. A wrong label or a missing `try` costs a full CI round.
 - The Xcode project uses **synchronized folders**: any file you create under `Leaf/`,
   `LeafWatch/`, `Shared/` or `LeafTests/` is part of that target automatically. Never
   edit `Leaf.xcodeproj`.
@@ -25,11 +30,12 @@ The product brief is [`BRIEF.md`](BRIEF.md).
 | Thing | File | How to use |
 | --- | --- | --- |
 | `LibraryStore` | `Leaf/Services/LibraryStore.swift` | `@Environment(LibraryStore.self) private var store`. All reads (`reading`, `toRead`, `finished`, `plan`, `todayAssignments`, `minutesReadToday`, `goalProgress`, `streak`, `week`, `activeSession`, `preferences`, `wpm`) and all mutations (`add`, `move`, `startReading`, `markFinished`, `remove`, `setPage`, `reorder`, `moveToFront`, `updateBook`, `updatePreferences`, `recordSpeedTest`, `startSession`, `pauseSession`, `resumeSession`, `cancelSession`, `finishSession(toPage:)`, `resetEverything`). |
-| `AppRouter` | `Leaf/App/AppRouter.swift` | `@Environment(AppRouter.self) private var router`. Tabs, per-tab `NavigationStack` paths of `BookRoute`, `showSettings`, `showSession`, `showSpeedTest`, `lastOutcome`. Open a book with `router.open(book)`. |
+| `AppRouter` | `Leaf/App/AppRouter.swift` | `@Environment(AppRouter.self) private var router`. Tabs, per-tab `NavigationStack` paths of `BookRoute`, `showSettings`, `showSession` (open it with `router.presentSession(from: "hero" | "accessory")` so the zoom source is recorded in `sessionSource`), `showSpeedTest`, `lastOutcome`, `libraryShelf`, `searchQuery`. Open a book with `router.open(book)`. |
 | `BookCatalog` | `Leaf/Services/BookCatalog.swift` | `@Environment(BookCatalog.self) private var catalog`. `search(_:)`, `collections(wpm:excluding:)`, `book(id:)`, `isLoaded`. |
 | `OpenLibrary` | `Leaf/Services/OpenLibrary.swift` | `try await OpenLibrary.search(query)` → `[Book]`. |
 | `Reminders` | `Leaf/Services/Reminders.swift` | `Reminders.shared.requestAuthorization()`, `authorizationStatus()`. Rescheduling happens automatically on every store change. |
-| `Haptics` | `Leaf/Services/Haptics.swift` | `Haptics.shared.selection()`, `.tap()`, `.soft()`, `.rigid()`, `.press()`, `.success()`, `.warning()`, `.play(.pageTurn)` etc. Use the haptics map in DESIGN.md §8. |
+| `Haptics` | `Leaf/Services/Haptics.swift` | `Haptics.shared.selection()`, `.tap()`, `.soft(0.6)`, `.rigid(0.8)`, `.press()`, `.success()`, `.warning()`, `.error()`, `.play(.reorderLift, heft: Haptics.heft(pages: book.pages))`, `.riffle(count:earlier:)`. Respects Settings → Feel automatically. Use the haptics map in DESIGN.md §8. |
+| Preferences extras | `Shared/Models.swift` | `ReadingPreferences` also has `onboardedAt`, `learnFromSessions`, `hapticsLevel: HapticsLevel (.full/.subtle/.off)`, `appearance: AppearancePreference (.system/.day/.night)`. The app applies appearance and haptics level itself. `store.issueNumber` is Today's "No. 42"; `store.sessionCount(for:)`, `store.sessions(for:)` (newest first). |
 | Planner, models | `Shared/*.swift` | `Book`, `LibraryItem`, `ReadingSession`, `ActiveSession`, `ReadingPlan`/`PlannedBook`/`PlanDay`/`Assignment`, `ReadingSpeed`, `ReadingStats`, `LeafFormat` (durations, dates, pages). |
 | Speed test content | `Leaf/Core/SpeedTestPassages.swift` | `SpeedTestPassages.all`, `.passage(after:)`. |
 | Demo data | `Leaf/App/DemoData.swift` | `DemoData.make()` and the sample books (`DemoData.hobbit` …). Use these in `#Preview`s with `LibraryStore(persistence: .ephemeral())` + `replaceAll(with:)`. |

@@ -31,6 +31,14 @@ final class AppRouter {
     var libraryShelf: Shelf = .reading
     /// A query to pre-fill on the Search tab (used by "Find a book" buttons and screenshots).
     var searchQuery: String?
+    /// Which control the session zooms out of ("hero" on Today, or "accessory").
+    var sessionSource = "hero"
+
+    /// Opens the full-screen session, zooming from `source`.
+    func presentSession(from source: String) {
+        sessionSource = source
+        showSession = true
+    }
 
     func open(_ book: Book) {
         let route = BookRoute(book: book)

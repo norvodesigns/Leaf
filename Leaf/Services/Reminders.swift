@@ -94,32 +94,35 @@ final class Reminders: NSObject {
         let remaining = (Double(store.preferences.dailyMinutes) - store.minutesReadToday) * 60 - active.elapsed()
         guard remaining > 5 else { return }
         let content = UNMutableNotificationContent()
-        content.title = "That's today's \(store.preferences.dailyMinutes) minutes"
-        content.body = "Goal reached. Keep going while it's good, or stop here and log your page."
+        content.title = "Goal met"
+        content.body = "That's today's \(store.preferences.dailyMinutes) minutes. Anything more is a gift."
         content.sound = .default
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: remaining, repeats: false)
         center.add(UNNotificationRequest(identifier: ReminderID.goal, content: content, trigger: trigger))
     }
 
+    /// Notification copy (DESIGN.md §11): minutes and pages first, the book by name, never guilt.
     static func copy(for day: PlanDay, offset: Int, store: LibraryStore) -> (title: String, body: String) {
-        let titles = ["Time to read", "Your reading hour", "A chapter is waiting", "Page time", "Back to the story"]
-        let title = titles[abs(Calendar.current.ordinality(of: .day, in: .era, for: day.date) ?? offset) % titles.count]
-        let parts = day.assignments.compactMap { assignment -> (String, Assignment)? in
-            store.item(assignment.bookID).map { ($0.book.title, assignment) }
+        let title = "Leaf"
+        let parts = day.assignments.compactMap { assignment -> (item: LibraryItem, assignment: Assignment)? in
+            store.item(assignment.bookID).map { ($0, assignment) }
         }
         guard let first = parts.first else {
             return (title, store.data.items.isEmpty
-                ? "Find a book you'll love. Leaf will plan the rest."
-                : "Your list is clear. Pick your next book and keep the streak going.")
+                ? "Add a book and Leaf will plan the pages."
+                : "Your list is clear. Pick your next book whenever you're ready.")
         }
-        if parts.count == 1 {
-            let a = first.1
-            let pages = LeafFormat.pages(from: a.fromPage, to: a.toPage)
-            if a.finishesBook { return ("Last stretch", "\(LeafFormat.duration(minutes: a.minutes)) to finish \(first.0), \(pages).") }
-            return (title, "\(LeafFormat.duration(minutes: a.minutes)) of \(first.0), \(pages).")
+        let minutes = Int(day.minutes.rounded())
+        let pages = "\(first.assignment.fromPage)–\(first.assignment.toPage)"
+        if parts.count > 1 {
+            return (title, "\(minutes) minutes today, starting with \(first.item.book.title), pp. \(pages).")
         }
-        let list = parts.prefix(3).map { "\(LeafFormat.duration(minutes: $0.1.minutes)) of \($0.0)" }
-        return (title, ListFormatter.localizedString(byJoining: list) + ".")
+        if first.assignment.finishesBook {
+            let left = max(1, first.item.book.pages - first.item.currentPage)
+            return (title, "\(left) pages left in \(first.item.book.title). You could finish today.")
+        }
+        let when = store.preferences.reminderHour >= 17 ? "tonight" : "today"
+        return (title, "\(minutes) minutes of \(first.item.book.title) \(when) — about pp. \(pages).")
     }
 
     static func dayKey(_ date: Date, calendar: Calendar) -> String {

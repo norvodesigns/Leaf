@@ -76,6 +76,16 @@ final class LibraryStore {
 
     var activeSession: ActiveSession? { data.activeSession }
 
+    /// Today's issue number: 1 on the day onboarding finished.
+    var issueNumber: Int {
+        guard let start = data.preferences.onboardedAt else { return 1 }
+        let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: start), to: calendar.startOfDay(for: now)).day ?? 0
+        return max(1, days + 1)
+    }
+
+    /// Sessions logged for a book, oldest first.
+    func sessionCount(for bookID: String) -> Int { data.sessions.filter { $0.bookID == bookID }.count }
+
     func sessions(for bookID: String) -> [ReadingSession] {
         data.sessions.filter { $0.bookID == bookID }.sorted { $0.startedAt > $1.startedAt }
     }
@@ -258,7 +268,8 @@ final class LibraryStore {
             data.items[index].order = nextOrder(on: .reading)
         }
         if data.items[index].startedAt == nil { data.items[index].startedAt = session.startedAt }
-        if let observed = ReadingSpeed.observedWPM(pagesRead: logged.pagesRead, wordsPerPage: book.wordsPerPage, seconds: logged.seconds) {
+        if data.preferences.learnFromSessions,
+           let observed = ReadingSpeed.observedWPM(pagesRead: logged.pagesRead, wordsPerPage: book.wordsPerPage, seconds: logged.seconds) {
             data.preferences.wpm = ReadingSpeed.calibrated(current: oldWPM, observed: observed)
         }
         let finishedBook = toPage >= book.pages

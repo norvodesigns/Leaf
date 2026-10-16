@@ -89,8 +89,16 @@ final class BookCatalog {
         func genre(_ tags: Set<String>) -> [Book] { pool.filter { !tags.isDisjoint(with: $0.genres) } }
         func top(_ list: [Book], _ count: Int = 24) -> [Book] { Array(list.prefix(count)) }
 
+        // Raw popularity skews to self-help; cap each primary genre so the first row feels like a bookshop table.
+        var perGenre: [String: Int] = [:]
+        let loved = pool.filter { book in
+            let key = book.genres.first ?? "other"
+            perGenre[key, default: 0] += 1
+            return perGenre[key, default: 0] <= 3
+        }
+
         var rows: [BookCollection] = [
-            BookCollection(id: "loved", title: "Loved by readers", subtitle: "The most-shelved books in the catalog", books: top(pool)),
+            BookCollection(id: "loved", title: "Loved by readers", subtitle: "The most-shelved books in the catalog", books: top(loved)),
             BookCollection(id: "short", title: "Short reads", subtitle: "Under four hours at your pace", books: top(pool.filter { $0.minutes(atWPM: wpm) < 240 && $0.pages >= 80 })),
             BookCollection(id: "classics", title: "Classics", subtitle: "Still worth the hype", books: top(genre(["classics"]))),
             BookCollection(id: "fantasy", title: "Other worlds", subtitle: "Fantasy and science fiction", books: top(genre(["fantasy", "science-fiction"]))),

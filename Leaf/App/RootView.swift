@@ -18,7 +18,10 @@ struct RootView: View {
                 OnboardingFlow(startAt: onboardingStart) {
                     withAnimation(.smooth(duration: 0.6)) {
                         forceOnboarding = false
-                        store.updatePreferences { $0.hasOnboarded = true }
+                        store.updatePreferences {
+                            $0.hasOnboarded = true
+                            if $0.onboardedAt == nil { $0.onboardedAt = Date() }
+                        }
                     }
                 }
                 .transition(.opacity)

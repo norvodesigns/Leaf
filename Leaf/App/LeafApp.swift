@@ -15,11 +15,21 @@ struct LeafApp: App {
 
         Reminders.shared.configure(store: store)
         WatchBridge.shared.activate(store: store)
-        store.onChange = {
+        store.onChange = { [weak store] in
             Reminders.shared.scheduleRefresh()
             WatchBridge.shared.schedulePush()
+            if let level = store?.preferences.hapticsLevel { Haptics.shared.level = level }
         }
+        Haptics.shared.level = store.preferences.hapticsLevel
         Haptics.shared.prepare()
+    }
+
+    private var colorScheme: ColorScheme? {
+        switch store.preferences.appearance {
+        case .system: nil
+        case .day: .light
+        case .night: .dark
+        }
     }
 
     var body: some Scene {
@@ -28,6 +38,8 @@ struct LeafApp: App {
                 .environment(store)
                 .environment(router)
                 .environment(catalog)
+                .preferredColorScheme(colorScheme)
+                .tint(Color.accentColor)
                 .task { await catalog.load() }
                 .onChange(of: scenePhase) { _, phase in
                     switch phase {

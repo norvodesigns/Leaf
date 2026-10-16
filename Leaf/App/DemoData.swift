@@ -30,6 +30,7 @@ enum DemoData {
         data.preferences.reminderHour = 21
         data.preferences.reminderMinute = 0
         data.preferences.hasOnboarded = true
+        data.preferences.onboardedAt = daysAgo(41)
 
         data.items = [
             LibraryItem(book: hobbit, shelf: .reading, currentPage: 142, order: 0, addedAt: daysAgo(30), startedAt: daysAgo(12)),
