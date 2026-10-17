@@ -95,6 +95,7 @@ struct LibraryView: View {
 
 // MARK: - Previews
 
+@MainActor
 private func libraryPreviewStore() -> LibraryStore {
     let store = LibraryStore(persistence: .ephemeral())
     store.replaceAll(with: DemoData.make())

@@ -308,6 +308,7 @@ struct TodayView: View {
 
 // MARK: - Previews
 
+@MainActor
 private func todayPreviewStore(_ configure: (LibraryStore) -> Void = { _ in }) -> LibraryStore {
     let store = LibraryStore(persistence: .ephemeral())
     store.replaceAll(with: DemoData.make())

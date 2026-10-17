@@ -430,6 +430,7 @@ private struct SessionBackground: View {
 
 // MARK: - Previews
 
+@MainActor
 private func sessionPreviewStore(startedAgo seconds: Double, origin: SessionDevice = .phone) -> LibraryStore {
     let store = LibraryStore(persistence: .ephemeral())
     store.replaceAll(with: DemoData.make())

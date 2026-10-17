@@ -229,6 +229,7 @@ private struct EndRule: Shape {
 
 // MARK: - Previews
 
+@MainActor
 private func outcomePreviewStore() -> LibraryStore {
     let store = LibraryStore(persistence: .ephemeral())
     store.replaceAll(with: DemoData.make())

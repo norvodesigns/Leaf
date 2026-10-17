@@ -614,6 +614,7 @@ private struct BookDetailPreview: View {
     }
 }
 
+@MainActor
 private func bookPreviewStore() -> LibraryStore {
     let store = LibraryStore(persistence: .ephemeral())
     store.replaceAll(with: DemoData.make())
