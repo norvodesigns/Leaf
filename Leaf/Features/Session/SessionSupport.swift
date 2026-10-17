@@ -43,7 +43,7 @@ private struct ZoomSourceModifier: ViewModifier {
         if let namespace = namespace {
             if clipsToCapsule {
                 content.matchedTransitionSource(id: id, in: namespace) { source in
-                    source.clipShape(RoundedRectangle(cornerRadius: 60, style: .circular))
+                    source.clipShape(RoundedRectangle(cornerRadius: 26, style: .circular))
                 }
             } else {
                 content.matchedTransitionSource(id: id, in: namespace)
