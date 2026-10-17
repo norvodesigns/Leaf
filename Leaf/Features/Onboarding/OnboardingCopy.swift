@@ -19,6 +19,16 @@ enum OnboardingCopy {
 
     // MARK: - Result
 
+    /// The book the result is translated into. Fixed, so the sentence reads the same offline.
+    static let referenceTitle = "The Hobbit"
+    static let referenceWords: Double = 95_000
+    static let referencePages = 310
+
+    /// Minutes to read the reference book at `wpm`.
+    static func referenceMinutes(wpm: Double) -> Double {
+        referenceWords / max(wpm, 1)
+    }
+
     /// "about six hours", "about six and a half hours", "about an hour", "about 40 minutes".
     static func aboutDuration(minutes: Double) -> String {
         if minutes < 50 {

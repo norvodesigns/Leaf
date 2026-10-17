@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// A step's body. It sits in the space between the navigation bar and the action bar, and
 /// scrolls only when it has to (large Dynamic Type sizes, small phones).
@@ -123,6 +124,8 @@ struct OnboardingActionBar: View {
                 }
             }
             .frame(maxWidth: .infinity, minHeight: buttonHeight)
+            .leafAnimation(.easeInOut(duration: 0.25), value: primary?.title)
+            .leafAnimation(.easeInOut(duration: 0.2), value: primary?.isEnabled)
             ZStack {
                 if let secondary {
                     TextButton(secondary.title, color: secondaryColor, action: secondary.perform)
@@ -131,6 +134,7 @@ struct OnboardingActionBar: View {
                 }
             }
             .frame(maxWidth: .infinity, minHeight: 36)
+            .leafAnimation(.easeInOut(duration: 0.25), value: secondary?.title)
             if let folio, folioCount > 0 {
                 OnboardingFolios(index: folio, count: folioCount)
                     .padding(.top, Space.xxs)
@@ -185,6 +189,108 @@ struct OnboardingFolios: View {
 
     static func numeral(_ number: Int) -> String {
         numerals.indices.contains(number - 1) ? numerals[number - 1] : String(number)
+    }
+}
+
+/// The back (or close) control at the top left of a step.
+struct OnboardingLeadingControl {
+    let systemImage: String
+    let label: String
+    let perform: () -> Void
+
+    init(systemImage: String, label: String, perform: @escaping () -> Void) {
+        self.systemImage = systemImage
+        self.label = label
+        self.perform = perform
+    }
+}
+
+/// The frame every onboarding screen shares, for the full flow and for a retake: a top bar with one
+/// glass control, the page (crossfading with a 12 pt rise whenever `pageKey` changes), and the action
+/// bar. The action bar stays put while pages swap above it.
+struct OnboardingScreen<Page: View>: View {
+    let pageKey: AnyHashable
+    var leading: OnboardingLeadingControl?
+    var note: Text?
+    var primary: OnboardingAction?
+    var secondary: OnboardingAction?
+    var secondaryColor: Color
+    var folio: Int?
+    var folioCount: Int
+    let page: Page
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    init(
+        pageKey: AnyHashable,
+        leading: OnboardingLeadingControl? = nil,
+        note: Text? = nil,
+        primary: OnboardingAction? = nil,
+        secondary: OnboardingAction? = nil,
+        secondaryColor: Color = .accent,
+        folio: Int? = nil,
+        folioCount: Int = 0,
+        @ViewBuilder page: () -> Page
+    ) {
+        self.pageKey = pageKey
+        self.leading = leading
+        self.note = note
+        self.primary = primary
+        self.secondary = secondary
+        self.secondaryColor = secondaryColor
+        self.folio = folio
+        self.folioCount = folioCount
+        self.page = page()
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            topBar
+            ZStack {
+                page
+                    .id(pageKey)
+                    .transition(Motion.transition(.rise(), reduceMotion: reduceMotion))
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .animation(reduceMotion ? Motion.fade : .smooth(duration: 0.4), value: pageKey)
+            .overlay(alignment: .bottom) {
+                LinearGradient(
+                    colors: [Color.paper.opacity(0), Color.paper],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: 20)
+                .allowsHitTesting(false)
+            }
+            OnboardingActionBar(
+                note: note,
+                primary: primary,
+                secondary: secondary,
+                secondaryColor: secondaryColor,
+                folio: folio,
+                folioCount: folioCount
+            )
+        }
+        // The keyboard (only the books step has one) covers the bar instead of pushing it up.
+        .ignoresSafeArea(.keyboard, edges: .bottom)
+        .paperBackground()
+        .onChange(of: pageKey) { _, _ in
+            UIAccessibility.post(notification: .screenChanged, argument: nil)
+        }
+    }
+
+    private var topBar: some View {
+        ZStack(alignment: .leading) {
+            Color.clear
+                .frame(height: 52)
+            if let leading {
+                GlassIconButton(systemImage: leading.systemImage, label: leading.label, diameter: 40, action: leading.perform)
+                    .transition(.opacity)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .leafMargins()
+        .leafAnimation(.easeInOut(duration: 0.2), value: leading?.label)
     }
 }
 

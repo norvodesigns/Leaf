@@ -26,20 +26,28 @@ extension EnvironmentValues {
 }
 
 /// Registers a view as a zoom source when the namespace has been provided, and does nothing otherwise
-/// (previews, or a view shown outside `MainTabs`).
+/// (previews, or a view shown outside `MainTabs`). Capsule controls clip the zoom to a capsule.
 private struct ZoomSourceModifier: ViewModifier {
     let id: String
+    let clipsToCapsule: Bool
     @Environment private var namespace: Namespace.ID?
 
-    init(id: String, namespace keyPath: KeyPath<EnvironmentValues, Namespace.ID?>) {
+    init(id: String, clipsToCapsule: Bool, namespace keyPath: KeyPath<EnvironmentValues, Namespace.ID?>) {
         self.id = id
+        self.clipsToCapsule = clipsToCapsule
         _namespace = Environment(keyPath)
     }
 
     @ViewBuilder
     func body(content: Content) -> some View {
         if let namespace = namespace {
-            content.matchedTransitionSource(id: id, in: namespace)
+            if clipsToCapsule {
+                content.matchedTransitionSource(id: id, in: namespace) { source in
+                    source.clipShape(Capsule())
+                }
+            } else {
+                content.matchedTransitionSource(id: id, in: namespace)
+            }
         } else {
             content
         }
@@ -48,13 +56,14 @@ private struct ZoomSourceModifier: ViewModifier {
 
 extension View {
     /// Marks the control the session zooms out of: `ReadingSessionLauncher.heroSource` or `.accessorySource`.
+    /// Both are capsules, so the zoom is clipped to one.
     func sessionZoomSource(_ id: String) -> some View {
-        modifier(ZoomSourceModifier(id: id, namespace: \.sessionZoomNamespace))
+        modifier(ZoomSourceModifier(id: id, clipsToCapsule: true, namespace: \.sessionZoomNamespace))
     }
 
     /// Marks a cover on Today as the zoom source for that book's detail (`id` is the book id).
     func todayBookZoomSource(_ id: String) -> some View {
-        modifier(ZoomSourceModifier(id: id, namespace: \.todayBookZoomNamespace))
+        modifier(ZoomSourceModifier(id: id, clipsToCapsule: false, namespace: \.todayBookZoomNamespace))
     }
 }
 
@@ -102,6 +111,19 @@ enum ReadingSessionLauncher {
         }
     }
 
+    /// Closes the full-screen session (and any sheet in the way), then shows the wrap-up sheet once the
+    /// cover has gone, because SwiftUI can't present a sheet while a cover is still leaving.
+    static func present(_ outcome: SessionOutcome, router: AppRouter) {
+        let wasPresenting = router.showSession || router.showSettings || router.showSpeedTest
+        router.showSession = false
+        router.showSettings = false
+        router.showSpeedTest = false
+        Task { @MainActor in
+            if wasPresenting { try? await Task.sleep(for: .milliseconds(700)) }
+            router.lastOutcome = outcome
+        }
+    }
+
     /// Leaf's guess at the page reached: elapsed time × pace ÷ words per page, from the session's start page.
     static func estimatedPage(for session: ActiveSession, book: Book, wpm: Double, at date: Date = Date()) -> Int {
         let minutes = session.elapsed(at: date) / 60
@@ -131,35 +153,47 @@ struct SessionClock {
     let goal: Double
     let isReadingDay: Bool
 
+    init(elapsed: Double, readBefore: Double, goal: Double, isReadingDay: Bool) {
+        self.elapsed = max(0, elapsed)
+        self.readBefore = max(0, readBefore)
+        self.goal = max(0, goal)
+        self.isReadingDay = isReadingDay
+    }
+
     @MainActor
     init(session: ActiveSession, store: LibraryStore, at date: Date) {
-        elapsed = session.elapsed(at: date)
-        readBefore = store.minutesReadToday * 60
-        goal = Double(store.preferences.dailyMinutes) * 60
-        isReadingDay = store.isReadingDay
+        self.init(
+            elapsed: session.elapsed(at: date),
+            readBefore: store.minutesReadToday * 60,
+            goal: Double(store.preferences.dailyMinutes) * 60,
+            isReadingDay: store.isReadingDay
+        )
     }
+
+    var hasGoal: Bool { goal > 0 }
 
     /// Today plus this session.
     var total: Double { readBefore + elapsed }
 
-    /// The goal was still open when the session began, so the timer counts down to it.
-    var tracksGoal: Bool { isReadingDay && goal > 0 && readBefore < goal }
+    /// The goal was still open when the session began, on a reading day: the timer counts down to it.
+    var tracksGoal: Bool { isReadingDay && hasGoal && readBefore < goal }
 
-    /// Today's minutes are in (on a reading day).
-    var goalSatisfied: Bool { isReadingDay && goal > 0 && total >= goal }
+    /// Today's minutes are in.
+    var goalMet: Bool { hasGoal && total >= goal }
 
-    /// The goal was reached during this session.
-    var crossedGoal: Bool { tracksGoal && goalSatisfied }
+    /// The goal was reached during this session (the moment for `goalReached`).
+    var crossedGoal: Bool { hasGoal && readBefore < goal && total >= goal }
 
-    var countsDown: Bool { tracksGoal && !goalSatisfied }
+    var countsDown: Bool { tracksGoal && !goalMet }
 
     var remaining: Double { max(0, goal - total) }
 
-    /// What the timer face shows: time left to the goal, or time read once it's met (or on a rest day).
+    /// What the timer face shows: time left to the goal, or time read in this session once it's met
+    /// (or on a rest day).
     var displaySeconds: Double { countsDown ? remaining.rounded(.up) : elapsed }
 
     var ringProgress: Double {
-        guard goal > 0 else { return 0 }
+        guard hasGoal else { return 0 }
         return min(1, total / goal)
     }
 }
