@@ -48,8 +48,8 @@ Leaf/                 iPhone app
   Resources/          asset catalog, bundled books.json, fonts, privacy manifest
 LeafWatch/            Apple Watch app
 LeafTests/            unit tests (Swift Testing)
-scripts/              catalog builder (Open Library → books.json), CI helpers
-docs/                 TestFlight guide, privacy policy, design spec
+scripts/              catalog builder (Open Library → books.json), icon generator, TestFlight upload, CI helpers
+docs/                 TestFlight guide, privacy policy, design spec (DESIGN.md) and component index (DESIGN_SYSTEM.md)
 ```
 
 ## Running it

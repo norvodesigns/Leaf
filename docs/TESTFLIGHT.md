@@ -104,6 +104,21 @@ App Store Connect API**, role *App Manager*), save the `.p8` file to
 Testers install the **TestFlight** app from the App Store and accept the
 invite. The watch app comes along with the iPhone app.
 
+## Testing the Apple Watch app
+
+The watch app ships inside the iPhone app, so there's nothing separate to upload.
+
+1. Install Leaf from TestFlight on an iPhone that's paired with an Apple Watch.
+2. On the iPhone, open the **Watch** app → scroll to **Leaf** → tap **Install**
+   (or turn on **Show App on Apple Watch**).
+3. Open Leaf on the iPhone and finish onboarding once. The watch shows today's
+   reading as soon as the two devices have synced, usually within a few seconds.
+4. Start a session on either device and it appears on both. End it on the watch by
+   turning the Digital Crown to the page you reached, or on the phone as usual.
+
+If the watch says "Open Leaf on your iPhone", launch the phone app once with both
+devices nearby.
+
 ## 7. App Privacy answers
 
 On App Store Connect → **App Privacy**, answer **"Data Not Collected"**.
