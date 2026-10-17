@@ -342,6 +342,7 @@ struct SessionAccessory: View {
 
 // MARK: - Previews
 
+@MainActor
 private func accessoryPreviewStore(session: Bool, paused: Bool = false) -> LibraryStore {
     let store = LibraryStore(persistence: .ephemeral())
     store.replaceAll(with: DemoData.make())
