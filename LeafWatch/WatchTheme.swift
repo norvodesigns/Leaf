@@ -4,17 +4,16 @@ import WatchKit
 /// Watch palette: "paper at night" — warm ink on black, one leaf-green accent.
 enum WatchTheme {
     static let accent = Color(red: 0x8D / 255, green: 0xBB / 255, blue: 0x98 / 255)
-    static let accentDeep = Color(red: 0x2F / 255, green: 0x5A / 255, blue: 0x41 / 255)
+    static let accentDeep = Color(red: 0x1E / 255, green: 0x33 / 255, blue: 0x26 / 255)
     static let paper = Color(red: 0xF1 / 255, green: 0xEA / 255, blue: 0xDC / 255)
     static let inkSecondary = Color(red: 0xB9 / 255, green: 0xB0 / 255, blue: 0x9F / 255)
-    static let ribbon = Color(red: 0xD9 / 255, green: 0x6A / 255, blue: 0x4E / 255)
+    static let ribbon = Color(red: 0xE0 / 255, green: 0x69 / 255, blue: 0x4F / 255)
     static let track = Color.white.opacity(0.14)
 
-    /// Generated-cover colours, matching the phone's palette order.
+    /// Generated-cover colours: the ten cover backgrounds from DESIGN.md §2, in the same order as the phone.
     static let covers: [Color] = [
-        Color(red: 0.24, green: 0.35, blue: 0.29), Color(red: 0.55, green: 0.27, blue: 0.20), Color(red: 0.18, green: 0.24, blue: 0.36),
-        Color(red: 0.47, green: 0.38, blue: 0.20), Color(red: 0.33, green: 0.22, blue: 0.33), Color(red: 0.20, green: 0.33, blue: 0.36),
-        Color(red: 0.42, green: 0.20, blue: 0.24), Color(red: 0.29, green: 0.31, blue: 0.20),
+        Color(hex: 0x6B2B26), Color(hex: 0x26375C), Color(hex: 0x2F4A3A), Color(hex: 0x3D4A52), Color(hex: 0x573247),
+        Color(hex: 0x2D5D5B), Color(hex: 0x9A4A2C), Color(hex: 0xC48A2C), Color(hex: 0x9CAE94), Color(hex: 0xE9E0CD),
     ]
 
     static func cover(for seed: Int) -> Color { covers[abs(seed) % covers.count] }
@@ -56,5 +55,11 @@ struct ProgressLine: View {
             }
         }
         .frame(height: 4)
+    }
+}
+
+private extension Color {
+    init(hex: UInt32) {
+        self.init(red: Double((hex >> 16) & 0xFF) / 255, green: Double((hex >> 8) & 0xFF) / 255, blue: Double(hex & 0xFF) / 255)
     }
 }

@@ -51,6 +51,24 @@ jobs:
             CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO \
             build 2>&1 | tee build-watch.log | xcbeautify --quieter || { echo "::group::Errors"; grep -E "error:" build-watch.log | sort -u | head -300; echo "::endgroup::"; exit 1; }
 
+      - name: Device archive (unsigned) and packaging check
+        run: |
+          set -o pipefail
+          xcodebuild -project Leaf.xcodeproj -scheme Leaf -configuration Release \
+            -destination "generic/platform=iOS" -archivePath build/Leaf.xcarchive \
+            CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO \
+            archive 2>&1 | tee build-archive.log | xcbeautify --quieter || { grep -E "error:" build-archive.log | sort -u | head -100; exit 1; }
+          APP=build/Leaf.xcarchive/Products/Applications/Leaf.app
+          echo "--- Leaf.app"; ls "$APP" | head -40
+          plutil -p "$APP/Info.plist" | grep -E "CFBundleIdentifier|CFBundleShortVersionString|CFBundleVersion|MinimumOSVersion|UIDeviceFamily|ITSAppUses|CFBundleIcons|UIAppFonts|DTPlatformName|LSApplicationCategoryType"
+          WATCH="$APP/Watch/LeafWatch.app"
+          echo "--- LeafWatch.app"; ls "$WATCH" | head -30
+          plutil -p "$WATCH/Info.plist" | grep -E "CFBundleIdentifier|CFBundleShortVersionString|CFBundleVersion|WK|MinimumOSVersion|DTPlatformName|UIDeviceFamily"
+          test -f "$APP/books.json" && echo "books.json bundled ($(wc -c < "$APP/books.json") bytes)"
+          test -f "$APP/PrivacyInfo.xcprivacy" && echo "iOS privacy manifest bundled"
+          test -f "$WATCH/PrivacyInfo.xcprivacy" && echo "watch privacy manifest bundled"
+          ls "$APP" | grep -E "Assets.car|InstrumentSerif" || true
+
       - name: Warnings
         if: always()
         run: grep -h -E "warning:" build-*.log 2>/dev/null | grep -v -E "appintents|Metadata extraction" | sort -u | head -150 || true

@@ -40,7 +40,7 @@ struct LeafApp: App {
                 .environment(router)
                 .environment(catalog)
                 .preferredColorScheme(colorScheme)
-                .tint(Color.accentColor)
+                .tint(Color.accent)
                 .task { await catalog.load() }
                 .onChange(of: scenePhase) { _, phase in
                     switch phase {

@@ -4,10 +4,18 @@ import SwiftUI
 struct RootView: View {
     @Environment(LibraryStore.self) private var store
     @Environment(AppRouter.self) private var router
-    @State private var onboardingStart: OnboardingStep = .welcome
+    /// Debug launch routes (`-LeafScreen onboarding.quiz`) have to be known when the flow is first created.
+    @State private var onboardingStart: OnboardingStep
     /// Screenshot runs can show onboarding on top of a demo library.
-    @State private var forceOnboarding = false
+    @State private var forceOnboarding: Bool
     @State private var didApplyLaunchRoute = false
+
+    init() {
+        let key = LaunchOptions.current.screen ?? ""
+        let step = key.hasPrefix("onboarding.") ? OnboardingStep(rawValue: String(key.dropFirst("onboarding.".count))) : nil
+        _onboardingStart = State(initialValue: step ?? .welcome)
+        _forceOnboarding = State(initialValue: step != nil)
+    }
 
     var body: some View {
         ZStack {
@@ -34,11 +42,7 @@ struct RootView: View {
     private func applyLaunchRoute() {
         guard !didApplyLaunchRoute, let key = LaunchOptions.current.screen else { return }
         didApplyLaunchRoute = true
-        if key.hasPrefix("onboarding.") {
-            onboardingStart = OnboardingStep(rawValue: String(key.dropFirst("onboarding.".count))) ?? .welcome
-            forceOnboarding = true
-            return
-        }
+        if key.hasPrefix("onboarding.") { return }
         switch key {
         case "today":
             router.tab = .today
