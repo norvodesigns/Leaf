@@ -16,8 +16,17 @@ cd "$(dirname "$0")/.."
 # App Store Connect rejects uploads built with a beta Xcode, so stop before spending minutes archiving.
 # Beta build numbers end in a lowercase letter (e.g. 27A5252f). Point DEVELOPER_DIR at a release Xcode to fix it:
 #   DEVELOPER_DIR=/Applications/Xcode-26.6.app/Contents/Developer TEAM_ID=... scripts/testflight.sh
-XCODE_NAME="$(xcodebuild -version 2>/dev/null | head -1)"
-XCODE_BUILD="$(xcodebuild -version 2>/dev/null | awk '/Build version/ {print $3}')"
+if ! XCODE_VERSION_OUTPUT="$(xcodebuild -version 2>&1)"; then
+  echo "ERROR: xcodebuild isn't usable with the current Xcode selection:" >&2
+  echo "${XCODE_VERSION_OUTPUT}" >&2
+  echo "Active developer directory: $(xcode-select -p 2>&1)   DEVELOPER_DIR=${DEVELOPER_DIR:-<not set>}" >&2
+  echo "Installed Xcodes:" >&2
+  ls -d /Applications/Xcode*.app >&2 || echo "  (none found in /Applications)" >&2
+  echo "Run again with DEVELOPER_DIR=/Applications/<your Xcode>.app/Contents/Developer" >&2
+  exit 1
+fi
+XCODE_NAME="$(printf '%s\n' "${XCODE_VERSION_OUTPUT}" | head -1)"
+XCODE_BUILD="$(printf '%s\n' "${XCODE_VERSION_OUTPUT}" | awk '/Build version/ {print $3}')"
 echo "==> Using ${XCODE_NAME} (${XCODE_BUILD}) at $(xcode-select -p)"
 if [[ "${XCODE_BUILD}" =~ ^[0-9]+[A-Z][0-9]+[a-z]$ && -z "${ALLOW_BETA_XCODE:-}" ]]; then
   echo "ERROR: ${XCODE_NAME} (${XCODE_BUILD}) is a beta. App Store Connect only accepts uploads built with a release or RC Xcode." >&2
