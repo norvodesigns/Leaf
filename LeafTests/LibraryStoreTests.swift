@@ -234,5 +234,25 @@ struct LibraryStoreTests {
         #expect(store.item("a")?.shelf == .finished)
         #expect(store.item("a")?.finishedAt == long)
     }
+
+    @Test func aDamagedFileFallsBackToTheBackupAndIsKept() throws {
+        let persistence = Persistence.ephemeral()
+        var good = LeafData()
+        good.items = [LibraryItem(book: book("keep"), shelf: .toRead, order: 1)]
+        try persistence.save(good)
+        try persistence.save(good) // the second save refreshes the backup from the first
+        #expect(FileManager.default.fileExists(atPath: persistence.backupURL.path))
+
+        try Data("{ not json".utf8).write(to: persistence.url)
+        let loaded = persistence.load()
+        #expect(loaded?.items.map(\.id) == ["keep"], "the backup should have been used")
+        let siblings = (try? FileManager.default.contentsOfDirectory(atPath: persistence.url.deletingLastPathComponent().path)) ?? []
+        #expect(siblings.contains { $0.contains("damaged") && $0.contains(persistence.url.deletingPathExtension().lastPathComponent) }, "the damaged file is kept for recovery")
+        persistence.delete()
+    }
+
+    @Test func aFirstLaunchHasNothingToLoad() {
+        #expect(Persistence.ephemeral().load() == nil)
+    }
 }
 #endif
