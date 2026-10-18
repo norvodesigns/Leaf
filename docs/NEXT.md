@@ -4,6 +4,10 @@ Notes from the first TestFlight round. **No UI was built for this doc.** Anythin
 Opus design pass. Anything tagged **[ENG]** is logic or data work that can be built and tested without design (most of
 it runs on Linux, see `docs/ENGINEERING.md`). **[PLATFORM]** means a new Xcode target or entitlement.
 
+> **Status (October 2026):** every [ENG] item here is built and tested (catalog, sync, forecast, stats, voice, tea,
+> challenges, ambience audio, physics, Today brief, reading times). What remains is [UI] and [PLATFORM] work, with the
+> full wiring map and work packages in `docs/OPUS_HANDOFF.md`.
+
 Read `docs/DESIGN.md` first. This doc extends it; where they disagree, this one is newer.
 
 ## 1. Feedback, mapped

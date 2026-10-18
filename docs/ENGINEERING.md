@@ -14,8 +14,15 @@ The product brief is [`BRIEF.md`](BRIEF.md).
   Then re-read your code against the real type and method names in `Shared/`, `Leaf/Services/`,
   `Leaf/App/` and `Leaf/DesignSystem/`. A wrong label or a missing `try` costs a full CI round.
 - The Xcode project uses **synchronized folders**: any file you create under `Leaf/`,
-  `LeafWatch/`, `Shared/` or `LeafTests/` is part of that target automatically. Never
-  edit `Leaf.xcodeproj`.
+  `LeafWatch/`, `Shared/`, `LeafTests/`, `LeafWidgets/` (widget extension only) or
+  `LiveActivityShared/` (app and extension) is part of its target automatically. Only a new
+  target, entitlement or build setting needs `Leaf.xcodeproj`; edit it by hand carefully and run
+  `python3 scripts/check_pbxproj.py` (CI runs it first). See `docs/PLATFORM.md`.
+- Logic tests for `Shared/` run anywhere with a Swift toolchain: `scripts/linux_tests.sh`.
+  Keep expressions inside `#expect(...)` simple (annotate intermediate `Double`/`Int` values):
+  the Xcode compiler gives up on long chained expressions that the Linux one accepts.
+- Look at the macOS CI build (errors, screenshots) from anywhere with `python3 scripts/ci.py`.
+- The UI and design pass is described in `docs/OPUS_HANDOFF.md`.
 - `Shared/` is plain Foundation (it compiles on Linux for tests): no SwiftUI, UIKit, or
   WatchKit there.
 - Match the existing code style: 4-space indent, doc comments on types and non-obvious
