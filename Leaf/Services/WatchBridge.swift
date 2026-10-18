@@ -40,8 +40,22 @@ final class WatchBridge: NSObject {
     }
 
     private func receive(_ event: SyncEvent) {
+        if case .addBook(let query) = event {
+            addDictatedBook(query)
+            return
+        }
         if let outcome = store?.apply(event) { onRemoteOutcome?(outcome) }
         push()
+    }
+
+    /// A title dictated on the wrist: take the catalog's best match and put it at the end of To read.
+    private func addDictatedBook(_ query: String) {
+        Task { [weak self] in
+            await BookCatalog.shared.load()
+            guard let self, let store = self.store, let match = BookCatalog.shared.search(query, limit: 1).first else { return }
+            if store.item(match.id) == nil { store.add(match, to: .toRead) }
+            self.push()
+        }
     }
 }
 

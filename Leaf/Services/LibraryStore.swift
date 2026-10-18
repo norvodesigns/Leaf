@@ -406,6 +406,19 @@ final class LibraryStore {
             commit()
         case .requestSnapshot:
             onChange?()
+        case .journalAdded(let bookID, let kind, let text, let page):
+            addJournalEntry(bookID: bookID, kind: kind, text: text, page: page)
+        case .pageSet(let bookID, let page):
+            setPage(bookID, page: page)
+        case .shelfChanged(let bookID, let shelf, let rating):
+            if shelf == .finished {
+                markFinished(bookID, rating: rating)
+            } else {
+                move(bookID, to: shelf)
+            }
+        case .addBook:
+            // Needs the catalog, so the watch bridge resolves it and calls add(_:to:).
+            break
         }
         return nil
     }
