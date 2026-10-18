@@ -22,6 +22,7 @@ Read `docs/DESIGN.md` first. This doc extends it; where they disagree, this one 
 | Live Activity with the countdown effect | Doesn't exist | Lock Screen and Dynamic Island, plus widgets and a Control Center button | 11 |
 | Watch app is boring and useless | A timer, a ring, a list | Focus-pull timer, tea timer, double-tap, complications, quick log, more | 12 |
 | Needs enough features for daily use | | A feature pool to choose from | 13 |
+| Carousels make a big library feel small | 8 rows, all genre filters | 140 rows from many angles, plus a taste-based recommender (**built**) | 17 |
 
 ---
 
@@ -520,3 +521,116 @@ to be much easier, and these are design work rather than extra data features.
   unless the reader chooses to save it. Synced through the same CloudKit path.
 - **Privacy:** still "Data Not Collected" as long as everything stays on device or in the reader's own iCloud, and
   weather and HealthKit stay off.
+
+---
+
+## 17. Discovery: carousels and the recommender (logic built, UI for Opus)
+
+You said the search box showed the library was big, but the carousels made it feel small. They did: eight rows, all
+genre filters. The data and logic are now done and tested on Linux. The Search tab uses them; its look is untouched
+apart from the row title now being the eyebrow with the subtitle under it. Everything here is [ENG] unless marked [UI].
+
+### 17.1 What exists
+
+| File | Job |
+|---|---|
+| `Shared/Recommender.swift` | Taste profile, engagement model, scoring, diversification, explanations. Foundation-only |
+| `Shared/Collections.swift` | `CollectionBuilder`: turns the catalog and a `RecommendationContext` into carousels |
+| `Leaf/Services/BookCatalog.swift` | Builds `CatalogStats` once on load; `collections(context:)` runs off the main thread |
+| `scripts/add_themes.py` | Adds `th` (themes and `series:` universes) to each book in `books.json` |
+| `LeafTests/RecommenderTests.swift` | 19 tests: engagement, profile, exclusions, variety, determinism, reasons, row quality, speed |
+
+On the 5,265-book catalog a brand-new reader gets **140 rows covering about 2,600 distinct books** (about 50% of the
+catalog on one screen); a reader with history gets personal rows first. Building takes under a second on a laptop.
+
+### 17.2 The rows
+
+Row kinds (`CollectionKind`): `personal` (from this reader), `context` (from the moment) and `browse` (anyone).
+
+- **Personal:** "Picked for you", "Because you finished X" (up to a few, one per anchor book, with a minimum
+  similarity so a weak row is dropped instead of padded), "Continue <series universe>", "More by <author>",
+  "About the length you like", "Something a little different" (seeded exploration, so one row is always outside the
+  comfort zone). Brand-new readers get "Loved by readers", capped per genre family so self-help doesn't own it.
+- **Context:** the season ("Spooky season", "Crisp-weather reads", "Summer porch reads"), "For tonight".
+- **Moods:** cozy corners, cozy mysteries, rainy-day reads, feel-good, old friends, can't put it down, big feelings,
+  slow and lyrical, laugh out loud, brain food, a fresh start.
+- **Genres, themes, series, authors, decades, hidden gems, time budgets, genre x length.** About 146 themes (witches,
+  dragons, found family, tea shops, gardens, heists, ...) and universes (Middle Earth, Poirot, Discworld, ...).
+- **Ordering:** personal, then context, then categories interleaved (mood, genre, theme, ...) so neighbours differ.
+  Shuffled with a **day seed** (stable within a day, new tomorrow). A book may appear in at most 3 rows
+  (`maxExposure`), and a row that shares over 60% of its books with an earlier one is dropped.
+- **Per row:** up to 36 books, at least 8 or the row doesn't exist. Rows are already in their final order.
+
+### 17.3 The recommender
+
+Content-based, because there are no accounts or other readers to learn from.
+
+1. **Features.** Each book is a sparse vector of genres (`g:`), themes (`t:`) and series (`s:`), weighted by inverse
+   document frequency so "fantasy" counts for less than "heists".
+2. **Engagement per book (-1 to 1)** from behaviour, not just stars: finishing fast relative to length, stalling
+   (reading stopped), rating if given, and "not for me" dismissals as a negative. A long book finished in two weeks
+   says more than a short one finished in two weeks.
+3. **Taste profile** = engagement-weighted sum of the vectors of everything in the library, plus author affinity,
+   preferred length band, an era preference and a popularity preference ("mainstream" vs "obscure"). `isCold` until
+   there is about one finished book of evidence, and then the personal rows appear.
+4. **Score** = content match + author affinity + length/era/popularity fit + a small `finishLikelihood` prior (how
+   likely they are to finish a book of this length at their pace and daily minutes) - penalty for what a dismissed
+   book resembles.
+5. **Diversify** with maximal marginal relevance, an author cap (default 2 per list) and a window with author slack,
+   so a favourite author can't crowd out everything.
+6. **Explain.** Every pick carries a `RecommendationReason` ("Because you finished X", "More by Y", "Continues Z",
+   "You like <theme>", "Fits your evenings", "Something a little different", "Popular in <genre>"). The reason is
+   always true: it is derived from the same numbers that picked the book.
+7. **Exclude** anything already in the library, anything dismissed, and **different editions** of those (title +
+   normalized author, with "J. R. R." and "J.R.R." treated as equal). A same-titled book by another author is never a
+   "similar" pick.
+
+Randomness comes only from `SeededGenerator` (FNV hash seed from the date). Never use Swift's `Hasher` for seeds: it is
+re-seeded each launch.
+
+### 17.4 Data
+
+- **Themes** come from a hand-written lexicon (`add_themes.py`), not Open Library's raw subjects, which are noisy
+  ("Fiction, general", "Accessible book"). 95% of books have at least one theme (4.2 on average). Series universes
+  come from the "(fictitious character)" and "(imaginary place)" subjects, kept only when 3+ books share them.
+- `books.json` grew from about 1.0 MB to 1.1 MB for `th`. **For the 250k catalog (section 2),** the pipeline must emit
+  `th` for every book, so run the same lexicon in the dump pipeline over Open Library subjects, and keep `g` (genres).
+  Books with neither can still be searched but will never be recommended with confidence.
+- `LeafData.dismissed` (ids) is saved, decodes to `[]` for older files, and should sync like any other preference.
+- **Scale:** `PoolIndex` is built per rebuild over every eligible book, which is fine at 5k and not at 250k. At that size
+  move candidate selection into SQLite (an index on genre/theme, `ORDER BY popularity LIMIT n`) and keep the scorer as
+  is; `candidatePool` already caps the personal scorer at 12k books.
+
+### 17.5 App plumbing that exists
+
+- `LibraryStore.recommendationContext(catalog:)`, `.dismiss(_:)`, `.undismiss(_:)`.
+- `BookCatalog.collections(context:)` (async, off the main thread) and `BookCatalog.starterBooks(wpm:excluding:count:)`
+  (onboarding's "Popular first reads").
+- `SearchView` rebuilds rows when the library, ratings, dismissals, sessions, pace or day change, in a `LazyVStack`.
+- A long-press on a cover shows its reason as the menu header and a "Not for me" action for books not in the library.
+
+### 17.6 UI brief for Opus [UI]
+
+The rows are data; making 140 of them feel like a bookshop is design.
+
+- **Row design:** title + subtitle + "See all" that opens a grid of the whole row (36 books). Different row *shapes*
+  (not every row the same covers-in-a-line): a big hero row for "Picked for you", a stack/shelf row for series
+  ("Continue Middle Earth" shown as spines), an author row with a portrait-style header, a time-budget row with the
+  reading time on each cover, a seasonal row with a tinted background.
+- **Explain every personal pick** visibly, in a short caption under the cover or a "why this?" sheet. Never a
+  mystery. Offer "More like this" and "Not for me" as swipe actions, and an Undo toast after dismissing.
+- **Reshuffle** gesture on "Picked for you" (calls the recommender with a new seed; add a `shuffleCount` to the key).
+- **A "Your taste" screen** (from `TasteProfile.topGenres/topThemes`): chips you can long-press to dial up or down,
+  which would be a manual weight on top of the learned profile (needs a small model addition).
+- **Jump bar:** with 140 rows, a pinned strip of category chips (Moods, Genres, Series, Authors, Decades, Short
+  reads) that scrolls to the first row of that kind.
+- **Empty / cold states:** a new reader sees mostly browse rows; make the first screen feel like a bookshop front
+  table, and prompt "Finish a book and these start to learn your taste."
+- **Performance:** rows are in a `LazyVStack` with `LazyHStack` carousels; keep cover loading cheap (cache, size
+  appropriately), because 140 rows x 36 covers is the largest scroll surface in the app.
+
+### 17.7 Tuning without a device
+
+`scripts/showrows/main.swift` prints the rows for a new reader and for a fantasy-and-literary demo reader, using the
+real `books.json`, in about a second on Linux (build line at the top of the file). It is the fastest way to judge changes
+to the lexicon or the weights. Change `scripts/add_themes.py`, rerun it, rerun the tests and `showrows`.

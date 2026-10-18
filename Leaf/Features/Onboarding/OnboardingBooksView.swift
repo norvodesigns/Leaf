@@ -161,20 +161,10 @@ struct OnboardingBooksView: View {
         }
     }
 
-    /// The "Popular first reads" table: the catalog's best-loved row, then a few short ones,
+    /// The "Popular first reads" table: the catalog's best-loved books, then a few short ones,
     /// twelve in all so the grid ends on a full row.
     static func popularFirstReads(catalog: BookCatalog, wpm: Double, excluding ids: Set<String>) -> [Book] {
-        let rows = catalog.collections(wpm: wpm, excluding: ids)
-        let loved = rows.first { $0.id == "loved" }?.books ?? []
-        let short = rows.first { $0.id == "short" }?.books ?? []
-        var seen = Set<String>()
-        var result: [Book] = []
-        for book in Array(loved.prefix(9)) + Array(short.prefix(6)) {
-            if seen.insert(book.id).inserted {
-                result.append(book)
-            }
-        }
-        return Array(result.prefix(12))
+        catalog.starterBooks(wpm: wpm, excluding: ids, count: 12)
     }
 }
 

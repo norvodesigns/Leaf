@@ -146,6 +146,34 @@ final class LibraryStore {
         commit()
     }
 
+    // MARK: - Discovery
+
+    /// "Not for me": the book stops appearing in suggestions and nudges the reader's taste away from it.
+    func dismiss(_ id: String) {
+        guard !data.dismissed.contains(id) else { return }
+        data.dismissed.append(id)
+        commit()
+    }
+
+    func undismiss(_ id: String) {
+        guard data.dismissed.contains(id) else { return }
+        data.dismissed.removeAll { $0 == id }
+        commit()
+    }
+
+    /// Everything the recommender needs to know about this reader.
+    func recommendationContext(catalog: BookCatalog) -> RecommendationContext {
+        RecommendationContext(
+            library: data.items,
+            sessions: data.sessions,
+            dismissed: data.dismissed.compactMap { catalog.book(id: $0) },
+            wpm: wpm,
+            dailyMinutes: data.preferences.dailyMinutes,
+            now: now,
+            calendar: calendar
+        )
+    }
+
     func setPage(_ id: String, page: Int) {
         guard let index = data.items.firstIndex(where: { $0.id == id }) else { return }
         data.items[index].currentPage = min(max(0, page), data.items[index].book.pages)

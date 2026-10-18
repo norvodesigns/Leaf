@@ -12,18 +12,11 @@ struct CatalogRecord: Decodable, Sendable {
     let c: Int?
     let g: [String]?
     let pop: Int?
+    let th: [String]?
 
     var book: Book {
-        Book(id: id, title: t, author: a, year: y, pages: p, words: w, coverID: c, genres: g ?? [], popularity: pop ?? 0)
+        Book(id: id, title: t, author: a, year: y, pages: p, words: w, coverID: c, genres: g ?? [], popularity: pop ?? 0, themes: th)
     }
-}
-
-/// A themed row on the Search tab.
-struct BookCollection: Identifiable, Hashable {
-    var id: String
-    var title: String
-    var subtitle: String
-    var books: [Book]
 }
 
 /// The offline catalog: thousands of popular and classic books, searchable without a connection.
@@ -34,6 +27,8 @@ final class BookCatalog {
 
     private(set) var books: [Book] = []
     private(set) var isLoaded = false
+    /// Corpus-wide counts the recommender weighs features by; built once, right after the books load.
+    @ObservationIgnored private(set) var stats = CatalogStats(books: [])
 
     @ObservationIgnored private var index: [(book: Book, title: String, author: String, words: [String])] = []
     @ObservationIgnored private var byID: [String: Book] = [:]
@@ -44,15 +39,17 @@ final class BookCatalog {
         if isLoaded { return }
         if let loadTask { return await loadTask.value }
         let task = Task {
-            let loaded = await Task.detached(priority: .userInitiated) { () -> [Book] in
+            let loaded = await Task.detached(priority: .userInitiated) { () -> (books: [Book], stats: CatalogStats) in
                 guard let url = Bundle.main.url(forResource: "books", withExtension: "json"),
                       let data = try? Data(contentsOf: url),
-                      let records = try? JSONDecoder().decode([CatalogRecord].self, from: data) else { return [] }
-                return records.map(\.book)
+                      let records = try? JSONDecoder().decode([CatalogRecord].self, from: data) else { return ([], CatalogStats(books: [])) }
+                let books = records.map(\.book)
+                return (books, CatalogStats(books: books))
             }.value
-            self.books = loaded
-            self.byID = Dictionary(loaded.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-            self.index = loaded.map { book in
+            self.books = loaded.books
+            self.stats = loaded.stats
+            self.byID = Dictionary(loaded.books.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+            self.index = loaded.books.map { book in
                 let title = BookCatalog.normalize(book.title)
                 let author = BookCatalog.normalize(book.author)
                 return (book, title, author, (title + " " + author).split(separator: " ").map(String.init))
@@ -83,32 +80,21 @@ final class BookCatalog {
         return scored.sorted { $0.1 > $1.1 }.prefix(limit).map(\.0)
     }
 
-    /// Curated rows for browsing, tuned to the reader's speed.
-    func collections(wpm: Double, excluding ids: Set<String> = []) -> [BookCollection] {
-        let pool = books.filter { !ids.contains($0.id) }
-        func genre(_ tags: Set<String>) -> [Book] { pool.filter { !tags.isDisjoint(with: $0.genres) } }
-        func top(_ list: [Book], _ count: Int = 24) -> [Book] { Array(list.prefix(count)) }
+    /// Rows for browsing: moods, genres, themes, series, authors, decades, time budgets and, once the reader has
+    /// history, rows picked from their taste. Built off the main thread, since a big catalog makes this real work.
+    func collections(context: RecommendationContext) async -> [BookCollection] {
+        let books = books, stats = stats
+        return await Task.detached(priority: .userInitiated) {
+            CollectionBuilder(
+                books: books, stats: stats, wpm: context.wpm, dailyMinutes: context.dailyMinutes,
+                now: context.now, calendar: context.calendar, context: context
+            ).build()
+        }.value
+    }
 
-        // Raw popularity skews to self-help; cap each primary genre so the first row feels like a bookshop table.
-        var perGenre: [String: Int] = [:]
-        let loved = pool.filter { book in
-            let key = book.genres.first ?? "other"
-            perGenre[key, default: 0] += 1
-            return perGenre[key, default: 0] <= 3
-        }
-
-        var rows: [BookCollection] = [
-            BookCollection(id: "loved", title: "Loved by readers", subtitle: "The most-shelved books in the catalog", books: top(loved)),
-            BookCollection(id: "short", title: "Short reads", subtitle: "Under four hours at your pace", books: top(pool.filter { $0.minutes(atWPM: wpm) < 240 && $0.pages >= 80 })),
-            BookCollection(id: "classics", title: "Classics", subtitle: "Still worth the hype", books: top(genre(["classics"]))),
-            BookCollection(id: "fantasy", title: "Other worlds", subtitle: "Fantasy and science fiction", books: top(genre(["fantasy", "science-fiction"]))),
-            BookCollection(id: "mystery", title: "Page-turners", subtitle: "Mysteries and thrillers", books: top(genre(["mystery", "thriller"]))),
-            BookCollection(id: "true", title: "True stories", subtitle: "Biography, memoir and history", books: top(genre(["biography", "memoir", "history"]))),
-            BookCollection(id: "ideas", title: "Big ideas", subtitle: "Science, philosophy and psychology", books: top(genre(["science", "philosophy", "psychology"]))),
-            BookCollection(id: "long", title: "Long haul", subtitle: "Big books for slow evenings", books: top(pool.filter { $0.minutes(atWPM: wpm) > 900 })),
-        ]
-        rows.removeAll { $0.books.count < 4 }
-        return rows
+    /// A short, varied table of popular books for someone who has not read anything yet.
+    func starterBooks(wpm: Double, excluding ids: Set<String>, count: Int = 12) -> [Book] {
+        CollectionBuilder(books: books, stats: stats, wpm: wpm, dailyMinutes: 20, now: Date(), excluding: ids).starterBooks(count: count)
     }
 
     nonisolated static func normalize(_ text: String) -> String {

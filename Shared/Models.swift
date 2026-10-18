@@ -11,6 +11,8 @@ struct Book: Codable, Hashable, Identifiable, Sendable {
     var coverID: Int?
     var genres: [String]
     var popularity: Int
+    /// Specific subjects ("dragons", "found family", "series:discworld"). Optional so older saved books still load.
+    var themes: [String]?
 
     init(
         id: String,
@@ -21,7 +23,8 @@ struct Book: Codable, Hashable, Identifiable, Sendable {
         words: Int? = nil,
         coverID: Int? = nil,
         genres: [String] = [],
-        popularity: Int = 0
+        popularity: Int = 0,
+        themes: [String]? = nil
     ) {
         self.id = id
         self.title = title
@@ -32,6 +35,7 @@ struct Book: Codable, Hashable, Identifiable, Sendable {
         self.coverID = coverID
         self.genres = genres
         self.popularity = popularity
+        self.themes = themes
     }
 
     /// Words per printed page by genre. Used when we only know the page count.
@@ -262,6 +266,8 @@ struct LeafData: Codable, Sendable {
     var speedTests: [SpeedTestResult] = []
     var preferences = ReadingPreferences()
     var activeSession: ActiveSession?
+    /// Books the reader said "not for me" to. Never recommended again, and a mild signal about taste.
+    var dismissed: [String] = []
 
     init() {}
 
@@ -273,6 +279,7 @@ struct LeafData: Codable, Sendable {
         speedTests = try c.decodeIfPresent([SpeedTestResult].self, forKey: .speedTests) ?? []
         preferences = try c.decodeIfPresent(ReadingPreferences.self, forKey: .preferences) ?? ReadingPreferences()
         activeSession = try c.decodeIfPresent(ActiveSession.self, forKey: .activeSession)
+        dismissed = try c.decodeIfPresent([String].self, forKey: .dismissed) ?? []
     }
 
     func items(on shelf: Shelf) -> [LibraryItem] {

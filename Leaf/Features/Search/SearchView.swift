@@ -32,10 +32,14 @@ struct SearchView: View {
         let catalogReady: Bool
     }
 
+    /// What the rows are built from. When any of it changes the rows are rebuilt.
     private struct CollectionsKey: Hashable {
         let catalogReady: Bool
         let wpmBucket: Int
         let libraryHash: Int
+        let dismissedCount: Int
+        let sessionCount: Int
+        let day: Int
     }
 
     private var trimmedQuery: String {
@@ -46,7 +50,7 @@ struct SearchView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
+            LazyVStack(alignment: .leading, spacing: 0) {
                 if trimmedQuery.isEmpty {
                     browse
                 } else {
@@ -69,7 +73,7 @@ struct SearchView: View {
             await runSearch(trimmedQuery)
         }
         .task(id: collectionsKey) {
-            rebuildCollections()
+            await rebuildCollections()
         }
         .onAppear(perform: consumeRouterQuery)
         .onChange(of: router.searchQuery) { _, newValue in
@@ -100,7 +104,8 @@ struct SearchView: View {
                     collection: collection,
                     isFirst: index == 0,
                     shelfOf: { store.shelf(of: $0) },
-                    onAdd: { book, shelf, front in add(book, to: shelf, atFront: front) }
+                    onAdd: { book, shelf, front in add(book, to: shelf, atFront: front) },
+                    onDismiss: { dismiss($0) }
                 )
             }
             manualAddLink
@@ -108,23 +113,32 @@ struct SearchView: View {
     }
 
     private var collectionsKey: CollectionsKey {
-        CollectionsKey(
+        var library = Hasher()
+        for item in store.data.items {
+            library.combine(item.id)
+            library.combine(item.shelf)
+            library.combine(item.rating)
+        }
+        return CollectionsKey(
             catalogReady: catalog.isLoaded,
             wpmBucket: Int(store.wpm / 10),
-            libraryHash: Set(store.data.items.map(\.id)).hashValue
+            libraryHash: library.finalize(),
+            dismissedCount: store.data.dismissed.count,
+            sessionCount: store.data.sessions.count,
+            day: Int(store.calendar.startOfDay(for: store.now).timeIntervalSince1970 / 86_400)
         )
     }
 
-    /// The rows depend on the catalog, the reader's pace and what is already in the library, so they are
-    /// built when one of those changes rather than on every render.
-    private func rebuildCollections() {
+    /// The rows depend on the catalog, the reader's pace and history, and the day (they change daily), so they
+    /// are built when one of those changes rather than on every render. The work happens off the main thread.
+    private func rebuildCollections() async {
         guard catalog.isLoaded else {
             collections = []
             collectionsBuilt = false
             return
         }
-        let ids = Set(store.data.items.map(\.id))
-        let rows = catalog.collections(wpm: store.wpm, excluding: ids)
+        let rows = await catalog.collections(context: store.recommendationContext(catalog: catalog))
+        guard !Task.isCancelled else { return }
         if !collectionsBuilt {
             collections = rows
             collectionsBuilt = true
@@ -291,6 +305,14 @@ struct SearchView: View {
             if atFront { store.moveToFront(book.id) }
         }
         Haptics.shared.success()
+    }
+
+    /// "Not for me": the book leaves every row and the next suggestions lean away from it.
+    private func dismiss(_ book: Book) {
+        Haptics.shared.tap()
+        withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
+            store.dismiss(book.id)
+        }
     }
 
     /// "Find a book" buttons and screenshot runs pre-fill the query through the router.

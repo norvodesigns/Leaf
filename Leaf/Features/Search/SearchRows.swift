@@ -171,17 +171,23 @@ struct SearchCollectionRow: View {
     let isFirst: Bool
     let shelfOf: (String) -> Shelf?
     let onAdd: (Book, Shelf, Bool) -> Void
+    let onDismiss: (Book) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SectionHeader(collection.subtitle, topSpacing: isFirst ? 0 : Space.xxxl)
+            SectionHeader(collection.title, topSpacing: isFirst ? 0 : Space.xxxl)
+            Text(collection.subtitle)
+                .leafStyle(.caption)
+                .padding(.bottom, Space.m)
             ScrollView(.horizontal) {
                 LazyHStack(alignment: .top, spacing: Space.m) {
                     ForEach(collection.books) { book in
                         SearchCarouselCover(
                             book: book,
                             shelf: shelfOf(book.id),
-                            onAdd: { shelf, front in onAdd(book, shelf, front) }
+                            reason: collection.reasons[book.id],
+                            onAdd: { shelf, front in onAdd(book, shelf, front) },
+                            onDismiss: { onDismiss(book) }
                         )
                     }
                 }
@@ -203,7 +209,10 @@ struct SearchCollectionRow: View {
 struct SearchCarouselCover: View {
     let book: Book
     let shelf: Shelf?
+    /// Why this book is here ("Because you finished ..."), when it was picked for the reader.
+    var reason: String?
     let onAdd: (Shelf, Bool) -> Void
+    let onDismiss: () -> Void
 
     var body: some View {
         NavigationLink(value: BookRoute(book: book)) {
@@ -219,10 +228,20 @@ struct SearchCarouselCover: View {
         }
         .buttonStyle(.pressable)
         .contextMenu {
-            SearchAddActions(shelf: shelf, onAdd: onAdd)
+            if let reason { Section(reason) { menuActions } } else { menuActions }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(book.title), by \(book.author)")
+        .accessibilityLabel(reason.map { "\(book.title), by \(book.author). \($0)" } ?? "\(book.title), by \(book.author)")
         .accessibilityHint("Opens the book")
+    }
+
+    @ViewBuilder
+    private var menuActions: some View {
+        SearchAddActions(shelf: shelf, onAdd: onAdd)
+        if shelf == nil {
+            Button(role: .destructive, action: onDismiss) {
+                Label("Not for me", systemImage: "hand.thumbsdown")
+            }
+        }
     }
 }
