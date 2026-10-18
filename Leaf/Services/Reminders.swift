@@ -7,7 +7,15 @@ enum ReminderID {
     static let goal = "leaf.session.goal"
     static let category = "leaf.reading"
     static let startAction = "leaf.start"
+    static let snoozeAction = "leaf.snooze"
+    static let skipAction = "leaf.skip"
+    static let snooze = "leaf.snooze.pending"
+    static let weeklyPrefix = "leaf.weekly."
     static let bookKey = "bookID"
+    static let weeklyKey = "weeklyLetter"
+    /// UserDefaults key holding the day ("yyyy-MM-dd") the reader chose to skip.
+    static let skippedDayKey = "leaf.reminders.skippedDay"
+    static let snoozeMinutes = 30
 }
 
 /// Daily reading reminders, personalised with each day's assignment, plus the "goal reached" nudge during a session.
@@ -21,13 +29,17 @@ final class Reminders: NSObject {
 
     /// Called when someone taps "Start reading" on a reminder.
     var onStartReading: ((String?) -> Void)?
+    /// Called when someone opens the Sunday note about their week.
+    var onOpenWeeklyLetter: (() -> Void)?
 
     func configure(store: LibraryStore) {
         self.store = store
         center.delegate = self
         let start = UNNotificationAction(identifier: ReminderID.startAction, title: "Start reading", options: [.foreground])
+        let snooze = UNNotificationAction(identifier: ReminderID.snoozeAction, title: "In \(ReminderID.snoozeMinutes) minutes", options: [])
+        let skip = UNNotificationAction(identifier: ReminderID.skipAction, title: "Skip today", options: [])
         center.setNotificationCategories([
-            UNNotificationCategory(identifier: ReminderID.category, actions: [start], intentIdentifiers: [], options: [])
+            UNNotificationCategory(identifier: ReminderID.category, actions: [start, snooze, skip], intentIdentifiers: [], options: [])
         ])
     }
 
@@ -58,6 +70,7 @@ final class Reminders: NSObject {
         guard status == .authorized || status == .provisional || status == .ephemeral else { return }
 
         scheduleGoalNudge(store: store)
+        await scheduleWeeklyLetters(store: store, calendar: Calendar.current, now: Date())
 
         let prefs = store.preferences
         guard prefs.reminderEnabled else { return }
@@ -71,6 +84,7 @@ final class Reminders: NSObject {
             components.minute = prefs.reminderMinute
             guard let fireDate = calendar.date(from: components), fireDate > now else { continue }
             if offset == 0 && (store.goalMetToday || store.activeSession != nil) { continue }
+            if UserDefaults.standard.string(forKey: ReminderID.skippedDayKey) == Self.dayKey(day.date, calendar: calendar) { continue }
 
             let content = UNMutableNotificationContent()
             let copy = Self.copy(for: day, offset: offset, store: store)
@@ -85,6 +99,30 @@ final class Reminders: NSObject {
             let id = ReminderID.dailyPrefix + Self.dayKey(day.date, calendar: calendar)
             try? await center.add(UNNotificationRequest(identifier: id, content: content, trigger: trigger))
             scheduled += 1
+        }
+    }
+
+    /// A short Sunday-evening note about the week, for the next few Sundays. The wording is generic on purpose: the
+    /// letter itself is written from fresh numbers when the reader opens it.
+    private func scheduleWeeklyLetters(store: LibraryStore, calendar: Calendar, now: Date) async {
+        let existing = await center.pendingNotificationRequests().map(\.identifier)
+        center.removePendingNotificationRequests(withIdentifiers: existing.filter { $0.hasPrefix(ReminderID.weeklyPrefix) })
+        guard store.preferences.weeklyLetter else { return }
+        let sunday = DateComponents(hour: 19, minute: 0, weekday: 1)
+        var found = 0
+        var cursor = now
+        while found < 4, let next = calendar.nextDate(after: cursor, matching: sunday, matchingPolicy: .nextTime) {
+            let parts = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: next)
+            let content = UNMutableNotificationContent()
+            content.title = "Your week in the nook"
+            content.body = "A short note on this week’s reading is ready."
+            content.sound = .default
+            content.threadIdentifier = "leaf.weekly"
+            content.userInfo = [ReminderID.weeklyKey: true]
+            let trigger = UNCalendarNotificationTrigger(dateMatching: parts, repeats: false)
+            try? await center.add(UNNotificationRequest(identifier: ReminderID.weeklyPrefix + Self.dayKey(next, calendar: calendar), content: content, trigger: trigger))
+            cursor = next
+            found += 1
         }
     }
 
@@ -138,10 +176,31 @@ extension Reminders: UNUserNotificationCenterDelegate {
     }
 
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
-        let bookID = response.notification.request.content.userInfo[ReminderID.bookKey] as? String
-        let isStart = response.actionIdentifier == ReminderID.startAction
-        await MainActor.run {
-            if isStart { Reminders.shared.onStartReading?(bookID) }
+        let content = response.notification.request.content
+        let bookID = content.userInfo[ReminderID.bookKey] as? String
+        switch response.actionIdentifier {
+        case ReminderID.startAction:
+            await MainActor.run { Reminders.shared.onStartReading?(bookID) }
+        case ReminderID.snoozeAction:
+            // Same words, thirty minutes later.
+            let again = UNMutableNotificationContent()
+            again.title = content.title
+            again.body = content.body
+            again.sound = .default
+            again.categoryIdentifier = ReminderID.category
+            again.userInfo = content.userInfo
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: TimeInterval(ReminderID.snoozeMinutes * 60), repeats: false)
+            try? await center.add(UNNotificationRequest(identifier: ReminderID.snooze, content: again, trigger: trigger))
+        case ReminderID.skipAction:
+            // Quiet for the rest of today: drop a pending snooze and remember not to schedule one again.
+            center.removePendingNotificationRequests(withIdentifiers: [ReminderID.snooze])
+            await MainActor.run {
+                UserDefaults.standard.set(Reminders.dayKey(Date(), calendar: .current), forKey: ReminderID.skippedDayKey)
+            }
+        default:
+            if content.userInfo[ReminderID.weeklyKey] != nil {
+                await MainActor.run { Reminders.shared.onOpenWeeklyLetter?() }
+            }
         }
     }
 }
