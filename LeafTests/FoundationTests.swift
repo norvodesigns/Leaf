@@ -115,3 +115,60 @@ struct FoundationTests {
         #expect(legacy.language == nil && legacy.pageCounts == nil)
     }
 }
+
+struct MomentTests {
+    private var calendar: Calendar {
+        var c = Calendar(identifier: .gregorian)
+        c.timeZone = TimeZone(identifier: "UTC") ?? .current
+        return c
+    }
+
+    private func date(_ month: Int, _ day: Int = 15, hour: Int = 12, minute: Int = 0) -> Date {
+        calendar.date(from: DateComponents(year: 2026, month: month, day: day, hour: hour, minute: minute)) ?? Date()
+    }
+
+    @Test func seasonsFollowMeteorologicalMonths() {
+        #expect(Season.of(date(1), calendar: calendar) == .winter)
+        #expect(Season.of(date(4), calendar: calendar) == .spring)
+        #expect(Season.of(date(7), calendar: calendar) == .summer)
+        #expect(Season.of(date(10), calendar: calendar) == .autumn)
+        #expect(Season.of(date(12), calendar: calendar) == .winter)
+        #expect(Season.of(date(10), calendar: calendar, southern: true) == .spring)
+    }
+
+    @Test func daypartsCoverTheWholeDay() {
+        func part(_ hour: Int, _ minute: Int = 0) -> Daypart { Daypart.of(date(6, hour: hour, minute: minute), calendar: calendar) }
+        #expect(part(3) == .smallHours)
+        #expect(part(6) == .dawn)
+        #expect(part(9) == .morning)
+        #expect(part(12) == .lunch)
+        #expect(part(15) == .afternoon)
+        #expect(part(16, 30) == .teaTime)
+        #expect(part(18) == .dusk)
+        #expect(part(21) == .evening)
+        #expect(part(23, 30) == .late)
+        #expect(part(0, 30) == .late)
+        #expect(part(1, 59) == .late)
+        for hour in 0..<24 { _ = part(hour) }
+    }
+}
+
+struct CupsTests {
+    @Test func cupsAreSittings() {
+        #expect(Cups.count(minutes: 50) == 2)
+        #expect(Cups.wholeCups(minutes: 49) == 1)
+        #expect(Cups.wholeCups(minutes: 60, cupMinutes: 30) == 2)
+        #expect(Cups.count(minutes: -5) == 0)
+        #expect(Cups.count(minutes: 25, cupMinutes: 0) == 25, "a zero-length cup can't divide by zero")
+        #expect(Cups.pots(cups: 9) == 2)
+    }
+
+    @Test func phrasesReadNaturally() {
+        #expect(Cups.phrase(minutes: 10) == "less than a cup")
+        #expect(Cups.phrase(minutes: 25) == "a cup")
+        #expect(Cups.phrase(minutes: 75) == "3 cups")
+        #expect(Cups.phrase(minutes: 100) == "a pot")
+        #expect(Cups.phrase(minutes: 200) == "2 pots")
+        #expect(Cups.phrase(minutes: 125) == "5 cups")
+    }
+}
