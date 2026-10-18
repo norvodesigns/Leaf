@@ -109,6 +109,30 @@ final class Reminders: NSObject {
         }
     }
 
+    /// A short Sunday-evening note about the week, for the next few Sundays. The wording is generic on purpose: the
+    /// letter itself is written from fresh numbers when the reader opens it.
+    private func scheduleWeeklyLetters(store: LibraryStore, calendar: Calendar, now: Date) async {
+        let existing = await center.pendingNotificationRequests().map(\.identifier)
+        center.removePendingNotificationRequests(withIdentifiers: existing.filter { $0.hasPrefix(ReminderID.weeklyPrefix) })
+        guard store.preferences.weeklyLetter else { return }
+        let sunday = DateComponents(hour: 19, minute: 0, weekday: 1)
+        var found = 0
+        var cursor = now
+        while found < 4, let next = calendar.nextDate(after: cursor, matching: sunday, matchingPolicy: .nextTime) {
+            let parts = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: next)
+            let content = UNMutableNotificationContent()
+            content.title = "Your week in the nook"
+            content.body = "A short note on this week’s reading is ready."
+            content.sound = .default
+            content.threadIdentifier = "leaf.weekly"
+            content.userInfo = [ReminderID.weeklyKey: true]
+            let trigger = UNCalendarNotificationTrigger(dateMatching: parts, repeats: false)
+            try? await center.add(UNNotificationRequest(identifier: ReminderID.weeklyPrefix + Self.dayKey(next, calendar: calendar), content: content, trigger: trigger))
+            cursor = next
+            found += 1
+        }
+    }
+
     /// While a session runs, a quiet tap when today's goal is reached (useful with the phone face down).
     private func scheduleGoalNudge(store: LibraryStore) {
         guard let active = store.activeSession, !active.isPaused, !store.goalMetToday else { return }

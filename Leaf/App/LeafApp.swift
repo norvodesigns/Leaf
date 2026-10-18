@@ -13,6 +13,13 @@ struct LeafApp: App {
         if options.demo { store.replaceAll(with: DemoData.make()) }
         _store = State(initialValue: store)
 
+        if !options.isScripted, CloudSync.isAvailable {
+            let sync = CloudSync()
+            sync.onRemoteData = { [weak store] merged in store?.applyRemote(merged: merged) }
+            store.sync = sync
+            sync.start(initial: store.data)
+        }
+
         Reminders.shared.configure(store: store)
         WatchBridge.shared.activate(store: store)
         store.onChange = { [weak store] in

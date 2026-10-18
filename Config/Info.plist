@@ -13,6 +13,8 @@
 		<string>InstrumentSerif-Regular.ttf</string>
 		<string>InstrumentSerif-Italic.ttf</string>
 	</array>
+	<key>LeafCloudKitEnabled</key>
+	<string>$(LEAF_CLOUDKIT_ENABLED)</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

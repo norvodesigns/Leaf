@@ -89,6 +89,7 @@ xcodebuild \
   ${AUTH[@]+"${AUTH[@]}"} \
   DEVELOPMENT_TEAM="$TEAM_ID" \
   CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+  LEAF_CLOUDKIT_ENABLED=YES \
   archive
 
 # The widget extension must be inside the app, or the Live Activity silently never appears.

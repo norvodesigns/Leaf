@@ -26,6 +26,9 @@ final class LibraryStore {
     @ObservationIgnored private let persistence: Persistence
     @ObservationIgnored private var saveTask: Task<Void, Never>?
     @ObservationIgnored var calendar: Calendar = .current
+    /// iCloud sync, when the build has it. Every local change is reported to it as a diff against `syncShadow`.
+    @ObservationIgnored var sync: CloudSync?
+    @ObservationIgnored private var syncShadow: LeafData
     /// Wall-clock time for change stamps (iCloud merging compares these), kept apart from `now` so tests can control it.
     @ObservationIgnored var clock: () -> Date = { Date() }
     private var stamp: Date { clock() }
@@ -33,7 +36,9 @@ final class LibraryStore {
     init(persistence: Persistence = .shared, now: Date = Date()) {
         self.persistence = persistence
         self.now = now
-        self.data = persistence.load() ?? LeafData()
+        let loaded = persistence.load() ?? LeafData()
+        self.data = loaded
+        self.syncShadow = loaded
         recomputePlan()
     }
 
@@ -125,7 +130,12 @@ final class LibraryStore {
         case .reading:
             if data.items[index].startedAt == nil { data.items[index].startedAt = now }
             data.items[index].finishedAt = nil
-            if data.items[index].currentPage >= data.items[index].book.pages { data.items[index].currentPage = 0 }
+            if data.items[index].currentPage >= data.items[index].book.pages {
+                // Reading it again: a fresh start, so the merge doesn't pull the page back to the last read-through.
+                data.items[index].currentPage = 0
+                data.items[index].startPage = 0
+                data.items[index].startedAt = now
+            }
         case .toRead:
             data.items[index].finishedAt = nil
         case .finished:
@@ -274,10 +284,12 @@ final class LibraryStore {
     // MARK: - Preferences
 
     func updatePreferences(_ change: (inout ReadingPreferences) -> Void) {
+        let before = data.preferences
         change(&data.preferences)
         data.preferences.dailyMinutes = min(240, max(0, data.preferences.dailyMinutes))
         data.preferences.wpm = ReadingSpeed.clamp(data.preferences.wpm)
-        data.preferences.updatedAt = stamp
+        // Device-only settings (haptics, appearance, the sync switch) shouldn't win a merge against a real change elsewhere.
+        if !before.hasSameSyncedFields(as: data.preferences) { data.preferences.updatedAt = stamp }
         commit()
     }
 
@@ -544,14 +556,14 @@ final class LibraryStore {
     func joinChallenge(_ id: String, year: Int? = nil) {
         guard !data.challenges.contains(where: { $0.id == id && $0.year == year }) else { return }
         data.challenges.append(ChallengeEnrollment(id: id, joinedAt: stamp, year: year))
-        clearTombstone(.challenge, id)
+        clearTombstone(.challenge, SyncKey.challengeTombstoneKey(id: id, year: year))
         commit()
     }
 
     func leaveChallenge(_ id: String, year: Int? = nil) {
         guard data.challenges.contains(where: { $0.id == id && $0.year == year }) else { return }
         data.challenges.removeAll { $0.id == id && $0.year == year }
-        addTombstone(.challenge, id)
+        addTombstone(.challenge, SyncKey.challengeTombstoneKey(id: id, year: year))
         commit()
     }
 
@@ -565,7 +577,27 @@ final class LibraryStore {
 
     func resetEverything() {
         data = LeafData()
-        commit()
+        syncShadow = data
+        recomputePlan()
+        scheduleSave()
+        onChange?()
+        // Not reported as a diff (that would read as deleting everything); the cloud copy is cleared separately.
+        if let sync {
+            Task { @MainActor [weak self] in
+                _ = await sync.deleteCloudData()
+                if let data = self?.data { sync.start(initial: data) }
+            }
+        }
+    }
+
+    /// Takes data merged from iCloud. Written to disk before returning, so the sync engine never remembers a
+    /// fetch position that is ahead of what is saved.
+    func applyRemote(merged: LeafData) {
+        data = merged
+        syncShadow = merged
+        recomputePlan()
+        flush()
+        onChange?()
     }
 
     /// Replaces all data (demo seeding and screenshot runs).
@@ -624,6 +656,9 @@ final class LibraryStore {
         recomputePlan()
         scheduleSave()
         onChange?()
+        let previous = syncShadow
+        syncShadow = data
+        sync?.localDataChanged(old: previous, new: data)
     }
 
     private func scheduleSave() {
