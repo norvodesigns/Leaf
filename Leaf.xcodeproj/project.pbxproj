@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		4C1EAF0000000000000000CB /* LeafWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 4C1EAF0000000000000000AA /* LeafWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		4C1EAF0000000000000001C5 /* LeafWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4C1EAF0000000000000001A5 /* LeafWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -25,6 +26,13 @@
 			remoteGlobalIDString = 4C1EAF0000000000000000B3;
 			remoteInfo = LeafWatch;
 		};
+		4C1EAF0000000000000001D1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4C1EAF0000000000000000A1 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4C1EAF0000000000000001B1;
+			remoteInfo = LeafWidgets;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -39,17 +47,49 @@
 			name = "Embed Watch Content";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		4C1EAF0000000000000001C4 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				4C1EAF0000000000000001C5 /* LeafWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		4C1EAF0000000000000000A6 /* Leaf.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Leaf.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C1EAF0000000000000000A7 /* LeafTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LeafTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C1EAF0000000000000000AA /* LeafWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LeafWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		4C1EAF0000000000000001A5 /* LeafWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = LeafWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		4C1EAF0000000000000001A1 /* Exceptions for "Leaf" folder in "Leaf" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Leaf.entitlements,
+			);
+			target = 4C1EAF0000000000000000B1 /* Leaf */;
+		};
+		4C1EAF0000000000000001A2 /* Exceptions for "LeafWidgets" folder in "LeafWidgets" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				LeafWidgets.entitlements,
+			);
+			target = 4C1EAF0000000000000001B1 /* LeafWidgets */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		4C1EAF0000000000000000A4 /* Leaf */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				4C1EAF0000000000000001A1 /* Exceptions for "Leaf" folder in "Leaf" target */,
+			);
 			path = Leaf;
 			sourceTree = "<group>";
 		};
@@ -66,6 +106,19 @@
 		4C1EAF0000000000000000A9 /* LeafWatch */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = LeafWatch;
+			sourceTree = "<group>";
+		};
+		4C1EAF0000000000000001A3 /* LeafWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				4C1EAF0000000000000001A2 /* Exceptions for "LeafWidgets" folder in "LeafWidgets" target */,
+			);
+			path = LeafWidgets;
+			sourceTree = "<group>";
+		};
+		4C1EAF0000000000000001A4 /* LiveActivityShared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = LiveActivityShared;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -92,6 +145,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		4C1EAF0000000000000001C2 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -101,6 +161,8 @@
 				4C1EAF0000000000000000A8 /* Shared */,
 				4C1EAF0000000000000000A4 /* Leaf */,
 				4C1EAF0000000000000000A9 /* LeafWatch */,
+				4C1EAF0000000000000001A3 /* LeafWidgets */,
+				4C1EAF0000000000000001A4 /* LiveActivityShared */,
 				4C1EAF0000000000000000A5 /* LeafTests */,
 				4C1EAF0000000000000000A3 /* Products */,
 			);
@@ -112,6 +174,7 @@
 				4C1EAF0000000000000000A6 /* Leaf.app */,
 				4C1EAF0000000000000000A7 /* LeafTests.xctest */,
 				4C1EAF0000000000000000AA /* LeafWatch.app */,
+				4C1EAF0000000000000001A5 /* LeafWidgets.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -127,15 +190,18 @@
 				4C1EAF0000000000000000C2 /* Frameworks */,
 				4C1EAF0000000000000000C3 /* Resources */,
 				4C1EAF0000000000000000CA /* Embed Watch Content */,
+				4C1EAF0000000000000001C4 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				4C1EAF0000000000000000D4 /* PBXTargetDependency */,
+				4C1EAF0000000000000001D2 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				4C1EAF0000000000000000A8 /* Shared */,
 				4C1EAF0000000000000000A4 /* Leaf */,
+				4C1EAF0000000000000001A4 /* LiveActivityShared */,
 			);
 			name = Leaf;
 			packageProductDependencies = (
@@ -190,6 +256,29 @@
 			productReference = 4C1EAF0000000000000000AA /* LeafWatch.app */;
 			productType = "com.apple.product-type.application";
 		};
+		4C1EAF0000000000000001B1 /* LeafWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4C1EAF0000000000000001E1 /* Build configuration list for PBXNativeTarget "LeafWidgets" */;
+			buildPhases = (
+				4C1EAF0000000000000001C1 /* Sources */,
+				4C1EAF0000000000000001C2 /* Frameworks */,
+				4C1EAF0000000000000001C3 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				4C1EAF0000000000000001A3 /* LeafWidgets */,
+				4C1EAF0000000000000001A4 /* LiveActivityShared */,
+			);
+			name = LeafWidgets;
+			packageProductDependencies = (
+			);
+			productName = LeafWidgets;
+			productReference = 4C1EAF0000000000000001A5 /* LeafWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -208,6 +297,9 @@
 						TestTargetID = 4C1EAF0000000000000000B1;
 					};
 					4C1EAF0000000000000000B3 = {
+						CreatedOnToolsVersion = 26.0;
+					};
+					4C1EAF0000000000000001B1 = {
 						CreatedOnToolsVersion = 26.0;
 					};
 				};
@@ -229,6 +321,7 @@
 				4C1EAF0000000000000000B1 /* Leaf */,
 				4C1EAF0000000000000000B2 /* LeafTests */,
 				4C1EAF0000000000000000B3 /* LeafWatch */,
+				4C1EAF0000000000000001B1 /* LeafWidgets */,
 			);
 		};
 /* End PBXProject section */
@@ -249,6 +342,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		4C1EAF0000000000000000C9 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4C1EAF0000000000000001C3 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -279,6 +379,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		4C1EAF0000000000000001C1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -291,6 +398,11 @@
 			isa = PBXTargetDependency;
 			target = 4C1EAF0000000000000000B3 /* LeafWatch */;
 			targetProxy = 4C1EAF0000000000000000D3 /* PBXContainerItemProxy */;
+		};
+		4C1EAF0000000000000001D2 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4C1EAF0000000000000001B1 /* LeafWidgets */;
+			targetProxy = 4C1EAF0000000000000001D1 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -423,6 +535,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Leaf/Leaf.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
@@ -454,6 +567,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Leaf/Leaf.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
@@ -578,6 +692,64 @@
 			};
 			name = Release;
 		};
+		4C1EAF0000000000000001F1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = LeafWidgets/LeafWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/LeafWidgets-Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Leaf;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.norvodesigns.leaf.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		4C1EAF0000000000000001F2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = LeafWidgets/LeafWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/LeafWidgets-Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Leaf;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.norvodesigns.leaf.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -613,6 +785,15 @@
 			buildConfigurations = (
 				4C1EAF0000000000000000F7 /* Debug */,
 				4C1EAF0000000000000000F8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4C1EAF0000000000000001E1 /* Build configuration list for PBXNativeTarget "LeafWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4C1EAF0000000000000001F1 /* Debug */,
+				4C1EAF0000000000000001F2 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

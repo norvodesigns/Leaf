@@ -21,6 +21,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check project structure
+        run: |
+          python3 scripts/check_pbxproj.py --summary
+          plutil -lint Config/Info.plist Config/LeafWidgets-Info.plist Leaf/Leaf.entitlements LeafWidgets/LeafWidgets.entitlements LeafWidgets/PrivacyInfo.xcprivacy
+
       - name: Select Xcode
         run: |
           ls -d /Applications/Xcode*.app
@@ -60,10 +65,25 @@ jobs:
             archive 2>&1 | tee build-archive.log | xcbeautify --quieter || { grep -E "error:" build-archive.log | sort -u | head -100; exit 1; }
           APP=build/Leaf.xcarchive/Products/Applications/Leaf.app
           echo "--- Leaf.app"; ls "$APP" | head -40
-          plutil -p "$APP/Info.plist" | grep -E "CFBundleIdentifier|CFBundleShortVersionString|CFBundleVersion|MinimumOSVersion|UIDeviceFamily|ITSAppUses|CFBundleIcons|UIAppFonts|DTPlatformName|LSApplicationCategoryType"
+          plutil -p "$APP/Info.plist" | grep -E "CFBundleIdentifier|CFBundleShortVersionString|CFBundleVersion|MinimumOSVersion|UIDeviceFamily|ITSAppUses|CFBundleIcons|UIAppFonts|DTPlatformName|LSApplicationCategoryType|NSSupportsLiveActivities|UIBackgroundModes|remote-notification"
           WATCH="$APP/Watch/LeafWatch.app"
           echo "--- LeafWatch.app"; ls "$WATCH" | head -30
           plutil -p "$WATCH/Info.plist" | grep -E "CFBundleIdentifier|CFBundleShortVersionString|CFBundleVersion|WK|MinimumOSVersion|DTPlatformName|UIDeviceFamily"
+          APPEX="$APP/PlugIns/LeafWidgets.appex"
+          fail() { echo "::error::$1"; exit 1; }
+          plist_value() { /usr/libexec/PlistBuddy -c "Print :$2" "$1" 2>/dev/null; }
+          [ -d "$APPEX" ] || fail "LeafWidgets.appex is not embedded in Leaf.app/PlugIns"
+          [ -f "$APPEX/Info.plist" ] || fail "LeafWidgets.appex has no Info.plist"
+          echo "--- LeafWidgets.appex"; ls "$APPEX" | head -30
+          plutil -p "$APPEX/Info.plist" | grep -E "CFBundleIdentifier|CFBundleShortVersionString|CFBundleVersion|MinimumOSVersion|DTPlatformName|NSExtension|NSExtensionPointIdentifier"
+          [ "$(plist_value "$APPEX/Info.plist" NSExtension:NSExtensionPointIdentifier)" = "com.apple.widgetkit-extension" ] || fail "LeafWidgets.appex Info.plist does not declare the com.apple.widgetkit-extension extension point"
+          [ "$(plist_value "$APPEX/Info.plist" CFBundleIdentifier)" = "com.norvodesigns.leaf.widgets" ] || fail "LeafWidgets.appex has the wrong bundle id"
+          [ "$(plist_value "$APPEX/Info.plist" CFBundleVersion)" = "$(plist_value "$APP/Info.plist" CFBundleVersion)" ] || fail "LeafWidgets.appex build number differs from the app"
+          [ "$(plist_value "$APPEX/Info.plist" CFBundleShortVersionString)" = "$(plist_value "$APP/Info.plist" CFBundleShortVersionString)" ] || fail "LeafWidgets.appex version differs from the app"
+          [ "$(plist_value "$APP/Info.plist" NSSupportsLiveActivities)" = "true" ] || fail "Leaf.app Info.plist is missing NSSupportsLiveActivities = YES"
+          [ "$(plist_value "$APP/Info.plist" NSSupportsLiveActivitiesFrequentUpdates)" = "false" ] || fail "Leaf.app Info.plist should set NSSupportsLiveActivitiesFrequentUpdates = NO"
+          plist_value "$APP/Info.plist" UIBackgroundModes | grep -q "remote-notification" || fail "Leaf.app Info.plist is missing the remote-notification background mode"
+          echo "widget extension embedded and declared correctly"
           test -f "$APP/books.json" && echo "books.json bundled ($(wc -c < "$APP/books.json") bytes)"
           test -f "$APP/PrivacyInfo.xcprivacy" && echo "iOS privacy manifest bundled"
           test -f "$WATCH/PrivacyInfo.xcprivacy" && echo "watch privacy manifest bundled"

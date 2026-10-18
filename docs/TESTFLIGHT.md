@@ -7,17 +7,24 @@ on Apple's processing. After that, each new build is Archive → Upload.
 
 ## What's already set up in the project
 
-- **Targets:** `Leaf` (iPhone, iOS 26+) with `LeafWatch` (Apple Watch, watchOS 26+)
-  embedded, so installing the iPhone app offers the watch app automatically.
-- **Bundle IDs:** `com.norvodesigns.leaf` and `com.norvodesigns.leaf.watchkitapp`.
-  Confirm these before the first upload. Once Apple registers them, they can't change.
+- **Targets:** `Leaf` (iPhone, iOS 26+) with `LeafWatch` (Apple Watch, watchOS 26+) and
+  `LeafWidgets` (the Live Activity widget extension) embedded, so installing the iPhone
+  app offers the watch app automatically and the Live Activity needs no extra install.
+  What each target and file is for is in [`PLATFORM.md`](PLATFORM.md).
+- **Bundle IDs:** `com.norvodesigns.leaf`, `com.norvodesigns.leaf.watchkitapp` and
+  `com.norvodesigns.leaf.widgets`. Confirm these before the first upload. Once Apple
+  registers them, they can't change.
 - **Version 1.0, build 1,** set once at the project level so the phone and watch
   apps always match. Xcode bumps the build number for you on upload (step 5).
 - **Export compliance:** `ITSAppUsesNonExemptEncryption = NO` (Leaf uses only HTTPS),
   so App Store Connect won't ask about encryption on every build.
 - **Privacy manifest:** no tracking and no collected data.
 - **App icons:** light, dark and tinted variants, plus the watch icon.
-- **Capabilities:** none that need special provisioning. Notifications are local
+- **Capabilities:** iCloud (CloudKit, container `iCloud.com.norvodesigns.leaf`), App Groups
+  (`group.com.norvodesigns.leaf`, shared by the app and the widget extension) and Push
+  Notifications (CloudKit uses silent pushes to tell devices about changes). These need the
+  one-time checks under "Apple Developer portal checks" in [`PLATFORM.md`](PLATFORM.md).
+  Live Activities need an Info.plist key only, which is already set. Notifications are local
   and WatchConnectivity needs no entitlement.
 
 ## 1. Open the project
@@ -36,10 +43,14 @@ on Apple's processing. After that, each new build is Archive → Upload.
 1. In the navigator on the left, click the blue **Leaf** project icon.
 2. Under **Targets**, select **Leaf**, open **Signing & Capabilities**, and
    choose your team under **Team**. Leave **Automatically manage signing** on.
-3. Do the same for the **LeafWatch** target and, optionally, **LeafTests**.
+3. Do the same for the **LeafWatch** and **LeafWidgets** targets and, optionally, **LeafTests**.
+   If you only use `scripts/testflight.sh`, you can skip this: it passes your Team ID to all targets.
 
-Xcode registers both bundle IDs and creates the signing certificates and
-profiles for you.
+Xcode registers the three bundle IDs (the new one is `com.norvodesigns.leaf.widgets`), turns on
+the iCloud, App Groups and Push capabilities for them as the entitlements files ask, creates the
+App Group and the iCloud container if they don't exist yet, and creates the signing certificates
+and profiles for you. If it reports a problem, see "If signing complains" in
+[`PLATFORM.md`](PLATFORM.md); the usual fix is a one-minute change in the developer portal.
 
 ## 3. Try it on your own iPhone and Watch (optional, recommended)
 
@@ -88,7 +99,10 @@ TEAM_ID=ABCDE12345 scripts/testflight.sh       # your Team ID: developer.apple.c
 ```
 
 It signs with the Apple ID you're signed in with in **Xcode → Settings → Accounts**.
-Each run uses a timestamp as the build number, so every upload is accepted.
+Each run uses a timestamp as the build number, so every upload is accepted. Before it exports,
+it checks that the archive really contains the watch app and `LeafWidgets.appex` and warns if
+the signed app is missing the iCloud, App Group or push entitlement. If a step fails it names the
+step and where to look for the details.
 To use an App Store Connect API key instead (**Users and Access → Integrations →
 App Store Connect API**, role *App Manager*), save the `.p8` file to
 `~/.appstoreconnect/private_keys/` and put `ASC_KEY_ID=… ASC_ISSUER_ID=…` before the command.
@@ -106,6 +120,12 @@ App Store Connect API**, role *App Manager*), save the `.p8` file to
 
 Testers install the **TestFlight** app from the App Store and accept the
 invite. The watch app comes along with the iPhone app.
+
+## The Live Activity extension
+
+The widget extension ships inside the iPhone app too, so there's nothing separate to upload. For
+now it holds a plain placeholder Live Activity; nothing starts it until the app code that does
+so is added.
 
 ## Testing the Apple Watch app
 
@@ -125,7 +145,8 @@ devices nearby.
 ## 7. App Privacy answers
 
 On App Store Connect → **App Privacy**, answer **"Data Not Collected"**.
-Everything Leaf stores stays on the device. Book searches send only the search
+Everything Leaf stores stays on the device, or in the reader's own private iCloud once sync is
+on, where only that reader can see it and you can't. Book searches send only the search
 text to Open Library, which isn't linked to the user.
 
 ## Later builds
