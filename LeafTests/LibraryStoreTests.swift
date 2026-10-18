@@ -220,5 +220,19 @@ struct LibraryStoreTests {
         store.leaveChallenge("autumn-readathon", year: 2026)
         #expect(store.data.challenges.isEmpty)
     }
+
+    @Test func whereAreYouAnswersApplyToTheBook() {
+        let store = makeStore()
+        store.add(book("a"), to: .toRead)
+        store.apply(.percent(50), to: "a")
+        #expect(store.item("a")?.currentPage == 150)
+        #expect(store.item("a")?.progressMode == .percent)
+        store.apply(.page(40), to: "a")
+        #expect(store.item("a")?.currentPage == 40)
+        let long = Date(timeIntervalSince1970: 1_700_000_000)
+        store.apply(.alreadyRead(on: long), to: "a")
+        #expect(store.item("a")?.shelf == .finished)
+        #expect(store.item("a")?.finishedAt == long)
+    }
 }
 #endif

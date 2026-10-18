@@ -172,3 +172,20 @@ struct CupsTests {
         #expect(Cups.phrase(minutes: 125) == "5 cups")
     }
 }
+
+struct StartingPositionTests {
+    @Test func everyAnswerLandsOnAPage() {
+        #expect(StartingPosition.justStarting.page(inBookOf: 300) == 0)
+        #expect(StartingPosition.page(142).page(inBookOf: 300) == 142)
+        #expect(StartingPosition.page(900).page(inBookOf: 300) == 300, "can't be past the last page")
+        #expect(StartingPosition.page(-4).page(inBookOf: 300) == 0)
+        #expect(StartingPosition.percent(40).page(inBookOf: 300) == 120)
+        #expect(StartingPosition.alreadyRead(on: nil).page(inBookOf: 300) == nil)
+    }
+
+    @Test func percentAnswersKeepShowingPercent() {
+        #expect(StartingPosition.percent(10).progressMode == .percent)
+        #expect(StartingPosition.page(10).progressMode == .pages)
+        #expect(StartingPosition.justStarting.progressMode == .pages)
+    }
+}

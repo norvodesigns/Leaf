@@ -215,6 +215,22 @@ final class LibraryStore {
         commit()
     }
 
+    /// Applies the answer to "Where are you?" for a book (the book may be on any shelf).
+    func apply(_ position: StartingPosition, to id: String) {
+        guard let item = item(id) else { return }
+        if case .alreadyRead(let date) = position {
+            markFinished(id)
+            if let date, let index = data.items.firstIndex(where: { $0.id == id }) {
+                data.items[index].finishedAt = date
+                data.items[index].updatedAt = stamp
+                commit()
+            }
+            return
+        }
+        guard let page = position.page(inBookOf: item.book.pages) else { return }
+        confirmPosition(id, page: page, mode: position.progressMode)
+    }
+
     func setProgressMode(_ id: String, _ mode: ProgressMode) {
         guard let index = data.items.firstIndex(where: { $0.id == id }), data.items[index].progressMode != mode else { return }
         data.items[index].progressMode = mode
