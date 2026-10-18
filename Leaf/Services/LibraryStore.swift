@@ -26,6 +26,9 @@ final class LibraryStore {
     @ObservationIgnored private let persistence: Persistence
     @ObservationIgnored private var saveTask: Task<Void, Never>?
     @ObservationIgnored var calendar: Calendar = .current
+    /// Wall-clock time for change stamps (iCloud merging compares these), kept apart from `now` so tests can control it.
+    @ObservationIgnored var clock: () -> Date = { Date() }
+    private var stamp: Date { clock() }
 
     init(persistence: Persistence = .shared, now: Date = Date()) {
         self.persistence = persistence
@@ -95,6 +98,7 @@ final class LibraryStore {
     func add(_ book: Book, to shelf: Shelf) {
         if let index = data.items.firstIndex(where: { $0.id == book.id }) {
             data.items[index].book = book
+            data.items[index].updatedAt = stamp
             commit()
             move(book.id, to: shelf)
             return
@@ -105,6 +109,8 @@ final class LibraryStore {
             item.finishedAt = now
             item.currentPage = book.pages
         }
+        item.updatedAt = stamp
+        clearTombstone(.item, book.id)
         data.items.append(item)
         commit()
     }
@@ -113,6 +119,8 @@ final class LibraryStore {
         guard let index = data.items.firstIndex(where: { $0.id == id }), data.items[index].shelf != shelf else { return }
         data.items[index].shelf = shelf
         data.items[index].order = nextOrder(on: shelf)
+        data.items[index].updatedAt = stamp
+        data.items[index].pausedAt = shelf == .paused ? now : nil
         switch shelf {
         case .reading:
             if data.items[index].startedAt == nil { data.items[index].startedAt = now }
@@ -123,6 +131,10 @@ final class LibraryStore {
         case .finished:
             data.items[index].finishedAt = now
             data.items[index].currentPage = data.items[index].book.pages
+            data.items[index].positionConfirmed = true
+        case .paused:
+            data.items[index].finishedAt = nil
+            if data.activeSession?.bookID == id { data.activeSession = nil }
         }
         commit()
     }
@@ -137,14 +149,20 @@ final class LibraryStore {
     func setRating(_ id: String, rating: Int?) {
         guard let index = data.items.firstIndex(where: { $0.id == id }) else { return }
         data.items[index].rating = rating
+        data.items[index].updatedAt = stamp
         commit()
     }
 
     func remove(_ id: String) {
+        guard data.items.contains(where: { $0.id == id }) else { return }
         data.items.removeAll { $0.id == id }
         if data.activeSession?.bookID == id { data.activeSession = nil }
+        addTombstone(.item, id)
         commit()
     }
+
+    /// Sets a book aside without guilt. It keeps its page and drops out of the plan.
+    func pause(_ id: String) { move(id, to: .paused) }
 
     // MARK: - Discovery
 
@@ -152,12 +170,14 @@ final class LibraryStore {
     func dismiss(_ id: String) {
         guard !data.dismissed.contains(id) else { return }
         data.dismissed.append(id)
+        clearTombstone(.dismissal, id)
         commit()
     }
 
     func undismiss(_ id: String) {
         guard data.dismissed.contains(id) else { return }
         data.dismissed.removeAll { $0 == id }
+        addTombstone(.dismissal, id)
         commit()
     }
 
@@ -177,6 +197,28 @@ final class LibraryStore {
     func setPage(_ id: String, page: Int) {
         guard let index = data.items.firstIndex(where: { $0.id == id }) else { return }
         data.items[index].currentPage = min(max(0, page), data.items[index].book.pages)
+        data.items[index].positionConfirmed = true
+        data.items[index].updatedAt = stamp
+        commit()
+    }
+
+    /// "Where are you?": records where the reader is, and where they began if no reading has been logged yet,
+    /// so the first session's speed is measured from the right page.
+    func confirmPosition(_ id: String, page: Int, mode: ProgressMode? = nil) {
+        guard let index = data.items.firstIndex(where: { $0.id == id }) else { return }
+        let clamped = min(max(0, page), data.items[index].book.pages)
+        data.items[index].currentPage = clamped
+        if sessionCount(for: id) == 0 { data.items[index].startPage = clamped }
+        data.items[index].positionConfirmed = true
+        if let mode { data.items[index].progressMode = mode }
+        data.items[index].updatedAt = stamp
+        commit()
+    }
+
+    func setProgressMode(_ id: String, _ mode: ProgressMode) {
+        guard let index = data.items.firstIndex(where: { $0.id == id }), data.items[index].progressMode != mode else { return }
+        data.items[index].progressMode = mode
+        data.items[index].updatedAt = stamp
         commit()
     }
 
@@ -209,6 +251,7 @@ final class LibraryStore {
         }
         data.items[index].book = book
         data.items[index].currentPage = min(data.items[index].currentPage, book.pages)
+        data.items[index].updatedAt = stamp
         commit()
     }
 
@@ -218,12 +261,14 @@ final class LibraryStore {
         change(&data.preferences)
         data.preferences.dailyMinutes = min(240, max(0, data.preferences.dailyMinutes))
         data.preferences.wpm = ReadingSpeed.clamp(data.preferences.wpm)
+        data.preferences.updatedAt = stamp
         commit()
     }
 
     func recordSpeedTest(_ result: SpeedTestResult) {
         data.speedTests.append(result)
         data.preferences.wpm = result.effectiveWPM
+        data.preferences.updatedAt = stamp
         commit()
     }
 
@@ -232,11 +277,26 @@ final class LibraryStore {
     // MARK: - Sessions
 
     @discardableResult
-    func startSession(bookID: String, origin: SessionDevice = .phone, startedAt: Date = Date()) -> ActiveSession? {
+    func startSession(
+        bookID: String,
+        origin: SessionDevice = .phone,
+        startedAt: Date = Date(),
+        teaID: String? = nil,
+        goalSeconds: Double? = nil,
+        ambienceID: String? = nil
+    ) -> ActiveSession? {
         if let active = data.activeSession { return active }
         guard let item = item(bookID) else { return nil }
         if item.shelf != .reading { move(bookID, to: .reading) }
-        let session = ActiveSession(bookID: bookID, startedAt: startedAt, startPage: self.item(bookID)?.currentPage ?? 0, origin: origin)
+        let session = ActiveSession(
+            bookID: bookID,
+            startedAt: startedAt,
+            startPage: self.item(bookID)?.currentPage ?? 0,
+            origin: origin,
+            teaID: teaID,
+            goalSeconds: goalSeconds,
+            ambienceID: ambienceID
+        )
         data.activeSession = session
         commit()
         return session
@@ -270,7 +330,10 @@ final class LibraryStore {
             startedAt: active.startedAt,
             seconds: active.elapsed(at: end),
             fromPage: active.startPage,
-            toPage: toPage
+            toPage: toPage,
+            teaID: active.teaID,
+            ambienceID: active.ambienceID,
+            device: active.origin
         )
         data.activeSession = nil
         let outcome = log(session)
@@ -289,10 +352,14 @@ final class LibraryStore {
         let toPage = min(max(session.toPage, 0), book.pages)
         var logged = session
         logged.toPage = toPage
+        if sessionCount(for: session.bookID) == 0, data.items[index].startPage == 0 { data.items[index].startPage = logged.fromPage }
         data.sessions.append(logged)
         data.items[index].currentPage = max(data.items[index].currentPage, toPage)
-        if data.items[index].shelf == .toRead {
+        data.items[index].positionConfirmed = true
+        data.items[index].updatedAt = stamp
+        if data.items[index].shelf == .toRead || data.items[index].shelf == .paused {
             data.items[index].shelf = .reading
+            data.items[index].pausedAt = nil
             data.items[index].order = nextOrder(on: .reading)
         }
         if data.items[index].startedAt == nil { data.items[index].startedAt = session.startedAt }
@@ -343,6 +410,73 @@ final class LibraryStore {
         return nil
     }
 
+    /// "Read without the timer": logs minutes and the page reached.
+    @discardableResult
+    func logManual(bookID: String, minutes: Double, toPage: Int, at date: Date? = nil) -> SessionOutcome? {
+        guard let item = item(bookID), minutes > 0 else { return nil }
+        let seconds = minutes * 60
+        let start = date ?? stamp.addingTimeInterval(-seconds)
+        let session = ReadingSession(
+            bookID: bookID, startedAt: start, seconds: seconds,
+            fromPage: item.currentPage, toPage: toPage, kind: .manual, device: .phone
+        )
+        return log(session)
+    }
+
+    // MARK: - Journal
+
+    func journal(for bookID: String) -> [JournalEntry] {
+        data.journal.filter { $0.bookID == bookID }.sorted { $0.createdAt > $1.createdAt }
+    }
+
+    @discardableResult
+    func addJournalEntry(bookID: String, kind: JournalEntry.Kind = .thought, text: String, page: Int? = nil, sessionID: UUID? = nil) -> JournalEntry? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let book = item(bookID)?.book
+        let entry = JournalEntry(
+            bookID: bookID, bookTitle: book?.title ?? "", bookAuthor: book?.author ?? "",
+            kind: kind, text: trimmed, page: page ?? item(bookID)?.currentPage, sessionID: sessionID, createdAt: stamp
+        )
+        data.journal.append(entry)
+        commit()
+        return entry
+    }
+
+    func updateJournalEntry(_ id: UUID, text: String? = nil, isFavorite: Bool? = nil) {
+        guard let index = data.journal.firstIndex(where: { $0.id == id }) else { return }
+        if let text {
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty { data.journal[index].text = trimmed }
+        }
+        if let isFavorite { data.journal[index].isFavorite = isFavorite }
+        data.journal[index].updatedAt = stamp
+        commit()
+    }
+
+    func deleteJournalEntry(_ id: UUID) {
+        guard data.journal.contains(where: { $0.id == id }) else { return }
+        data.journal.removeAll { $0.id == id }
+        addTombstone(.journal, id.uuidString)
+        commit()
+    }
+
+    // MARK: - Challenges
+
+    func joinChallenge(_ id: String, year: Int? = nil) {
+        guard !data.challenges.contains(where: { $0.id == id && $0.year == year }) else { return }
+        data.challenges.append(ChallengeEnrollment(id: id, joinedAt: stamp, year: year))
+        clearTombstone(.challenge, id)
+        commit()
+    }
+
+    func leaveChallenge(_ id: String, year: Int? = nil) {
+        guard data.challenges.contains(where: { $0.id == id && $0.year == year }) else { return }
+        data.challenges.removeAll { $0.id == id && $0.year == year }
+        addTombstone(.challenge, id)
+        commit()
+    }
+
     // MARK: - Day changes, reset
 
     func refreshDay(_ date: Date = Date()) {
@@ -370,14 +504,24 @@ final class LibraryStore {
 
     // MARK: - Internals
 
+    private func addTombstone(_ kind: Tombstone.Kind, _ key: String) {
+        data.tombstones.removeAll { $0.kind == kind && $0.key == key }
+        data.tombstones.append(Tombstone(kind: kind, key: key, deletedAt: stamp))
+    }
+
+    private func clearTombstone(_ kind: Tombstone.Kind, _ key: String) {
+        data.tombstones.removeAll { $0.kind == kind && $0.key == key }
+    }
+
     private func nextOrder(on shelf: Shelf) -> Double {
         (data.items.filter { $0.shelf == shelf }.map(\.order).max() ?? 0) + 1
     }
 
     private func applyOrder(_ ids: [String]) {
         for (position, id) in ids.enumerated() {
-            if let index = data.items.firstIndex(where: { $0.id == id }) {
+            if let index = data.items.firstIndex(where: { $0.id == id }), data.items[index].order != Double(position) {
                 data.items[index].order = Double(position)
+                data.items[index].updatedAt = stamp
             }
         }
         commit()

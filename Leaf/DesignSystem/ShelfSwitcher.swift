@@ -21,13 +21,14 @@ struct ShelfSwitcher: View {
         case .reading: "Reading"
         case .toRead: "To read"
         case .finished: "Finished"
+        case .paused: "Paused"
         }
     }
 
     var body: some View {
         ScrollView(.horizontal) {
             HStack(alignment: .top, spacing: Space.xl) {
-                ForEach(Shelf.allCases, id: \.self) { shelf in
+                ForEach(Shelf.main, id: \.self) { shelf in
                     tab(shelf)
                 }
             }

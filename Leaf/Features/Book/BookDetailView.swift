@@ -208,7 +208,7 @@ struct BookDetailView: View {
     @ViewBuilder
     private var status: some View {
         switch shelf {
-        case .reading?:
+        case .reading?, .paused?:
             if let item { readingStatus(item) }
         case .toRead?:
             toReadStatus
@@ -398,10 +398,10 @@ struct BookDetailView: View {
                 startReadingNow()
             }
             .sessionZoomSource(zoomSourceID)
-        case .reading?:
+        case .reading?, .paused?:
             GlassEffectContainer(spacing: Space.m) {
                 VStack(spacing: Space.m) {
-                    PrimaryGlassButton(isSessionLive ? "Return to session" : "Start reading", systemImage: "play.fill") {
+                    PrimaryGlassButton(isSessionLive ? "Return to session" : (shelf == .paused ? "Pick it back up" : "Start reading"), systemImage: "play.fill") {
                         startReadingNow()
                     }
                     .sessionZoomSource(zoomSourceID)
@@ -435,6 +435,27 @@ struct BookDetailView: View {
                 Label("Mark finished", systemImage: "checkmark.circle")
             }
         case .reading?:
+            Button {
+                markFinished()
+            } label: {
+                Label("Mark finished", systemImage: "checkmark.circle")
+            }
+            Button {
+                LibraryShelfActions.move(book.id, to: .paused, store: store)
+            } label: {
+                Label("Set aside for now", systemImage: "pause.circle")
+            }
+            Button {
+                LibraryShelfActions.move(book.id, to: .toRead, store: store)
+            } label: {
+                Label("Move to To read", systemImage: "bookmark")
+            }
+        case .paused?:
+            Button {
+                LibraryShelfActions.move(book.id, to: .reading, store: store)
+            } label: {
+                Label("Pick it back up", systemImage: "book")
+            }
             Button {
                 markFinished()
             } label: {

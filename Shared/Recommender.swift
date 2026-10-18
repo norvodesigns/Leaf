@@ -207,6 +207,9 @@ enum Engagement {
             return clamp(0.2 + 0.4 * item.progress + steady)
         case .toRead:
             return 0.2
+        case .paused:
+            // Setting a book down says little unless it was early on; far in, it was probably just life.
+            return clamp(-0.15 + 0.35 * item.progress)
         }
     }
 

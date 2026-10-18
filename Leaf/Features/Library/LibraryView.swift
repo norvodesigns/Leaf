@@ -67,7 +67,7 @@ struct LibraryView: View {
     @ViewBuilder
     private var shelf: some View {
         switch router.libraryShelf {
-        case .reading:
+        case .reading, .paused:
             LibraryReadingShelf(onRemove: requestRemoval)
                 .transition(.opacity)
         case .toRead:

@@ -114,5 +114,111 @@ struct LibraryStoreTests {
         #expect(snapshot.week.count == 7)
         #expect(snapshot.dailyMinutes == 25)
     }
+
+    // MARK: Foundation (paused shelf, position, tombstones, journal)
+
+    @Test func settingABookAsideKeepsItsPageAndLeavesThePlan() {
+        let store = makeStore()
+        store.add(book("a"), to: .reading)
+        store.setPage("a", page: 120)
+        store.add(book("b"), to: .toRead)
+        store.pause("a")
+        #expect(store.item("a")?.shelf == .paused)
+        #expect(store.item("a")?.currentPage == 120)
+        #expect(store.item("a")?.pausedAt != nil)
+        #expect(!store.plan.books.contains { $0.id == "a" })
+        store.startReading("a")
+        #expect(store.item("a")?.shelf == .reading)
+        #expect(store.item("a")?.pausedAt == nil)
+    }
+
+    @Test func whereAreYouRecordsTheStartingPage() {
+        let store = makeStore()
+        store.add(book("a"), to: .toRead)
+        #expect(store.item("a")?.positionConfirmed == false)
+        store.confirmPosition("a", page: 80, mode: .percent)
+        #expect(store.item("a")?.currentPage == 80)
+        #expect(store.item("a")?.startPage == 80)
+        #expect(store.item("a")?.positionConfirmed == true)
+        #expect(store.item("a")?.progressMode == .percent)
+    }
+
+    @Test func firstSessionIsMeasuredFromWhereTheReaderBegan() {
+        let store = makeStore()
+        store.add(book("a"), to: .reading)
+        store.confirmPosition("a", page: 100)
+        store.startSession(bookID: "a", startedAt: Date().addingTimeInterval(-1200))
+        let outcome = store.finishSession(toPage: 140)
+        #expect(outcome?.session.fromPage == 100)
+        #expect(outcome?.session.pagesRead == 40)
+        #expect(store.item("a")?.startPage == 100)
+    }
+
+    @Test func deletingLeavesATombstoneAndReAddingClearsIt() {
+        let store = makeStore()
+        store.add(book("a"), to: .toRead)
+        store.remove("a")
+        #expect(store.data.tombstones.contains { $0.kind == .item && $0.key == "a" })
+        store.add(book("a"), to: .toRead)
+        #expect(!store.data.tombstones.contains { $0.kind == .item && $0.key == "a" })
+    }
+
+    @Test func changesAreStampedForMerging() {
+        let store = makeStore()
+        var time = Date(timeIntervalSince1970: 1_000_000)
+        store.clock = { time }
+        store.add(book("a"), to: .toRead)
+        #expect(store.item("a")?.updatedAt == time)
+        time = time.addingTimeInterval(60)
+        store.setRating("a", rating: 4)
+        #expect(store.item("a")?.updatedAt == time)
+        time = time.addingTimeInterval(60)
+        store.updatePreferences { $0.dailyMinutes = 45 }
+        #expect(store.preferences.updatedAt == time)
+    }
+
+    @Test func manualLogsCountAsReading() {
+        let store = makeStore()
+        store.add(book("a"), to: .reading)
+        let outcome = store.logManual(bookID: "a", minutes: 20, toPage: 30)
+        #expect(outcome?.session.kind == .manual)
+        #expect(store.item("a")?.currentPage == 30)
+        #expect(store.minutesReadToday >= 20 || store.sessions(for: "a").count == 1)
+    }
+
+    @Test func journalEntriesKeepTheirBookAfterItLeaves() {
+        let store = makeStore()
+        store.add(book("a"), to: .reading)
+        let entry = store.addJournalEntry(bookID: "a", kind: .quote, text: "  A line worth keeping.  ")
+        #expect(entry?.text == "A line worth keeping.")
+        #expect(entry?.bookTitle == "A")
+        #expect(store.addJournalEntry(bookID: "a", text: "   ") == nil)
+        store.remove("a")
+        #expect(store.journal(for: "a").count == 1)
+        if let id = entry?.id {
+            store.deleteJournalEntry(id)
+            #expect(store.journal(for: "a").isEmpty)
+            #expect(store.data.tombstones.contains { $0.kind == .journal && $0.key == id.uuidString })
+        }
+    }
+
+    @Test func teaAndGoalTravelWithTheSession() {
+        let store = makeStore()
+        store.add(book("a"), to: .reading)
+        let active = store.startSession(bookID: "a", startedAt: Date().addingTimeInterval(-600), teaID: "earl-grey", goalSeconds: 1500, ambienceID: "rain")
+        #expect(active?.teaID == "earl-grey")
+        let outcome = store.finishSession(toPage: 20)
+        #expect(outcome?.session.teaID == "earl-grey")
+        #expect(outcome?.session.ambienceID == "rain")
+    }
+
+    @Test func challengesCanBeJoinedAndLeft() {
+        let store = makeStore()
+        store.joinChallenge("autumn-readathon", year: 2026)
+        store.joinChallenge("autumn-readathon", year: 2026)
+        #expect(store.data.challenges.count == 1)
+        store.leaveChallenge("autumn-readathon", year: 2026)
+        #expect(store.data.challenges.isEmpty)
+    }
 }
 #endif

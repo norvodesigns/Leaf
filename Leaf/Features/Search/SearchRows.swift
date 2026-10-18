@@ -157,6 +157,7 @@ enum SearchShelfName {
         case .reading: return "On your Reading shelf"
         case .toRead: return "On your To read list"
         case .finished: return "Finished"
+        case .paused: return "Paused"
         case nil: return "Not in your library"
         }
     }
