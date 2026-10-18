@@ -15,6 +15,7 @@ enum DemoData {
     static let klara = book("OL20883297W", "Klara and the Sun", "Kazuo Ishiguro", 2021, pages: 334, words: 90_180, cover: 10648686, genres: ["science-fiction", "literary"])
     static let midnight = book("OL20965973W", "The Midnight Library", "Matt Haig", 2020, pages: 304, words: 82_080, cover: 10313767, genres: ["fiction"])
     static let educated = book("OL18139176W", "Educated", "Tara Westover", 2018, pages: 384, words: 103_680, cover: 8314077, genres: ["memoir"])
+    static let dune = book("OL893415W", "Dune", "Frank Herbert", 1965, pages: 612, words: 187_000, cover: 12360023, genres: ["science-fiction", "classics"])
     static let nightCircus = book("OL16086747W", "The Night Circus", "Erin Morgenstern", 2011, pages: 512, words: 138_240, cover: 8773134, genres: ["fantasy"])
 
     static func make(now: Date = Date(), calendar: Calendar = .current) -> LeafData {
@@ -31,6 +32,10 @@ enum DemoData {
         data.preferences.reminderMinute = 0
         data.preferences.hasOnboarded = true
         data.preferences.onboardedAt = daysAgo(41)
+        data.preferences.yearlyGoal = 24
+        data.preferences.favoriteTeaID = "earl-grey"
+        data.preferences.ambienceID = "rain"
+        data.preferences.weeklyLetter = true
 
         data.items = [
             LibraryItem(book: hobbit, shelf: .reading, currentPage: 142, order: 0, addedAt: daysAgo(30), startedAt: daysAgo(12)),
@@ -43,6 +48,8 @@ enum DemoData {
             LibraryItem(book: midnight, shelf: .finished, currentPage: midnight.pages, order: 1, addedAt: daysAgo(90), startedAt: daysAgo(55), finishedAt: daysAgo(38), rating: 4),
             LibraryItem(book: educated, shelf: .finished, currentPage: educated.pages, order: 2, addedAt: daysAgo(120), startedAt: daysAgo(95), finishedAt: daysAgo(70), rating: 5),
             LibraryItem(book: nightCircus, shelf: .finished, currentPage: nightCircus.pages, order: 3, addedAt: daysAgo(160), startedAt: daysAgo(140), finishedAt: daysAgo(110), rating: 4),
+            // Set aside a while ago, far enough in that coming back to it is easy.
+            LibraryItem(book: dune, shelf: .paused, currentPage: 188, order: 0, addedAt: daysAgo(75), startedAt: daysAgo(66), pausedAt: daysAgo(31), updatedAt: daysAgo(31)),
         ]
 
         // Twelve days of reading with one rest day, and a short session already today.
@@ -50,10 +57,20 @@ enum DemoData {
         var page = 40
         for (days, length) in minutes.sorted(by: { $0.key > $1.key }) {
             let pages = Int(length * 262 / hobbit.wordsPerPage)
-            data.sessions.append(ReadingSession(bookID: hobbit.id, startedAt: daysAgo(days), seconds: length * 60, fromPage: page, toPage: page + pages))
+            let tea = days % 3 == 0 ? "sencha" : (days % 2 == 0 ? "earl-grey" : nil)
+            data.sessions.append(ReadingSession(bookID: hobbit.id, startedAt: daysAgo(days), seconds: length * 60, fromPage: page, toPage: page + pages, teaID: tea, ambienceID: tea == nil ? nil : "rain"))
             page += pages
         }
         data.sessions.append(ReadingSession(bookID: hobbit.id, startedAt: daysAgo(0, hour: 8), seconds: 12 * 60, fromPage: 133, toPage: 142))
+        data.journal = [
+            JournalEntry(bookID: hobbit.id, bookTitle: hobbit.title, bookAuthor: hobbit.author, kind: .thought, text: "Bilbo is exactly as stubborn about comfort as I am about tea.", page: 61, isFavorite: true, createdAt: daysAgo(6)),
+            JournalEntry(bookID: circe.id, bookTitle: circe.title, bookAuthor: circe.author, kind: .quote, text: "I thought: this is what it is to be alive.", page: 74, createdAt: daysAgo(9)),
+            JournalEntry(bookID: klara.id, bookTitle: klara.title, bookAuthor: klara.author, kind: .thought, text: "Finished at 1am and sat there a while. Worth every page.", page: klara.pages, createdAt: daysAgo(14)),
+        ]
+        data.challenges = [
+            ChallengeEnrollment(id: "yearly-goal", joinedAt: daysAgo(41), year: calendar.component(.year, from: now)),
+            ChallengeEnrollment(id: "spooky-season", joinedAt: daysAgo(10), year: calendar.component(.year, from: now)),
+        ]
         data.speedTests = [SpeedTestResult(date: daysAgo(30), passageID: "bindery", words: 302, seconds: 69, correct: 3, total: 3)]
         return data
     }
