@@ -4,14 +4,14 @@
 #
 #   TEAM_ID=ABCDE12345 scripts/testflight.sh
 #
-# Signing uses the Apple ID you're signed in with in Xcode → Settings → Accounts. To use an
+# Signing uses the Apple ID you're signed in with in Xcode > Settings → Accounts. To use an
 # App Store Connect API key instead (no Xcode login needed), also set:
 #   ASC_KEY_ID=XXXXXXXXXX ASC_ISSUER_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 #   ASC_KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_XXXXXXXXXX.p8   (this path is the default)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-: "${TEAM_ID:?Set TEAM_ID to your 10-character Team ID (developer.apple.com/account → Membership details)}"
+: "${TEAM_ID:?Set TEAM_ID to your 10-character Team ID (developer.apple.com/account > Membership)}"
 # Every upload needs a higher build number than the last; a timestamp always is.
 BUILD_NUMBER="${BUILD_NUMBER:-$(date +%Y%m%d%H%M)}"
 ARCHIVE="build/Leaf.xcarchive"
@@ -29,7 +29,7 @@ fi
 rm -rf "$ARCHIVE" "$EXPORT_DIR"
 mkdir -p build
 
-echo "▸ Archiving build $BUILD_NUMBER…"
+echo "==> Archiving build ${BUILD_NUMBER} ..."
 xcodebuild \
   -project Leaf.xcodeproj \
   -scheme Leaf \
@@ -63,7 +63,7 @@ cat > build/ExportOptions.plist <<PLIST
 </plist>
 PLIST
 
-echo "▸ Uploading to App Store Connect…"
+echo "==> Uploading to App Store Connect ..."
 xcodebuild \
   -exportArchive \
   -archivePath "$ARCHIVE" \
@@ -72,4 +72,4 @@ xcodebuild \
   -allowProvisioningUpdates \
   ${AUTH[@]+"${AUTH[@]}"}
 
-echo "✓ Uploaded build $BUILD_NUMBER. It shows up under App Store Connect → TestFlight after Apple processes it (usually 5–15 minutes)."
+echo "Done. Uploaded build ${BUILD_NUMBER}. It shows up under App Store Connect > TestFlight after Apple processes it (usually 5-15 minutes)."
