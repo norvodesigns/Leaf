@@ -1,32 +1,44 @@
-"""Adds a `th` (themes) list to every book in Leaf/Resources/books.json.
+"""Curated theme lexicon, and a tool that adds a `th` (themes) list to every book in scripts/data/books.seed.json.
 
 Genres (32 of them) are too coarse to say why two books feel alike. Themes are the specific things a book is about:
 "dragons", "found family", "books about books", "world war ii", "the harry potter universe".
 
 Raw Open Library subjects are far too noisy to use directly (foreign-language words, library metadata, a dozen
 spellings of the same idea). So themes come from a **curated lexicon**: about 150 canonical themes, each defined by
-patterns over the cleaned subject strings. The same lexicon works at any catalog size, which matters for the 250k build.
+patterns over the cleaned subject strings. The same lexicon works at any catalog size, which is why the dump pipeline
+(`scripts/catalog/`) imports it as a module:
+
+    import add_themes                                  # no side effects: nothing runs and nothing is written
+    hits, universes = add_themes.themes_for_subjects(raw_subjects)
+    themes = add_themes.choose_themes(hits, universes, document_frequency, total_books)
+
+Run as a script it reads cached subjects from scripts/.cache (no network) and rewrites only the `th` key:
 
     python3 -I scripts/add_themes.py
-
-Reads cached subjects from scripts/.cache (no network). Safe to re-run: it only rewrites the `th` key.
 """
 import glob
 import importlib.util
 import json
 import os
 import re
-import sys
 from collections import Counter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-CATALOG = os.path.join(HERE, "..", "Leaf", "Resources", "books.json")
+CATALOG = os.path.join(HERE, "data", "books.seed.json")
 CACHE = os.path.join(HERE, ".cache")
 
-spec = importlib.util.spec_from_file_location("build_catalog", os.path.join(HERE, "build_catalog.py"))
-bc = importlib.util.module_from_spec(spec)
-sys.modules["build_catalog"] = bc
-spec.loader.exec_module(bc)
+_BUILD_CATALOG = []
+
+
+def build_catalog_module():
+    """scripts/build_catalog.py, loaded by path on first use and not registered in sys.modules."""
+    if not _BUILD_CATALOG:
+        spec = importlib.util.spec_from_file_location("build_catalog", os.path.join(HERE, "build_catalog.py"))
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        _BUILD_CATALOG.append(module)
+    return _BUILD_CATALOG[0]
+
 
 # (canonical theme, regex over the cleaned subject, hidden)
 # `hidden` themes help similarity but are never shown as row titles or "because" reasons.
@@ -197,7 +209,7 @@ PER_BOOK = 8
 
 
 def normalize(subject):
-    s = bc.fold(subject).strip().lower()
+    s = build_catalog_module().fold(subject).strip().lower()
     s = s.split(" -- ")[0]
     s = TAIL.sub("", s).strip(" ,;.")
     return re.sub(r"\s+", " ", s)
@@ -217,23 +229,82 @@ def universe_name(s):
     return name
 
 
-def themes_for(doc):
-    subjects = []
-    for raw in doc.get("subject") or []:
-        s = normalize(raw)
-        if s and len(s) <= 60 and not NON_ASCII.search(s) and not bc.NOISE_SUBJECT.search(s):
-            subjects.append(s)
+_SUBJECT_CACHE = {}
+_SUBJECT_CACHE_LIMIT = 1_000_000
+
+
+def subject_hits(subject):
+    """What one raw subject says: `(themes it matches, universe or None)`, or None for a subject to ignore.
+
+    Memoised, because a catalog of hundreds of thousands of books repeats the same few thousand subjects over and
+    over, and the lexicon has about 150 patterns.
+    """
+    cached = _SUBJECT_CACHE.get(subject)
+    if cached is not None or subject in _SUBJECT_CACHE:
+        return cached
+    result = None
+    s = normalize(subject)
+    if s and len(s) <= 60 and not NON_ASCII.search(s) and not build_catalog_module().NOISE_SUBJECT.search(s):
+        universe = universe_name(s)
+        if universe:
+            result = ((), universe)
+        else:
+            result = (tuple(name for name, rx, _hidden in LEXICON if rx.search(s)), None)
+    if len(_SUBJECT_CACHE) >= _SUBJECT_CACHE_LIMIT:
+        _SUBJECT_CACHE.clear()
+    _SUBJECT_CACHE[subject] = result
+    return result
+
+
+def themes_for_subjects(raw_subjects):
+    """Counts of lexicon themes and of series universes found in a book's raw Open Library subjects."""
     hits = Counter()
     universes = Counter()
-    for s in subjects:
-        u = universe_name(s)
-        if u:
-            universes[u] += 1
+    for raw in raw_subjects or []:
+        found = subject_hits(raw)
+        if not found:
             continue
-        for name, rx, _hidden in LEXICON:
-            if rx.search(s):
-                hits[name] += 1
+        names, universe = found
+        if universe:
+            universes[universe] += 1
+        else:
+            hits.update(names)
     return hits, universes
+
+
+def themes_for(doc):
+    """`themes_for_subjects` for an Open Library search document (its `subject` list)."""
+    return themes_for_subjects(doc.get("subject"))
+
+
+def document_frequency(per_book):
+    """How many books each theme (and `series:` universe) appears in, from `(hits, universes)` pairs."""
+    df = Counter()
+    for hits, universes in per_book:
+        df.update(hits.keys())
+        df.update("series:" + u for u in universes)
+    return df
+
+
+def choose_themes(hits, universes, df, total_books, per_book=PER_BOOK, min_df=MIN_DF):
+    """The themes to keep for one book, best first: rare and repeated beats common and incidental.
+
+    `df` and `total_books` describe the whole catalog being built, so the same book can score differently in a
+    5,000-book and a 250,000-book catalog; that is intended.
+    """
+    n = max(1, total_books)
+    scored = []
+    for name, count in hits.items():
+        if df[name] < min_df:
+            continue
+        # Specific beats common; several matching subjects beat one.
+        scored.append((name, count / (1.0 + df[name] / n * 6.0)))
+    # A book usually has several character subjects for one series; keep the two most widely shared.
+    shared = sorted(((df["series:" + u], u, count) for u, count in universes.items() if df["series:" + u] >= 3), reverse=True)
+    for _df, u, count in shared[:2]:
+        scored.append(("series:" + u, 2.0 + count))
+    scored.sort(key=lambda kv: (-kv[1], kv[0]))
+    return [name for name, _ in scored[:per_book]]
 
 
 def load_cache():
@@ -253,30 +324,20 @@ def load_cache():
 def main():
     books = json.load(open(CATALOG, encoding="utf-8"))
     docs = load_cache()
+    if not docs:
+        # Rewriting every book's themes from an empty cache would silently wipe them.
+        print("No cached Open Library search results in %s; run scripts/build_catalog.py first. Nothing changed." % CACHE)
+        return
     raw = {}
-    df = Counter()
     for b in books:
         doc = docs.get(b["id"])
-        hits, universes = themes_for(doc) if doc else (Counter(), Counter())
-        raw[b["id"]] = (hits, universes)
-        df.update(hits.keys())
-        df.update("series:" + u for u in universes)
+        raw[b["id"]] = themes_for(doc) if doc else (Counter(), Counter())
+    df = document_frequency(raw.values())
 
     n = len(books)
     for b in books:
         hits, universes = raw[b["id"]]
-        scored = []
-        for name, count in hits.items():
-            if df[name] < MIN_DF:
-                continue
-            # Specific beats common; several matching subjects beat one.
-            scored.append((name, count / (1.0 + df[name] / n * 6.0)))
-        # A book usually has several character subjects for one series; keep the two most widely shared.
-        shared = sorted(((df["series:" + u], u, count) for u, count in universes.items() if df["series:" + u] >= 3), reverse=True)
-        for _df, u, count in shared[:2]:
-            scored.append(("series:" + u, 2.0 + count))
-        scored.sort(key=lambda kv: (-kv[1], kv[0]))
-        b["th"] = [name for name, _ in scored[:PER_BOOK]]
+        b["th"] = choose_themes(hits, universes, df, n)
 
     with open(CATALOG, "w", encoding="utf-8") as fh:
         json.dump(books, fh, ensure_ascii=False, separators=(",", ":"))

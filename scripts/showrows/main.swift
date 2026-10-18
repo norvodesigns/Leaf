@@ -6,7 +6,7 @@ import Foundation
 
 struct Rec: Decodable { let id: String, t: String, a: String; let y: Int?; let p: Int; let w: Int?; let c: Int?; let g: [String]?; let pop: Int?; let th: [String]?
     var book: Book { Book(id: id, title: t, author: a, year: y, pages: p, words: w, coverID: c, genres: g ?? [], popularity: pop ?? 0, themes: th) } }
-let catalogURL = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Leaf/Resources/books.json")
+let catalogURL = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("scripts/data/books.seed.json")
 let data = try! Data(contentsOf: catalogURL)
 let books = try! JSONDecoder().decode([Rec].self, from: data).map(\.book)
 let stats = CatalogStats(books: books)

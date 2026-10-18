@@ -45,10 +45,10 @@ Leaf/                 iPhone app
   DesignSystem/       colors, type, and components
   Features/           Onboarding, Today, Library, Plan, Search, Book, Session, Settings
   Core/               speed-test passages
-  Resources/          asset catalog, bundled books.json, fonts, privacy manifest
+  Resources/          asset catalog, bundled catalog.sqlite, fonts, privacy manifest
 LeafWatch/            Apple Watch app
 LeafTests/            unit tests (Swift Testing)
-scripts/              catalog builder (Open Library → books.json), icon generator, TestFlight upload, CI helpers
+scripts/              catalog pipeline (Open Library dumps → catalog.sqlite), icon generator, TestFlight upload, CI helpers
 docs/                 TestFlight guide, privacy policy, design spec (DESIGN.md) and component index (DESIGN_SYSTEM.md)
 ```
 

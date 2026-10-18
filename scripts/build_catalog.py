@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Build Leaf's bundled offline book catalog (Leaf/Resources/books.json).
+"""Build the quick-start seed catalog (scripts/data/books.seed.json) from the Open Library search API.
+
+This is the small, crawl-based catalog (about 5,000 books). The app no longer bundles this JSON: the bundled catalog is
+the SQLite database that scripts/catalog/build_catalog_db.py makes, either from the full Open Library dumps or, with
+--from-json, from this seed. This file is also the home of the quality rules and the subject-to-genre mapping that the
+dump pipeline imports, so edit those here and both pipelines follow.
 
 Data source: the Open Library search API (https://openlibrary.org/search.json).
 Python 3 standard library only.  Run from anywhere:
@@ -30,7 +35,7 @@ from collections import Counter, defaultdict
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CACHE_DIR = os.path.join(ROOT, "scripts", ".cache")
-OUT_PATH = os.path.join(ROOT, "Leaf", "Resources", "books.json")
+OUT_PATH = os.path.join(ROOT, "scripts", "data", "books.seed.json")
 
 API = "https://openlibrary.org/search.json"
 USER_AGENT = "Leaf/1.0 (https://github.com/norvodesigns/leaf)"

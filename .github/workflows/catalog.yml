@@ -1,0 +1,109 @@
+name: Catalog
+
+# Rebuilds the bundled book catalog (Leaf/Resources/catalog.sqlite) from the Open Library data dumps.
+#
+# Start it by pushing a change to scripts/catalog/REBUILD, or by hand (Actions, Catalog, Run workflow).
+# It streams about 17 GB of dumps through gzip and stores none of them; expect one to two hours.
+# The new database is committed to main only if every sanity check passes, and is always attached to the run as an
+# artifact. Its own commit never starts another run (it does not touch REBUILD, and commits made with GITHUB_TOKEN
+# do not trigger workflows), so it cannot loop. See docs/CATALOG.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dump_date:
+        description: "Pin to one monthly dump, e.g. 2026-09-30 (empty means the latest)"
+        required: false
+        default: ""
+      min_popularity:
+        description: "Reading-log entries plus ratings a book needs to be considered (lower it if the row count check fails)"
+        required: false
+        default: "3"
+      commit:
+        description: "Commit the database to main when the checks pass"
+        type: boolean
+        default: true
+  push:
+    branches: [main]
+    paths: ['scripts/catalog/REBUILD']
+
+concurrency:
+  group: catalog-rebuild
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    env:
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Python tests
+        run: python3 -I -m unittest discover -s scripts/catalog/tests
+
+      - name: Disk and memory before the build
+        run: |
+          df -h . "$RUNNER_TEMP"
+          free -m
+
+      - name: Build from the Open Library dumps
+        env:
+          DUMP_DATE: ${{ github.event.inputs.dump_date }}
+          MIN_POPULARITY: ${{ github.event.inputs.min_popularity }}
+          LEAF_CATALOG_CONTACT: ${{ vars.CATALOG_CONTACT || 'https://github.com/norvodesigns/leaf/issues' }}
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          ARGS=(--out build/catalog.sqlite --work-dir "$RUNNER_TEMP/catalog-work")
+          if [ -n "$DUMP_DATE" ]; then ARGS+=(--dump-date "$DUMP_DATE"); fi
+          if [ -n "$MIN_POPULARITY" ]; then ARGS+=(--min-popularity "$MIN_POPULARITY"); fi
+          python3 -I scripts/catalog/build_catalog_db.py "${ARGS[@]}" 2>&1 | tee build/build.log
+
+      - name: Sanity checks
+        run: |
+          set -euo pipefail
+          python3 -I scripts/catalog/check_catalog.py build/catalog.sqlite \
+            --min-rows 150000 --max-mb 60 --max-p95-ms 30 --require-full | tee build/checks.log
+
+      - name: Keep the database and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: catalog-${{ github.run_number }}
+          path: |
+            build/catalog.sqlite
+            build/build.log
+            build/checks.log
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Commit to main
+        if: ${{ success() && github.event.inputs.commit != 'false' }}
+        run: |
+          set -euo pipefail
+          BOOKS=$(python3 -I -c "import sqlite3; print(sqlite3.connect('build/catalog.sqlite').execute('SELECT COUNT(*) FROM books').fetchone()[0])")
+          cp build/catalog.sqlite Leaf/Resources/catalog.sqlite
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Leaf/Resources/catalog.sqlite
+          if git diff --cached --quiet; then
+            echo "The rebuilt catalog is identical to the one on main; nothing to commit."
+            exit 0
+          fi
+          git commit -m "Catalog: rebuild ($BOOKS books)"
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then exit 0; fi
+            echo "push rejected (attempt $attempt); rebasing onto main and retrying"
+            git pull --rebase origin main
+          done
+          echo "could not push the catalog after three attempts" >&2
+          exit 1

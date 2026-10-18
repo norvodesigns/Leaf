@@ -1,87 +1,89 @@
 import Foundation
 import Observation
 
-/// One row of the bundled `books.json` (short keys keep the file small).
-struct CatalogRecord: Decodable, Sendable {
-    let id: String
-    let t: String
-    let a: String
-    let y: Int?
-    let p: Int
-    let w: Int?
-    let c: Int?
-    let g: [String]?
-    let pop: Int?
-    let th: [String]?
-
-    var book: Book {
-        Book(id: id, title: t, author: a, year: y, pages: p, words: w, coverID: c, genres: g ?? [], popularity: pop ?? 0, themes: th)
-    }
-}
-
-/// The offline catalog: thousands of popular and classic books, searchable without a connection.
+/// The offline catalog: hundreds of thousands of books, searchable without a connection.
+///
+/// The data lives in the bundled read-only SQLite database (`CatalogDatabase`), never in memory as a whole. Two views of it:
+///
+/// * `books` is the **browse pool**: the best-known books that have genres or themes (about 25,000 in the full build).
+///   The carousels, the recommender and the onboarding picks work on this list, so they stay fast and every book in
+///   them can be explained.
+/// * `search(_:limit:)` and `book(id:)` reach **every** book in the database, pool or not.
 @MainActor
 @Observable
 final class BookCatalog {
     static let shared = BookCatalog()
 
+    /// The browse pool, most popular first. Empty until `load()` finishes. Not the whole catalog: use `search` or
+    /// `book(id:)` to reach books outside it.
     private(set) var books: [Book] = []
     private(set) var isLoaded = false
-    /// Corpus-wide counts the recommender weighs features by; built once, right after the books load.
+    /// Pool-wide counts the recommender weighs features by; built once, right after the pool loads.
     @ObservationIgnored private(set) var stats = CatalogStats(books: [])
 
-    @ObservationIgnored private var index: [(book: Book, title: String, author: String, words: [String])] = []
+    private let databaseURL: URL?
+    @ObservationIgnored private var databaseOpened = false
+    @ObservationIgnored private var openedDatabase: CatalogDatabase?
+    /// The pool by id, for the common lookup.
     @ObservationIgnored private var byID: [String: Book] = [:]
+    /// Books outside the pool that were asked for by id; small, and emptied when it grows past `recentLimit`.
+    @ObservationIgnored private var recent: [String: Book] = [:]
     @ObservationIgnored private var loadTask: Task<Void, Never>?
+    private static let recentLimit = 256
 
-    /// Loads `books.json` off the main thread. Safe to call repeatedly.
+    /// `databaseURL` is for tests and previews; the app uses the `catalog.sqlite` in its bundle.
+    init(databaseURL: URL? = nil) {
+        self.databaseURL = databaseURL ?? Bundle.main.url(forResource: "catalog", withExtension: "sqlite")
+    }
+
+    /// The database, opened on first use. Opening reads two tiny tables, so it is cheap enough for the main actor.
+    private var database: CatalogDatabase? {
+        if !databaseOpened {
+            databaseOpened = true
+            openedDatabase = databaseURL.flatMap { CatalogDatabase(url: $0) }
+        }
+        return openedDatabase
+    }
+
+    /// Loads the browse pool off the main thread. Safe to call repeatedly.
     func load() async {
         if isLoaded { return }
         if let loadTask { return await loadTask.value }
+        let database = self.database
         let task = Task {
             let loaded = await Task.detached(priority: .userInitiated) { () -> (books: [Book], stats: CatalogStats) in
-                guard let url = Bundle.main.url(forResource: "books", withExtension: "json"),
-                      let data = try? Data(contentsOf: url),
-                      let records = try? JSONDecoder().decode([CatalogRecord].self, from: data) else { return ([], CatalogStats(books: [])) }
-                let books = records.map(\.book)
-                return (books, CatalogStats(books: books))
+                let pool = database?.pool() ?? []
+                return (pool, CatalogStats(books: pool))
             }.value
             self.books = loaded.books
             self.stats = loaded.stats
             self.byID = Dictionary(loaded.books.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-            self.index = loaded.books.map { book in
-                let title = BookCatalog.normalize(book.title)
-                let author = BookCatalog.normalize(book.author)
-                return (book, title, author, (title + " " + author).split(separator: " ").map(String.init))
-            }
             self.isLoaded = true
         }
         loadTask = task
         await task.value
     }
 
-    func book(id: String) -> Book? { byID[id] }
+    /// Any catalog book by Open Library work id, in the pool or not.
+    func book(id: String) -> Book? {
+        if let known = byID[id] ?? recent[id] { return known }
+        guard let found = database?.book(id: id) else { return nil }
+        if recent.count >= Self.recentLimit { recent.removeAll(keepingCapacity: true) }
+        recent[id] = found
+        return found
+    }
 
-    /// Ranked local search over titles and authors. Every query word must prefix-match a word.
+    /// Ranked search over every title and author. Every word typed must start a word in the title or author; exact
+    /// titles come first, then titles that start with the query, then the rest, best-known first. A few milliseconds
+    /// at 250,000 books, so it is fine to call on the main actor for each keystroke.
     func search(_ query: String, limit: Int = 40) -> [Book] {
-        let normalized = BookCatalog.normalize(query)
-        let terms = normalized.split(separator: " ").map(String.init)
-        guard !terms.isEmpty else { return [] }
-        var scored: [(Book, Double)] = []
-        for entry in index {
-            guard terms.allSatisfy({ term in entry.words.contains { $0.hasPrefix(term) } }) else { continue }
-            var score = log(Double(entry.book.popularity) + 10)
-            if entry.title == normalized { score += 40 }
-            else if entry.title.hasPrefix(normalized) { score += 20 }
-            else if entry.title.contains(normalized) { score += 8 }
-            if entry.author.contains(normalized) { score += 10 }
-            scored.append((entry.book, score))
-        }
-        return scored.sorted { $0.1 > $1.1 }.prefix(limit).map(\.0)
+        guard limit > 0, let expression = CatalogQuery.ftsExpression(for: query), let database else { return [] }
+        let candidates = database.search(match: expression, limit: CatalogQuery.candidateLimit)
+        return CatalogQuery.rank(candidates, query: query, limit: limit)
     }
 
     /// Rows for browsing: moods, genres, themes, series, authors, decades, time budgets and, once the reader has
-    /// history, rows picked from their taste. Built off the main thread, since a big catalog makes this real work.
+    /// history, rows picked from their taste. Built off the main thread over the browse pool, since that is real work.
     func collections(context: RecommendationContext) async -> [BookCollection] {
         let books = books, stats = stats
         return await Task.detached(priority: .userInitiated) {
@@ -98,8 +100,6 @@ final class BookCatalog {
     }
 
     nonisolated static func normalize(_ text: String) -> String {
-        let folded = text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US"))
-        let cleaned = folded.unicodeScalars.map { CharacterSet.alphanumerics.contains($0) ? Character($0) : " " }
-        return String(cleaned).split(separator: " ").joined(separator: " ")
+        CatalogQuery.normalize(text)
     }
 }

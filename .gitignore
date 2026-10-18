@@ -11,3 +11,4 @@ build/
 # Catalog builder cache
 scripts/.cache/
 __pycache__/
+.ci/

@@ -1,0 +1,9 @@
+Push a change to this file (any change, for example bump the number below) to rebuild Leaf/Resources/catalog.sqlite
+from the latest Open Library data dumps. The "Catalog" workflow (.github/workflows/catalog.yml) does the work and, only if
+every sanity check passes, commits the new database to main as "Catalog: rebuild (N books)". It takes about one to
+two hours. Nothing else triggers it: editing other files never starts a rebuild, and the workflow's own commit does not
+touch this file, so it can never loop.
+
+You can also start it by hand: GitHub, Actions, Catalog, Run workflow (optionally pin a dump date such as 2026-09-30).
+
+Rebuild requests so far: 0

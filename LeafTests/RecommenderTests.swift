@@ -20,9 +20,10 @@ private struct Rec: Decodable {
     var book: Book { Book(id: id, title: t, author: a, year: y, pages: p, words: w, coverID: c, genres: g ?? [], popularity: pop ?? 0, themes: th) }
 }
 
-/// The real bundled catalog, or nil if the file isn't reachable from where the tests run.
+/// The real seed catalog (the 5,265-book crawl the bundled database was first built from), or nil if the file isn't
+/// reachable from where the tests run.
 private func realCatalog() -> [Book]? {
-    let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Leaf/Resources/books.json")
+    let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("scripts/data/books.seed.json")
     guard let data = try? Data(contentsOf: url), let records = try? JSONDecoder().decode([Rec].self, from: data) else { return nil }
     return records.map(\.book)
 }

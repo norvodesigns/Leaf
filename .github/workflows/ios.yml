@@ -84,7 +84,7 @@ jobs:
           [ "$(plist_value "$APP/Info.plist" NSSupportsLiveActivitiesFrequentUpdates)" = "false" ] || fail "Leaf.app Info.plist should set NSSupportsLiveActivitiesFrequentUpdates = NO"
           plist_value "$APP/Info.plist" UIBackgroundModes | grep -q "remote-notification" || fail "Leaf.app Info.plist is missing the remote-notification background mode"
           echo "widget extension embedded and declared correctly"
-          test -f "$APP/books.json" && echo "books.json bundled ($(wc -c < "$APP/books.json") bytes)"
+          test -f "$APP/catalog.sqlite" && echo "catalog.sqlite bundled ($(wc -c < "$APP/catalog.sqlite") bytes)"
           test -f "$APP/PrivacyInfo.xcprivacy" && echo "iOS privacy manifest bundled"
           test -f "$WATCH/PrivacyInfo.xcprivacy" && echo "watch privacy manifest bundled"
           ls "$APP" | grep -E "Assets.car|InstrumentSerif" || true
