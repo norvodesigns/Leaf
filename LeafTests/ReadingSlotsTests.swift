@@ -126,20 +126,33 @@ struct ReadingSlotsTests {
                 cursor += pages
             }
             let slotCount = 1 + Int(rng.next() % 4)
-            let slots = (0..<slotCount).map { i in
-                slot(6 + i * 4, Int(rng.next() % 4) * 15, book: rng.next() % 3 == 0 ? "b\(Int(rng.next() % UInt64(bookCount + 1)))" : nil)
+            var slots: [ReadingSlot] = []
+            for i in 0..<slotCount {
+                let hour: Int = 6 + i * 4
+                let minute: Int = Int(rng.next() % 4) * 15
+                var pinnedBook: String?
+                if rng.next() % 3 == 0 { pinnedBook = "b" + String(Int(rng.next() % UInt64(bookCount + 1))) }
+                slots.append(slot(hour, minute, book: pinnedBook))
             }
             let plans = SlotPlanner.plan(day: day(assignments), slots: slots, calendar: calendar)
-            let parts = plans.flatMap(\.parts)
-            #expect(abs(parts.map(\.minutes).reduce(0, +) - assignments.map(\.minutes).reduce(0, +)) < 1e-6, "minutes preserved (trial \(trial))")
+            let parts: [SlotPart] = plans.flatMap(\.parts)
+            let plannedMinutes: Double = assignments.map(\.minutes).reduce(0, +)
+            let slottedMinutes: Double = parts.map(\.minutes).reduce(0, +)
+            #expect(abs(slottedMinutes - plannedMinutes) < 1e-6, "minutes preserved (trial \(trial))")
             for assignment in assignments {
                 let mine = parts.filter { $0.bookID == assignment.bookID }.sorted { $0.fromPage < $1.fromPage }
                 #expect(mine.first?.fromPage == assignment.fromPage, "trial \(trial)")
                 #expect(mine.last?.toPage == assignment.toPage, "trial \(trial)")
-                for (left, right) in zip(mine, mine.dropFirst()) { #expect(right.fromPage == left.toPage + 1, "pages contiguous (trial \(trial))") }
-                #expect(mine.filter(\.finishesBook).count == (assignment.finishesBook ? 1 : 0), "trial \(trial)")
+                for (left, right) in zip(mine, mine.dropFirst()) {
+                    let expectedStart: Int = left.toPage + 1
+                    #expect(right.fromPage == expectedStart, "pages contiguous (trial \(trial))")
+                }
+                let finishing: Int = mine.filter(\.finishesBook).count
+                let expectedFinishing: Int = assignment.finishesBook ? 1 : 0
+                #expect(finishing == expectedFinishing, "trial \(trial)")
             }
-            #expect(plans.map(\.slot.minuteOfDay) == plans.map(\.slot.minuteOfDay).sorted(), "chronological")
+            let times: [Int] = plans.map(\.slot.minuteOfDay)
+            #expect(times == times.sorted(), "chronological")
         }
     }
 
