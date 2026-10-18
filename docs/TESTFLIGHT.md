@@ -22,7 +22,10 @@ on Apple's processing. After that, each new build is Archive → Upload.
 
 ## 1. Open the project
 
-1. Install **Xcode 26 or later** from the Mac App Store.
+1. Install a **release** Xcode, 26.6 or later, from the Mac App Store or developer.apple.com/download.
+   App Store Connect rejects uploads built with a beta Xcode (its build number ends in a
+   lowercase letter, like `27A5252f`). You can keep a beta installed and point a single run
+   at the release one: `DEVELOPER_DIR=/Applications/Xcode-26.6.app/Contents/Developer scripts/testflight.sh`.
 2. Clone the repo. In Xcode choose **Integrate → Clone…** and paste
    `https://github.com/norvodesigns/leaf`, or in Terminal run
    `git clone https://github.com/norvodesigns/leaf`.

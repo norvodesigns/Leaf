@@ -12,6 +12,19 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 : "${TEAM_ID:?Set TEAM_ID to your 10-character Team ID (developer.apple.com/account > Membership)}"
+
+# App Store Connect rejects uploads built with a beta Xcode, so stop before spending minutes archiving.
+# Beta build numbers end in a lowercase letter (e.g. 27A5252f). Point DEVELOPER_DIR at a release Xcode to fix it:
+#   DEVELOPER_DIR=/Applications/Xcode-26.6.app/Contents/Developer TEAM_ID=... scripts/testflight.sh
+XCODE_NAME="$(xcodebuild -version 2>/dev/null | head -1)"
+XCODE_BUILD="$(xcodebuild -version 2>/dev/null | awk '/Build version/ {print $3}')"
+echo "==> Using ${XCODE_NAME} (${XCODE_BUILD}) at $(xcode-select -p)"
+if [[ "${XCODE_BUILD}" =~ ^[0-9]+[A-Z][0-9]+[a-z]$ && -z "${ALLOW_BETA_XCODE:-}" ]]; then
+  echo "ERROR: ${XCODE_NAME} (${XCODE_BUILD}) is a beta. App Store Connect only accepts uploads built with a release or RC Xcode." >&2
+  echo "Install Xcode 26.6 (or the Xcode 27 RC) and run again with DEVELOPER_DIR=/Applications/Xcode-26.6.app/Contents/Developer" >&2
+  exit 1
+fi
+
 # Every upload needs a higher build number than the last; a timestamp always is.
 BUILD_NUMBER="${BUILD_NUMBER:-$(date +%Y%m%d%H%M)}"
 ARCHIVE="build/Leaf.xcarchive"
