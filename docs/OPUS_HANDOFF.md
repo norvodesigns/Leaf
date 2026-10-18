@@ -38,7 +38,12 @@ Nothing in the screens has been redesigned yet. The existing screens still work;
   soft (blurred) for what you feel. Read `docs/DESIGN.md` (principles, colour, type, screens, motion, haptics, voice)
   and `docs/DESIGN_SYSTEM.md` (the component API; use it, extend it, never fork it). Where `docs/NEXT.md` disagrees
   with `DESIGN.md`, `NEXT.md` is newer.
-- **Voice:** warm, short, specific, never guilt, no exclamation marks, typographic apostrophes in UI copy (’).
+- **Voice means written tone, not sound.** Nothing in Leaf ever speaks: there is no text-to-speech and no spoken greeting.
+  The "voice engine" (`Shared/Voice/`) only writes short text lines like the "Good afternoon." headline on Today. The
+  only audio is the optional ambience (rain, fire...) and a few tiny cue sounds, and **both are off until the reader
+  turns them on** (`preferences.ambienceID == nil`, `CozySounds.shared.isEnabled == false`). Never start audio
+  automatically, never on launch.
+- **Copy:** warm, short, specific, never guilt, no exclamation marks, typographic apostrophes in UI copy (’).
   The engines already write most of the words; use theirs.
 - **Accessibility is not optional:** Dynamic Type must not clip the big numerals, every gesture needs a non-gesture
   alternative, honour Reduce Motion and Reduce Transparency (blur becomes a flat tint, drifting stops), VoiceOver reads

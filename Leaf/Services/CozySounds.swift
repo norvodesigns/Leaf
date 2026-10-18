@@ -12,7 +12,8 @@ final class CozySounds {
     static let shared = CozySounds()
 
     /// The reader's sound preference. Nothing plays while this is false.
-    var isEnabled = true
+    /// Off until the reader turns sounds on: nothing in Leaf makes a noise by surprise.
+    var isEnabled = false
     /// 0 to 1. Cues are small already, so this is a trim, not the main control.
     var volume: Float = 0.7
 
