@@ -55,7 +55,9 @@ one to two hours. Simple. Popularity comes straight from the API.
 (take the median per work); reading-log counts give popularity. Best coverage and the most accurate page counts, but a
 one-off job that takes an hour or two. Check Open Library's current terms on their dumps page before shipping.
 
-Recommendation: **A for the first expansion** (days, not weeks), **B later** if the long tail matters.
+**Decision: ~250k+ books, so build path B.** A crawl alone can't reach that cleanly (search paging depth limits, heavy
+duplication), so use the dump pipeline on a GitHub Actions runner and commit the generated database. Use path A only
+to seed a quick first cut so the loader and search can be built and tested before the full build finishes.
 
 Quality rules (extend the existing ones): one entry per work, drop study guides, summaries, box sets and omnibuses,
 require an author and a page count, keep the language field (English by default, others behind a setting), and add
@@ -457,20 +459,64 @@ The watch is the best device for reading time: it is on your wrist while your ha
 
 ## 15. Suggested order and who does what
 
+Dependencies drive the order: **iCloud sync touches every model, so it goes first**, and the catalog is the biggest
+independent job.
+
 | Step | Work | Who |
 |---|---|---|
-| 1 | Expand the catalog: sharded crawl, SQLite + FTS5, new loader, tests | **[ENG]** any model |
-| 2 | Forecast engine: pace, adherence, Monte Carlo, backtest, inverse planning, smart order | **[ENG]** any model |
-| 3 | Greeting engine and tea data | **[ENG]** any model |
-| 4 | Ribbon physics (pure simulation), progress modes, `Shelf.paused` | **[ENG]** any model |
-| 5 | Live Activity / widget targets and shared snapshot plumbing (no visuals) | **[PLATFORM]** any model |
-| 6 | Today, Plan, Search, "Where are you?", swipe deck, ribbon drawing, blur language, nook scenes | **[UI]** Opus |
-| 7 | Live Activity, widget and watch visuals; per-glyph blur; Control Center | **[UI]** Opus |
+| 1 | **Sync-ready data model:** `updatedAt` on items and preferences, tombstones for deletes, session IDs already unique; migrate the JSON file | **[ENG]** any model |
+| 2 | **Catalog:** dump pipeline on Actions, SQLite + FTS5 database (~250k), new loader, search tests | **[ENG]** any model |
+| 3 | **Forecast engine:** pace, adherence, Monte Carlo, backtest, inverse planning, smart order | **[ENG]** any model |
+| 4 | **Voice + tea:** greeting engine (templates first), tea data, cups, AI wrapper behind availability checks | **[ENG]** any model |
+| 5 | **iCloud sync:** CloudKit container, `CKSyncEngine`, merge rules, conflict tests, status in Settings | **[PLATFORM + ENG]** any model |
+| 6 | **App Intents:** Start/Pause/Log intents, shortcuts provider, Focus filter; **widget extension target** + App Group + shared snapshot for the Live Activity (no visuals) | **[PLATFORM]** any model |
+| 7 | **Ribbon simulation** (pure physics), `ProgressMode`, `startPage`, `Shelf.paused`, journal and quote data model | **[ENG]** any model |
+| 8 | **UI pass:** Today (nook + brew cards), "Where are you?", ribbon drawing and drag, blur language, nook scenes, tea ritual, journal and quote cards, challenges, Plan -> Forecast, Search browsing and swipe deck, scrub-numbers | **[UI]** Opus |
+| 9 | **Live Activity + Dynamic Island visuals**, **watch overhaul visuals**, per-glyph blur | **[UI]** Opus |
 
-Steps 1 to 5 can start now without any UI decisions; step 6 and 7 wait for the model switch.
+Steps 1 to 7 need no design decisions and can start now.
 
 ---
 
 ## 16. Decisions
 
-_To be filled in from the answers to the feature questions._
+Chosen after the first round of feedback.
+
+**Build**
+- **Rituals:** tea ritual + ambience; reading journal + quotes; cozy challenges.
+- **Smart:** forecast + stats engine; on-device AI librarian; iCloud sync + backup.
+- **Platform:** Live Activity + Dynamic Island; Apple Watch overhaul; Siri, Shortcuts + Focus.
+- **Library:** ~250k+ books bundled (section 2, path B).
+
+**Parked** (kept in section 13 so they're easy to pull in later)
+- Audiobook + e-book formats (note: `ProgressMode.percent` from section 3 still ships, so e-reader users can start
+  from a percentage).
+- Fast book adding: ISBN scan, Goodreads/StoryGraph import, series tracking.
+- Home/Lock Screen widgets and the Control Center button. The Live Activity and its shared App Group and extension
+  target are in scope, so widgets are cheap to add on the same target.
+- Book club mode, Libby links, lending and tags.
+
+**Still in the UI brief even though the add-books features are parked:** browse-by-mood rows, the swipe deck, one-tap
+add, "more like this", the edition picker and the whole "Where are you?" flow (sections 2.5 and 3). You asked for picking
+to be much easier, and these are design work rather than extra data features.
+
+**Technical notes for the chosen work**
+- **iCloud sync:** private CloudKit database, no account (it uses the device's iCloud). Use `CKSyncEngine` (iOS 17+).
+  Sessions are append-only and have unique IDs, so they merge without conflicts. Library items and preferences use
+  last-writer-wins on `updatedAt`. Deleted items need tombstones. **Never sync** the live `ActiveSession` (it is
+  device-local and the watch bridge already handles it). Needs the iCloud capability and a container such as
+  `iCloud.com.norvodesigns.leaf` in the entitlements; the hand-edited project file and the unsigned CI archive both need
+  checking afterwards.
+- **On-device AI:** `FoundationModels` behind `SystemLanguageModel.default.availability`; every use has a written
+  fallback. Used for greetings, "something like X" picks (the model proposes themes, the **catalog supplies the actual
+  books** so nothing is invented) and journal summaries.
+- **Siri, Shortcuts, Focus:** App Intents (`StartReadingIntent`, `PauseReadingIntent`, `LogPagesIntent`), an
+  `AppShortcutsProvider` with natural phrases, and a `SetFocusFilterIntent` so a "Reading" Focus can silence
+  notifications. The same intents power the Live Activity buttons, so they must be shared with the extension target.
+- **Live Activity:** add `NSSupportsLiveActivities`, a widget extension target and an App Group
+  (`group.com.norvodesigns.leaf`) for the shared snapshot and pre-rendered blurred cover. See section 11 for what the
+  countdown effect can and can't do.
+- **Journal and quotes:** quotes can come from the camera (VisionKit Live Text). Store text only; keep the photo out
+  unless the reader chooses to save it. Synced through the same CloudKit path.
+- **Privacy:** still "Data Not Collected" as long as everything stays on device or in the reader's own iCloud, and
+  weather and HealthKit stay off.
