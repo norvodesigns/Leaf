@@ -54,3 +54,15 @@ struct WatchSyncTests {
         }
     }
 }
+
+struct WatchSlotTests {
+    @Test func todaysReadingTimesSurviveTheWire() {
+        var snapshot = WatchSnapshot.empty
+        snapshot.slots = [
+            WatchSlot(id: UUID(), minuteOfDay: 8 * 60, label: "Morning tea", bookID: "b1", title: "Circe", minutes: 12, fromPage: 10, toPage: 20),
+            WatchSlot(id: UUID(), minuteOfDay: 21 * 60 + 30, label: nil, bookID: "b2", title: "The Hobbit", minutes: 18, fromPage: 143, toPage: 160),
+        ]
+        let payload = SyncCodec.encode(snapshot, key: SyncCodec.snapshotKey)
+        #expect(SyncCodec.decode(WatchSnapshot.self, from: payload, key: SyncCodec.snapshotKey)?.slots == snapshot.slots)
+    }
+}

@@ -76,53 +76,36 @@ final class Reminders: NSObject {
         guard prefs.reminderEnabled else { return }
         let calendar = Calendar.current
         let now = Date()
+        // One reminder per reading time, so a reader with a morning and an evening time (or a book for each) hears
+        // about the right book at the right moment. iOS keeps at most 64 pending, so leave room for the rest.
+        let slots = prefs.effectiveReadingSlots
         var scheduled = 0
-        for (offset, day) in store.plan.days.enumerated() where scheduled < 60 {
-            guard day.isReadingDay else { continue }
-            var components = calendar.dateComponents([.year, .month, .day], from: day.date)
-            components.hour = prefs.reminderHour
-            components.minute = prefs.reminderMinute
-            guard let fireDate = calendar.date(from: components), fireDate > now else { continue }
+        var previousID: String?
+        for (offset, day) in store.plan.days.enumerated() where day.isReadingDay {
             if offset == 0 && (store.goalMetToday || store.activeSession != nil) { continue }
             if UserDefaults.standard.string(forKey: ReminderID.skippedDayKey) == Self.dayKey(day.date, calendar: calendar) { continue }
+            for slotPlan in SlotPlanner.plan(day: day, slots: slots, calendar: calendar) {
+                guard scheduled < 56 else { return }
+                var components = calendar.dateComponents([.year, .month, .day], from: day.date)
+                components.hour = slotPlan.slot.hour
+                components.minute = slotPlan.slot.minute
+                guard let fireDate = calendar.date(from: components), fireDate > now else { continue }
 
-            let content = UNMutableNotificationContent()
-            let copy = Self.copy(for: day, offset: offset, store: store)
-            content.title = copy.title
-            content.body = copy.body
-            content.sound = .default
-            content.categoryIdentifier = ReminderID.category
-            content.threadIdentifier = "leaf.daily"
-            if let bookID = day.assignments.first?.bookID { content.userInfo = [ReminderID.bookKey: bookID] }
+                let message = Self.message(for: slotPlan, fireDate: fireDate, store: store, calendar: calendar, previousID: previousID)
+                previousID = message.id
+                let content = UNMutableNotificationContent()
+                content.title = message.title
+                content.body = message.body
+                content.sound = .default
+                content.categoryIdentifier = ReminderID.category
+                content.threadIdentifier = "leaf.daily"
+                if let bookID = slotPlan.parts.first?.bookID { content.userInfo = [ReminderID.bookKey: bookID] }
 
-            let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
-            let id = ReminderID.dailyPrefix + Self.dayKey(day.date, calendar: calendar)
-            try? await center.add(UNNotificationRequest(identifier: id, content: content, trigger: trigger))
-            scheduled += 1
-        }
-    }
-
-    /// A short Sunday-evening note about the week, for the next few Sundays. The wording is generic on purpose: the
-    /// letter itself is written from fresh numbers when the reader opens it.
-    private func scheduleWeeklyLetters(store: LibraryStore, calendar: Calendar, now: Date) async {
-        let existing = await center.pendingNotificationRequests().map(\.identifier)
-        center.removePendingNotificationRequests(withIdentifiers: existing.filter { $0.hasPrefix(ReminderID.weeklyPrefix) })
-        guard store.preferences.weeklyLetter else { return }
-        let sunday = DateComponents(hour: 19, minute: 0, weekday: 1)
-        var found = 0
-        var cursor = now
-        while found < 4, let next = calendar.nextDate(after: cursor, matching: sunday, matchingPolicy: .nextTime) {
-            let parts = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: next)
-            let content = UNMutableNotificationContent()
-            content.title = "Your week in the nook"
-            content.body = "A short note on this week’s reading is ready."
-            content.sound = .default
-            content.threadIdentifier = "leaf.weekly"
-            content.userInfo = [ReminderID.weeklyKey: true]
-            let trigger = UNCalendarNotificationTrigger(dateMatching: parts, repeats: false)
-            try? await center.add(UNNotificationRequest(identifier: ReminderID.weeklyPrefix + Self.dayKey(next, calendar: calendar), content: content, trigger: trigger))
-            cursor = next
-            found += 1
+                let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+                let id = ReminderID.dailyPrefix + Self.dayKey(day.date, calendar: calendar) + "." + slotPlan.slot.id.uuidString
+                try? await center.add(UNNotificationRequest(identifier: id, content: content, trigger: trigger))
+                scheduled += 1
+            }
         }
     }
 
@@ -132,35 +115,31 @@ final class Reminders: NSObject {
         let remaining = (Double(store.preferences.dailyMinutes) - store.minutesReadToday) * 60 - active.elapsed()
         guard remaining > 5 else { return }
         let content = UNMutableNotificationContent()
-        content.title = "Goal met"
-        content.body = "That's today's \(store.preferences.dailyMinutes) minutes. Anything more is a gift."
+        let message = NotificationCopy.goalReached(minutes: store.preferences.dailyMinutes, seed: SeededGenerator.daySeed(Date(), calendar: .current))
+        content.title = message.title
+        content.body = message.body
         content.sound = .default
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: remaining, repeats: false)
         center.add(UNNotificationRequest(identifier: ReminderID.goal, content: content, trigger: trigger))
     }
 
-    /// Notification copy (DESIGN.md §11): minutes and pages first, the book by name, never guilt.
-    static func copy(for day: PlanDay, offset: Int, store: LibraryStore) -> (title: String, body: String) {
-        let title = "Leaf"
-        let parts = day.assignments.compactMap { assignment -> (item: LibraryItem, assignment: Assignment)? in
-            store.item(assignment.bookID).map { ($0, assignment) }
-        }
-        guard let first = parts.first else {
-            return (title, store.data.items.isEmpty
-                ? "Add a book and Leaf will plan the pages."
-                : "Your list is clear. Pick your next book whenever you're ready.")
-        }
-        let minutes = Int(day.minutes.rounded())
-        let pages = "\(first.assignment.fromPage)–\(first.assignment.toPage)"
-        if parts.count > 1 {
-            return (title, "\(minutes) minutes today, starting with \(first.item.book.title), pp. \(pages).")
-        }
-        if first.assignment.finishesBook {
-            let left = max(1, first.item.book.pages - first.item.currentPage)
-            return (title, "\(left) pages left in \(first.item.book.title). You could finish today.")
-        }
-        let when = store.preferences.reminderHour >= 17 ? "tonight" : "today"
-        return (title, "\(minutes) minutes of \(first.item.book.title) \(when) — about pp. \(pages).")
+    /// The words for one reading time, from the voice engine: varied, specific, never guilt.
+    static func message(for slotPlan: SlotPlan, fireDate: Date, store: LibraryStore, calendar: Calendar, previousID: String?) -> NotificationMessage {
+        let first = slotPlan.parts.first
+        let item = first.flatMap { store.item($0.bookID) }
+        let minutes = max(1, Int(slotPlan.minutes.rounded()))
+        var left: Int?
+        if let first, first.finishesBook { left = max(1, first.toPage - first.fromPage + 1) }
+        let context = NotificationContext(
+            bookTitle: slotPlan.parts.count > 1 ? nil : item?.book.title,
+            minutes: minutes,
+            streak: store.streak,
+            isRestDay: false,
+            daypart: Daypart.of(fireDate, calendar: calendar),
+            pagesLeft: left
+        )
+        let seed = SeededGenerator.daySeed(fireDate, calendar: calendar) ^ UInt64(slotPlan.slot.minuteOfDay)
+        return NotificationCopy.reminder(for: context, seed: seed, previousID: previousID)
     }
 
     static func dayKey(_ date: Date, calendar: Calendar) -> String {

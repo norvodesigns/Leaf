@@ -132,7 +132,16 @@ extension LibraryStore {
             reading: Array(watchBooks),
             week: days,
             activeSession: activeSession,
-            hasOnboarded: hasOnboarded
+            hasOnboarded: hasOnboarded,
+            cupMinutes: preferences.cupMinutes,
+            queue: toRead.prefix(5).map { item in
+                WatchBook(id: item.id, title: item.book.title, author: item.book.author, currentPage: item.currentPage, pages: item.book.pages, wordsPerPage: item.book.wordsPerPage, paletteSeed: item.book.paletteSeed, finish: plan.book(item.id)?.finish)
+            },
+            liveActivities: preferences.liveActivities,
+            slots: slotPlans().compactMap { slotPlan in
+                guard let part = slotPlan.parts.first, let item = item(part.bookID) else { return nil }
+                return WatchSlot(id: slotPlan.slot.id, minuteOfDay: slotPlan.slot.minuteOfDay, label: slotPlan.slot.label, bookID: part.bookID, title: item.book.title, minutes: slotPlan.minutes, fromPage: part.fromPage, toPage: slotPlan.parts.last?.toPage ?? part.toPage)
+            }
         )
     }
 }

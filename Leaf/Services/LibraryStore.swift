@@ -452,6 +452,55 @@ final class LibraryStore {
         return log(session)
     }
 
+    // MARK: - Reading times
+
+    /// What each of the reader's reading times is for on `day` (today by default): which book, how long, which pages.
+    func slotPlans(on day: PlanDay? = nil) -> [SlotPlan] {
+        guard let day = day ?? plan.today else { return [] }
+        return SlotPlanner.plan(day: day, slots: preferences.effectiveReadingSlots, calendar: calendar)
+    }
+
+    /// The next reading time today that hasn't started yet.
+    var nextSlotToday: SlotPlan? {
+        SlotPlanner.next(in: slotPlans(), day: plan.today?.date ?? now, now: now, calendar: calendar)
+    }
+
+    @discardableResult
+    func addReadingSlot(hour: Int, minute: Int = 0, bookID: String? = nil, weekdays: Set<Int>? = nil, label: String? = nil) -> ReadingSlot {
+        let slot = ReadingSlot(hour: hour, minute: minute, weekdays: weekdays, bookID: bookID, label: label)
+        updatePreferences { prefs in
+            // The first slot added carries over the single reminder time the reader already had.
+            if prefs.readingSlots.isEmpty, prefs.reminderEnabled {
+                prefs.readingSlots = [ReadingSlot(hour: prefs.reminderHour, minute: prefs.reminderMinute)]
+            }
+            prefs.readingSlots.append(slot)
+            prefs.reminderEnabled = true
+        }
+        return slot
+    }
+
+    func updateReadingSlot(_ slot: ReadingSlot) {
+        updatePreferences { prefs in
+            var slots = prefs.effectiveReadingSlots
+            if let index = slots.firstIndex(where: { $0.id == slot.id }) {
+                slots[index] = slot
+            } else {
+                slots.append(slot)
+            }
+            prefs.readingSlots = slots
+        }
+    }
+
+    func removeReadingSlot(_ id: UUID) {
+        updatePreferences { prefs in
+            var slots = prefs.effectiveReadingSlots
+            slots.removeAll { $0.id == id }
+            prefs.readingSlots = slots
+            // No times left means no reminders, rather than quietly falling back to the old single time.
+            if slots.isEmpty { prefs.reminderEnabled = false }
+        }
+    }
+
     // MARK: - Journal
 
     func journal(for bookID: String) -> [JournalEntry] {

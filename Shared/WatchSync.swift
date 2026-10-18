@@ -29,6 +29,8 @@ struct WatchSnapshot: Codable, Hashable, Sendable {
     var yearGoal: WatchYearGoal?
     /// Whether the phone has Live Activities on (the watch mirrors them in the Smart Stack).
     var liveActivities: Bool
+    /// Today's reading times, earliest first, each with the book it is for.
+    var slots: [WatchSlot]
 
     static let empty = WatchSnapshot(
         generatedAt: .distantPast, dailyMinutes: 20, minutesReadToday: 0, isReadingDay: true,
@@ -40,7 +42,7 @@ struct WatchSnapshot: Codable, Hashable, Sendable {
         generatedAt: Date, dailyMinutes: Int, minutesReadToday: Double, isReadingDay: Bool, streak: Int, wpm: Double,
         today: [WatchAssignment], reading: [WatchBook], week: [WatchDay], activeSession: ActiveSession?, hasOnboarded: Bool,
         greeting: WatchGreeting? = nil, tea: WatchTea? = nil, cupMinutes: Int = 25, queue: [WatchBook] = [],
-        forecasts: [WatchForecast] = [], yearGoal: WatchYearGoal? = nil, liveActivities: Bool = true
+        forecasts: [WatchForecast] = [], yearGoal: WatchYearGoal? = nil, liveActivities: Bool = true, slots: [WatchSlot] = []
     ) {
         self.generatedAt = generatedAt
         self.dailyMinutes = dailyMinutes
@@ -60,11 +62,12 @@ struct WatchSnapshot: Codable, Hashable, Sendable {
         self.forecasts = forecasts
         self.yearGoal = yearGoal
         self.liveActivities = liveActivities
+        self.slots = slots
     }
 
     enum CodingKeys: String, CodingKey {
         case generatedAt, dailyMinutes, minutesReadToday, isReadingDay, streak, wpm, today, reading, week, activeSession, hasOnboarded
-        case greeting, tea, cupMinutes, queue, forecasts, yearGoal, liveActivities
+        case greeting, tea, cupMinutes, queue, forecasts, yearGoal, liveActivities, slots
     }
 
     init(from decoder: Decoder) throws {
@@ -87,7 +90,8 @@ struct WatchSnapshot: Codable, Hashable, Sendable {
             queue: try c.decodeIfPresent([WatchBook].self, forKey: .queue) ?? [],
             forecasts: try c.decodeIfPresent([WatchForecast].self, forKey: .forecasts) ?? [],
             yearGoal: try c.decodeIfPresent(WatchYearGoal.self, forKey: .yearGoal),
-            liveActivities: try c.decodeIfPresent(Bool.self, forKey: .liveActivities) ?? true
+            liveActivities: try c.decodeIfPresent(Bool.self, forKey: .liveActivities) ?? true,
+            slots: try c.decodeIfPresent([WatchSlot].self, forKey: .slots) ?? []
         )
     }
 
@@ -124,6 +128,19 @@ struct WatchForecast: Codable, Hashable, Identifiable, Sendable {
     var median: Date?
 
     var id: String { bookID }
+}
+
+/// One of today's reading times.
+struct WatchSlot: Codable, Hashable, Identifiable, Sendable {
+    var id: UUID
+    /// Minutes after midnight.
+    var minuteOfDay: Int
+    var label: String?
+    var bookID: String
+    var title: String
+    var minutes: Double
+    var fromPage: Int
+    var toPage: Int
 }
 
 struct WatchYearGoal: Codable, Hashable, Sendable {

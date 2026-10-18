@@ -254,5 +254,29 @@ struct LibraryStoreTests {
     @Test func aFirstLaunchHasNothingToLoad() {
         #expect(Persistence.ephemeral().load() == nil)
     }
+
+    @Test func severalReadingTimesSplitTheDay() {
+        let store = makeStore()
+        store.updatePreferences { $0.planMode = .sideBySide; $0.dailyMinutes = 40 }
+        store.add(book("a"), to: .reading)
+        store.add(book("b"), to: .reading)
+        store.addReadingSlot(hour: 8, bookID: "a", label: "Morning tea")
+        store.addReadingSlot(hour: 21, minute: 30, bookID: "b")
+        #expect(store.preferences.readingSlots.count == 2)
+        #expect(store.preferences.reminderEnabled)
+        let plans = store.slotPlans()
+        #expect(plans.map { $0.parts.first?.bookID } == ["a", "b"])
+        #expect(store.watchSnapshot().slots.count == 2)
+    }
+
+    @Test func theFirstReadingTimeKeepsTheOldReminder() {
+        let store = makeStore()
+        store.updatePreferences { $0.reminderEnabled = true; $0.reminderHour = 20; $0.reminderMinute = 15 }
+        store.addReadingSlot(hour: 7)
+        #expect(store.preferences.readingSlots.map(\.minuteOfDay) == [20 * 60 + 15, 7 * 60])
+        for slot in store.preferences.readingSlots { store.removeReadingSlot(slot.id) }
+        #expect(store.preferences.readingSlots.isEmpty)
+        #expect(!store.preferences.reminderEnabled)
+    }
 }
 #endif

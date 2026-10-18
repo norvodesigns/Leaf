@@ -509,6 +509,8 @@ struct ReadingPreferences: Codable, Hashable, Sendable {
     var favoriteTeaID: String?
     /// The ambience they like (an id from the ambience catalog), or nil for silence.
     var ambienceID: String?
+    /// Times of day set aside for reading. Empty means the single reminder time below.
+    var readingSlots: [ReadingSlot] = []
     /// Length of a "cup" of reading, in minutes.
     var cupMinutes: Int = 25
     var catchUp: CatchUpMode = .forgive
@@ -543,6 +545,7 @@ struct ReadingPreferences: Codable, Hashable, Sendable {
         yearlyGoal = try c.decodeIfPresent(Int.self, forKey: .yearlyGoal)
         favoriteTeaID = try c.decodeIfPresent(String.self, forKey: .favoriteTeaID)
         ambienceID = try c.decodeIfPresent(String.self, forKey: .ambienceID)
+        readingSlots = try c.decodeIfPresent([ReadingSlot].self, forKey: .readingSlots) ?? []
         cupMinutes = try c.decodeIfPresent(Int.self, forKey: .cupMinutes) ?? d.cupMinutes
         catchUp = try c.decodeIfPresent(CatchUpMode.self, forKey: .catchUp) ?? d.catchUp
         nookScene = try c.decodeIfPresent(String.self, forKey: .nookScene)
