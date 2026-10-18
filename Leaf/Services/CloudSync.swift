@@ -46,7 +46,7 @@ final class CloudSync {
         self.stateURL = stateURL
     }
 
-    static var defaultStateURL: URL {
+    nonisolated static var defaultStateURL: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("Leaf", isDirectory: true)
             .appendingPathComponent("sync-state.bin")
