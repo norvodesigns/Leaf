@@ -448,7 +448,8 @@ struct InsightsBestTimeTests {
         #expect((result.consistent.wpm ?? 0) < 260)
         #expect(result.reason.contains("You read fastest in the morning"))
         #expect(result.dayparts.count == Daypart.allCases.count)
-        #expect(abs(result.dayparts.map(\.minuteShare).reduce(0, +) - 1) < 1e-9)
+        let shareTotal: Double = result.dayparts.map(\.minuteShare).reduce(0, +)
+        #expect(abs(shareTotal - 1) < 1e-9)
     }
 
     @Test func oneStretchCanWinBoth() throws {
@@ -609,7 +610,8 @@ struct InsightsMixTests {
             fx.item("g", shelf: .toRead, genres: ["poetry"]),
         ]
         let mix = fx.engine(fx.data(items: items)).genreMix()
-        #expect(abs(mix.map(\.share).reduce(0, +) - 1) < 1e-9)
+        let mixTotal: Double = mix.map(\.share).reduce(0, +)
+        #expect(abs(mixTotal - 1) < 1e-9)
         #expect(mix.map(\.tag) == ["fantasy", "mystery", "other", "young-adult"])
         #expect(abs(mix[0].share - 0.375) < 1e-9)
         #expect(mix[0].books == 2)
@@ -652,7 +654,8 @@ struct InsightsMixTests {
         let mix = fx.engine(slow).lengthMix()
         #expect(mix.map(\.band) == [.short, .medium, .long])
         #expect(mix.map(\.books) == [2, 1, 1])
-        #expect(abs(mix.map(\.share).reduce(0, +) - 1) < 1e-9)
+        let mixTotal: Double = mix.map(\.share).reduce(0, +)
+        #expect(abs(mixTotal - 1) < 1e-9)
         #expect(mix[0].label == "short reads")
         // A faster reader finds the same books shorter.
         let quick = fx.data(items: items) { $0.wpm = 600 }
@@ -1087,7 +1090,8 @@ struct InsightsYearTests {
 
     @Test func monthRingsFormACollage() {
         let year = fx.engine(busyYear()).yearInBooks(year: 2026)
-        #expect(abs(year.months.map(\.minutes).reduce(0, +) - year.minutes) < 1e-9)
+        let monthTotal: Double = year.months.map(\.minutes).reduce(0, +)
+        #expect(abs(monthTotal - year.minutes) < 1e-9)
         #expect(year.months.map(\.booksFinished).reduce(0, +) == year.booksFinished)
         #expect(year.months[2].ring == 1)
         #expect(year.months[0].ring == 0 && year.months[3].ring == 0)

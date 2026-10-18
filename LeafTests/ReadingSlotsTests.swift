@@ -40,7 +40,8 @@ struct ReadingSlotsTests {
         let parts = plans.flatMap(\.parts)
         #expect(parts.map(\.fromPage) == [101, 111])
         #expect(parts.map(\.toPage) == [110, 120])
-        #expect(abs(parts.map(\.minutes).reduce(0, +) - 30) < 1e-9)
+        let partTotal: Double = parts.map(\.minutes).reduce(0, +)
+        #expect(abs(partTotal - 30) < 1e-9)
     }
 
     @Test func eachBookGetsItsOwnTime() {

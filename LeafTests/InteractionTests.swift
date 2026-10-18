@@ -1791,8 +1791,14 @@ struct AtmosphereFieldTests {
         for layer in 0...2 { #expect(streaks.contains { $0.layer == layer }) }
         let far = streaks.filter { $0.layer == 0 }
         let near = streaks.filter { $0.layer == 2 }
-        #expect((far.map(\.length).max() ?? 1) < (near.map(\.length).max() ?? 0))
-        #expect(far.map(\.opacity).reduce(0, +) / Double(max(far.count, 1)) < near.map(\.opacity).reduce(0, +) / Double(max(near.count, 1)))
+        let farLongest: Double = far.map(\.length).max() ?? 1
+        let nearLongest: Double = near.map(\.length).max() ?? 0
+        #expect(farLongest < nearLongest)
+        let farOpacity: Double = far.map(\.opacity).reduce(0, +)
+        let nearOpacity: Double = near.map(\.opacity).reduce(0, +)
+        let farAverage: Double = farOpacity / Double(max(far.count, 1))
+        let nearAverage: Double = nearOpacity / Double(max(near.count, 1))
+        #expect(farAverage < nearAverage)
         let lanes = Set(streaks.map { Int($0.x * 30) })
         #expect(lanes.count > 20, "spread across the glass")
     }
