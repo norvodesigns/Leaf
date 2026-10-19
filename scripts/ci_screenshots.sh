@@ -17,12 +17,26 @@ boot "$IOS_SIM"
 xcrun simctl status_bar "$IOS_SIM" override --time "9:41" --batteryState charged --batteryLevel 100 --wifiBars 3 --cellularBars 4 --cellularMode active || true
 xcrun simctl install "$IOS_SIM" "$APP"
 
+# A smaller JPEG copy of one shot, printed as base64 right away so it can be read from the job log even if the step
+# is cut short (scripts/ci.py shots).
+emit() { # name
+  local n=$1
+  mkdir -p "$OUT/jpg"
+  sips -s format jpeg -s formatOptions 72 -Z 1100 "$OUT/$n.png" --out "$OUT/jpg/$n.jpg" >/dev/null 2>&1 || return 0
+  echo "=====BEGIN $n====="
+  base64 -b 120 -i "$OUT/jpg/$n.jpg"
+  echo "=====END $n====="
+}
+
 shot() { # name wait args...
   local name=$1 wait=$2; shift 2
   xcrun simctl terminate "$IOS_SIM" "$BUNDLE" >/dev/null 2>&1 || true
   xcrun simctl launch "$IOS_SIM" "$BUNDLE" "$@" >/dev/null
   sleep "$wait"
-  xcrun simctl io "$IOS_SIM" screenshot --type=png "$OUT/$name.png" >/dev/null 2>&1 && echo "captured $name"
+  if xcrun simctl io "$IOS_SIM" screenshot --type=png "$OUT/$name.png" >/dev/null 2>&1; then
+    echo "captured $name"
+    [ "$name" = 00-warmup ] || emit "$name"
+  fi
 }
 
 # Warm-up launch so Open Library covers are cached for the real shots.
@@ -100,22 +114,13 @@ if [ -n "${WATCH_SIM:-}" ] && [ -d "$WATCH_APP" ]; then
     xcrun simctl terminate "$WATCH_SIM" "$WATCH_BUNDLE" >/dev/null 2>&1 || true
     xcrun simctl launch "$WATCH_SIM" "$WATCH_BUNDLE" "$@" >/dev/null
     sleep 5
-    xcrun simctl io "$WATCH_SIM" screenshot --type=png "$OUT/$name.png" >/dev/null 2>&1 && echo "captured $name"
+    if xcrun simctl io "$WATCH_SIM" screenshot --type=png "$OUT/$name.png" >/dev/null 2>&1; then
+      echo "captured $name"
+      emit "$name"
+    fi
   }
   wshot w1-today -LeafDemo YES -LeafScreen today
   wshot w2-session -LeafDemo YES -LeafScreen session
   wshot w3-pages -LeafDemo YES -LeafScreen pages
   wshot w4-books -LeafDemo YES -LeafScreen books
 fi
-
-# Smaller JPEG copies, also printed as base64 so they can be read from the job log.
-mkdir -p "$OUT/jpg"
-for f in "$OUT"/*.png; do
-  [ -e "$f" ] || continue
-  n=$(basename "$f" .png)
-  sips -s format jpeg -s formatOptions 72 -Z 1100 "$f" --out "$OUT/jpg/$n.jpg" >/dev/null 2>&1
-  echo "=====BEGIN $n====="
-  base64 -b 120 -i "$OUT/jpg/$n.jpg"
-  echo "=====END $n====="
-done
-

@@ -17,7 +17,7 @@ concurrency:
 jobs:
   build:
     runs-on: macos-26
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -95,7 +95,7 @@ jobs:
 
       - name: Screenshots
         if: success()
-        timeout-minutes: 15
+        timeout-minutes: 30
         run: bash scripts/ci_screenshots.sh screenshots
 
       - uses: actions/upload-artifact@v4
