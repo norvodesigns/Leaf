@@ -11,6 +11,10 @@ enum HapticMoment {
     case deckKeep
     /// "Start now" from the swipe deck: a rising double tap.
     case deckStart
+    /// A scrub control locking onto a meaningful value (your goal, a round hour): a firm click with a small echo.
+    case magnetSnap
+    /// A scrub control pushing against its end: a dull knock.
+    case boundsHit
 }
 
 @MainActor
@@ -21,6 +25,8 @@ final class Haptics {
     var level: HapticsLevel = .full
 
     private var engine: CHHapticEngine?
+    /// The continuous buzz that follows a ribbon's stretch while it is dragged.
+    private var stretchPlayer: CHHapticAdvancedPatternPlayer?
     private let supportsHaptics = CHHapticEngine.capabilitiesForHardware().supportsHaptics
     private let selectionGenerator = UISelectionFeedbackGenerator()
     private let lightGenerator = UIImpactFeedbackGenerator(style: .light)
@@ -109,6 +115,61 @@ final class Haptics {
         playPattern(events: events, curves: []) { [weak self] in self?.selection() }
     }
 
+    // MARK: Scrubbing
+
+    /// Plays what a `ScrubModel` asked for. Ticks are single transients shaped by the model (lighter and softer as the
+    /// finger speeds up); a snap onto a magnet is `magnetSnap`, and the end of the range is `boundsHit`, both scaled by
+    /// the event's intensity.
+    func scrub(_ event: ScrubHapticEvent) {
+        guard level != .off else { return }
+        let intensity = min(1, max(0, event.intensity))
+        switch event.kind {
+        case .tick, .majorTick:
+            let transient = Self.transient(0, intensity: Float(intensity), sharpness: Float(min(1, max(0, event.sharpness))))
+            playPattern(events: [transient], curves: []) { [weak self] in
+                if event.kind == .majorTick { self?.rigid(CGFloat(0.4 + 0.5 * intensity)) } else { self?.selection() }
+            }
+        case .magnetSnap:
+            play(.magnetSnap, heft: intensity)
+        case .boundsHit:
+            play(.boundsHit, heft: intensity)
+        }
+    }
+
+    // MARK: Stretch
+
+    /// Starts a soft continuous buzz for dragging the ribbon; `updateStretch` sets how strong it is. Silent at 0.
+    func beginStretch() {
+        guard level == .full, supportsHaptics else { return }
+        if engine == nil { prepare() }
+        guard let engine, stretchPlayer == nil else { return }
+        let buzz = CHHapticEvent(eventType: .hapticContinuous, parameters: [
+            CHHapticEventParameter(parameterID: .hapticIntensity, value: 0.6),
+            CHHapticEventParameter(parameterID: .hapticSharpness, value: 0.15),
+        ], relativeTime: 0, duration: 30)
+        do {
+            let player = try engine.makeAdvancedPlayer(with: CHHapticPattern(events: [buzz], parameters: []))
+            try engine.start()
+            try player.start(atTime: CHHapticTimeImmediate)
+            try player.sendParameters([CHHapticDynamicParameter(parameterID: .hapticIntensityControl, value: 0, relativeTime: 0)], atTime: CHHapticTimeImmediate)
+            stretchPlayer = player
+        } catch {
+            stretchPlayer = nil
+        }
+    }
+
+    /// 0 (slack) to 1 (pulled hard): the buzz follows it.
+    func updateStretch(_ amount: Double) {
+        guard let stretchPlayer else { return }
+        let value = Float(min(1, max(0, amount)))
+        try? stretchPlayer.sendParameters([CHHapticDynamicParameter(parameterID: .hapticIntensityControl, value: value, relativeTime: 0)], atTime: CHHapticTimeImmediate)
+    }
+
+    func endStretch() {
+        try? stretchPlayer?.stop(atTime: CHHapticTimeImmediate)
+        stretchPlayer = nil
+    }
+
     private func playPattern(events: [CHHapticEvent], curves: [CHHapticParameterCurve], fallback: () -> Void) {
         guard level == .full, supportsHaptics else { return fallback() }
         if engine == nil { prepare() }
@@ -131,6 +192,8 @@ final class Haptics {
         case .reorderDrop, .countdownBeat, .sessionEnd, .pageTurn, .teaReady: soft()
         case .deckKeep: rigid(0.7)
         case .deckStart: press()
+        case .magnetSnap: rigid(0.9)
+        case .boundsHit: soft(0.8)
         }
     }
 
@@ -190,6 +253,10 @@ final class Haptics {
             return [transient(0, intensity: 0.7, sharpness: 0.45), continuous(0.03, duration: 0.12, intensity: 0.25, sharpness: 0.1)]
         case .deckStart:
             return [transient(0, intensity: 0.55, sharpness: 0.5), transient(0.1, intensity: 0.85, sharpness: 0.6)]
+        case .magnetSnap:
+            return [transient(0, intensity: 0.9 + 0.1 * h, sharpness: 0.85), transient(0.045, intensity: 0.35, sharpness: 0.6)]
+        case .boundsHit:
+            return [transient(0, intensity: 0.5 + 0.5 * h, sharpness: 0.22)]
         }
     }
 

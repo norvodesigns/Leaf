@@ -1,38 +1,5 @@
-import CoreImage
 import SwiftUI
 import UIKit
-
-// MARK: - Stage colour
-
-/// The colour of a cover, for the detail stage.
-enum BookStageTint {
-    /// The average colour of a cover scan (`CIAreaAverage`), or nil if it can't be read.
-    static func average(of image: UIImage) -> Color? {
-        guard let input = CIImage(image: image) else { return nil }
-        let extent = input.extent
-        guard extent.width > 0, extent.height > 0, extent.width.isFinite, extent.height.isFinite else { return nil }
-        guard let filter = CIFilter(
-            name: "CIAreaAverage",
-            parameters: [kCIInputImageKey: input, kCIInputExtentKey: CIVector(cgRect: extent)]
-        ), let output = filter.outputImage else { return nil }
-
-        var pixel = [UInt8](repeating: 0, count: 4)
-        let context = CIContext(options: [.workingColorSpace: NSNull()])
-        context.render(
-            output,
-            toBitmap: &pixel,
-            rowBytes: 4,
-            bounds: CGRect(x: 0, y: 0, width: 1, height: 1),
-            format: .RGBA8,
-            colorSpace: nil
-        )
-        return Color(
-            red: Double(pixel[0]) / 255,
-            green: Double(pixel[1]) / 255,
-            blue: Double(pixel[2]) / 255
-        )
-    }
-}
 
 // MARK: - Genre chips
 
@@ -117,7 +84,7 @@ struct BookPageSheet: View {
 
             Text("\(page)")
                 .leafStyle(.heroNumeral)
-                .contentTransition(.numericText(value: Double(page)))
+                .numericBlur(value: Double(page))
                 .leafAnimation(Motion.paper, value: page)
                 .accessibilityHidden(true)
 

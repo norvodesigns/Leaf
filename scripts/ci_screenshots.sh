@@ -89,6 +89,11 @@ for appearance in light dark; do
     shot 51-la-paused 5 -LeafDemo YES -LeafScreen liveactivity.paused
     shot 52-la-goal 5 -LeafDemo YES -LeafScreen liveactivity.goal
     shot 53-la-cup 5 -LeafDemo YES -LeafScreen liveactivity.cup
+    # The design system and its motion pages (Leaf/DesignSystem).
+    shot 60-gallery 5 -LeafDemo YES -LeafScreen gallery
+    shot 61-gallery-palette 4 -LeafDemo YES -LeafScreen gallery.palette
+    shot 63-gallery-scenes 5 -LeafDemo YES -LeafScreen gallery.scenes
+    shot 66-gallery-drum 4 -LeafDemo YES -LeafScreen gallery.drum
   fi
   shot "10-today$suffix" 5 -LeafDemo YES -LeafScreen today -LeafTime 20:30
   shot "21-today-late$suffix" 6 -LeafDemo YES -LeafScreen today -LeafTime 23:30
@@ -103,6 +108,9 @@ for appearance in light dark; do
   shot "12-plan$suffix" 5 -LeafDemo YES -LeafScreen plan
   shot "15-book$suffix" 5 -LeafDemo YES -LeafScreen book:OL27482W
   shot "16-session$suffix" 5 -LeafDemo YES -LeafScreen session
+  shot "62-gallery-blur$suffix" 6 -LeafDemo YES -LeafScreen gallery.blur
+  shot "64-gallery-ribbon$suffix" 5 -LeafDemo YES -LeafScreen gallery.ribbon
+  shot "65-gallery-scrub$suffix" 4 -LeafDemo YES -LeafScreen gallery.scrub
 done
 xcrun simctl ui "$IOS_SIM" appearance light
 

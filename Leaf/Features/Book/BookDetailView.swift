@@ -12,7 +12,6 @@ struct BookDetailView: View {
     @Environment(\.dismiss) private var dismiss
 
     /// The cover scan's average colour, once it has loaded.
-    @State private var stageColor: Color?
     @State private var showsPageSheet = false
     @State private var showsPagesEditor = false
     @State private var confirmsRemoval = false
@@ -31,7 +30,6 @@ struct BookDetailView: View {
     private var planned: PlannedBook? { store.plan.book(book.id) }
     private var isSessionLive: Bool { store.activeSession != nil }
     private var zoomSourceID: String { "book-\(book.id)" }
-    private var coverURL: URL? { BookCover.imageURL(for: shown, size: .xl) }
 
     /// The minutes still to read: what is left for a book underway, else the whole book.
     private var minutesToRead: Double {
@@ -70,9 +68,6 @@ struct BookDetailView: View {
                 }
                 .accessibilityLabel("More")
             }
-        }
-        .task(id: coverURL) {
-            await loadStageColor()
         }
         .sheet(isPresented: $showsPageSheet) {
             if let item {
@@ -116,27 +111,10 @@ struct BookDetailView: View {
             }
     }
 
-    /// The cover's colour at 18% over paper (the palette colour while a scan loads, or for a generated cover).
+    /// The cover itself, blurred to colour and light behind the stage, fading to paper at the bottom
+    /// (`BlurredCoverBackdrop`; a flat 18% wash under Reduce Transparency).
     private var stageTint: some View {
-        let wash: Color = stageColor ?? CoverPalette(book: shown).background
-        return ZStack {
-            Color.paper
-            wash.opacity(0.18)
-        }
-        .animation(Motion.coverFade, value: stageColor)
-    }
-
-    private func loadStageColor() async {
-        guard let url = coverURL else {
-            stageColor = nil
-            return
-        }
-        if let cached = CoverImageCache.shared.cachedImage(for: url) {
-            stageColor = BookStageTint.average(of: cached)
-            return
-        }
-        guard let image = await CoverImageCache.shared.image(for: url) else { return }
-        stageColor = BookStageTint.average(of: image)
+        BlurredCoverBackdrop(book: shown, scrim: 0.45)
     }
 
     // MARK: Header and facts

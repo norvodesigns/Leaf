@@ -168,7 +168,7 @@ struct TodayNook: View {
         VStack(alignment: .leading, spacing: Space.xxs) {
             Text(minutesLine)
                 .leafStyle(.data)
-                .contentTransition(.numericText(value: brief.minutesReadToday))
+                .numericBlur(value: brief.minutesReadToday)
             Text(cupPhrase)
                 .leafStyle(.caption)
                 .fixedSize(horizontal: false, vertical: true)

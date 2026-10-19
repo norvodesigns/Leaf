@@ -7,16 +7,16 @@ import UIKit
 ///
 /// The data layer names colours with `CozyPalette` tokens; `CozyColor.color(for:)` turns a token into a colour.
 enum CozyColor {
-    /// Tea-stained paper: the nook's table, quiet wells.
-    static let teaPaper = Color(uiColor: .leafDynamic(light: 0xEADFCB, dark: 0x2A241D))
-    static let chai = Color(uiColor: .leafDynamic(light: 0xB58456, dark: 0xC99A6E))
-    static let matcha = Color(uiColor: .leafDynamic(light: 0x7F9C5A, dark: 0x9DB97A))
-    static let rooibos = Color(uiColor: .leafDynamic(light: 0xA9532F, dark: 0xCC714C))
+    /// Tea-stained paper: the nook's table, quiet wells. The tokens live in `LeafColor.swift`; these are aliases.
+    static var teaPaper: Color { .teaPaper }
+    static var chai: Color { .chai }
+    static var matcha: Color { .matcha }
+    static var rooibos: Color { .rooibos }
     /// Steam. A warm grey on light paper (white steam would vanish), nearly white at night.
-    static let steam = Color(uiColor: .leafDynamic(light: 0x9A8F80, dark: 0xE8E1D3))
+    static var steam: Color { .steam }
     /// Lamp amber: the glow in the nook.
-    static let amber = Color(uiColor: .leafDynamic(light: 0xD99A42, dark: 0xE5AA55))
-    static let rose = Color(uiColor: .leafDynamic(light: 0xB65A6B, dark: 0xD4808F))
+    static var amber: Color { .amber }
+    static var rose: Color { .rose }
     /// The brown of a dried tea ring on paper.
     static let teaRing = Color(uiColor: .leafDynamic(light: 0x9C6B3F, dark: 0xC9955F))
 

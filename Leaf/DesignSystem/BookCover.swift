@@ -75,25 +75,27 @@ struct BookCover: View {
     let size: Size
     var ribbon: Bool
     var swaysRibbon: Bool
+    var ribbonTucked: Bool
 
     @State private var image: UIImage?
-    @State private var swayTrigger = 0
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// - Parameters:
-    ///   - ribbon: draws the `ribbon` bookmark tail (M and up only).
-    ///   - swaysRibbon: plays `ribbonSway` once each time the cover appears (Today hero).
-    init(book: Book, size: Size, ribbon: Bool = false, swaysRibbon: Bool = false) {
+    ///   - ribbon: hangs the physical `ribbon` bookmark (M and up only). It follows the phone's tilt, can be tugged,
+    ///     and sleeps when still.
+    ///   - swaysRibbon: flicks the ribbon each time the cover appears, then lets it breathe a moment (Today hero).
+    ///   - ribbonTucked: slides the ribbon up out of sight (a finished book).
+    init(book: Book, size: Size, ribbon: Bool = false, swaysRibbon: Bool = false, ribbonTucked: Bool = false) {
         self.book = book
         self.size = size
         self.ribbon = ribbon
         self.swaysRibbon = swaysRibbon
+        self.ribbonTucked = ribbonTucked
         let cached = BookCover.imageURL(for: book, size: size).flatMap { CoverImageCache.shared.cachedImage(for: $0) }
         _image = State(initialValue: cached)
     }
 
-    init(_ book: Book, size: Size, ribbon: Bool = false, swaysRibbon: Bool = false) {
-        self.init(book: book, size: size, ribbon: ribbon, swaysRibbon: swaysRibbon)
+    init(_ book: Book, size: Size, ribbon: Bool = false, swaysRibbon: Bool = false, ribbonTucked: Bool = false) {
+        self.init(book: book, size: size, ribbon: ribbon, swaysRibbon: swaysRibbon, ribbonTucked: ribbonTucked)
     }
 
     /// The Open Library scan for `book` at `size`, with `?default=false` so missing covers 404.
@@ -122,12 +124,7 @@ struct BookCover: View {
         .coverShadow(size)
         .background(alignment: .topLeading) {
             if showsRibbon {
-                RibbonTail()
-                    .fill(Color.ribbon)
-                    .frame(width: size.width * 0.09, height: size.height + size.ribbonTail)
-                    .ribbonSway(trigger: swayTrigger)
-                    .offset(x: size.width * 0.70)
-                    .accessibilityHidden(true)
+                ribbonView
             }
         }
         .accessibilityElement(children: .ignore)
@@ -136,11 +133,23 @@ struct BookCover: View {
         .task(id: imageURL) {
             await loadImage()
         }
-        .onAppear {
-            if swaysRibbon && showsRibbon && !reduceMotion {
-                swayTrigger += 1
-            }
-        }
+    }
+
+    /// The ribbon hangs from the cover's top edge at 70% across and shows `ribbonTail` below it; the cover hides the rest.
+    private var ribbonView: some View {
+        let width = size.width * 0.09
+        let length = size.height + size.ribbonTail
+        let canvas = PhysicalRibbon.canvasSize(length: length, width: width)
+        return PhysicalRibbon(
+            length: length,
+            width: width,
+            seed: UInt64(truncatingIfNeeded: book.paletteSeed),
+            breathes: swaysRibbon,
+            swaysOnAppear: swaysRibbon,
+            isTucked: ribbonTucked,
+            grabFrom: size.height
+        )
+        .offset(x: size.width * 0.70 + width / 2 - canvas.width / 2)
     }
 
     private func loadImage() async {
@@ -227,21 +236,6 @@ struct CoverFinish: View {
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
-    }
-}
-
-/// A bookmark strip ending in a swallowtail notch 0.6 × its width deep.
-private struct RibbonTail: Shape {
-    func path(in rect: CGRect) -> Path {
-        let notch = rect.width * 0.6
-        var path = Path()
-        path.move(to: CGPoint(x: rect.minX, y: rect.minY))
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
-        path.addLine(to: CGPoint(x: rect.midX, y: rect.maxY - notch))
-        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
-        path.closeSubpath()
-        return path
     }
 }
 

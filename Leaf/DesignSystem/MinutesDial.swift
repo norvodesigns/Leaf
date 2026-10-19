@@ -18,8 +18,7 @@ struct MinutesDial: View {
             VStack(spacing: 0) {
                 Text("\(minutes)")
                     .leafStyle(.heroNumeral)
-                    .contentTransition(.numericText(value: Double(minutes)))
-                    .leafAnimation(Motion.paper, value: minutes)
+                    .numericBlur(value: Double(minutes))
                 Text("Minutes a day")
                     .leafStyle(.eyebrow)
             }

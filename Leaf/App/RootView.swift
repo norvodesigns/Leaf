@@ -11,6 +11,8 @@ struct RootView: View {
     @State private var didApplyLaunchRoute = false
     /// Screenshot runs can show the Live Activity on a stand-in Lock Screen (`-LeafScreen liveactivity.goal`).
     private let liveActivityStage: LiveActivityStage.Kind?
+    /// Screenshot runs can open the design-system pages (`-LeafScreen gallery`, `gallery.ribbon`). Debug builds only.
+    private let galleryKey: String?
 
     init() {
         let key = LaunchOptions.current.screen ?? ""
@@ -18,12 +20,15 @@ struct RootView: View {
         _onboardingStart = State(initialValue: step ?? .welcome)
         _forceOnboarding = State(initialValue: step != nil)
         liveActivityStage = key.hasPrefix("liveactivity.") ? LiveActivityStage.Kind(rawValue: String(key.dropFirst("liveactivity.".count))) : nil
+        galleryKey = key == "gallery" || key.hasPrefix("gallery.") ? key : nil
     }
 
     var body: some View {
         ZStack {
             if let liveActivityStage {
                 LiveActivityStage(kind: liveActivityStage)
+            } else if let galleryKey {
+                gallery(galleryKey)
             } else if store.hasOnboarded && !forceOnboarding {
                 MainTabs()
                     .transition(.opacity)
@@ -41,6 +46,19 @@ struct RootView: View {
             }
         }
         .onAppear(perform: applyLaunchRoute)
+    }
+
+    @ViewBuilder
+    private func gallery(_ key: String) -> some View {
+#if DEBUG
+        if let section = MotionGallery.Section(rawValue: String(key.dropFirst("gallery.".count))) {
+            NavigationStack { MotionGallery(section: section) }
+        } else {
+            DesignSystemGallery()
+        }
+#else
+        EmptyView()
+#endif
     }
 
     /// Debug-only staging for screenshots (`-LeafScreen <key>`).

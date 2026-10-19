@@ -73,6 +73,30 @@ struct DesignSystemGallery: View {
                         ProgressRing(progress: 0.6, diameter: 84, lineWidth: 7)
                     }
 
+                    SectionHeader("Motion and atmosphere")
+                    HStack(spacing: Space.s) {
+                        ForEach([Color.teaPaper, .chai, .matcha, .rooibos, .steam, .amber, .rose], id: \.self) { token in
+                            Circle().fill(token).frame(width: 22, height: 22)
+                        }
+                    }
+                    .padding(.bottom, Space.m)
+                    VStack(spacing: 0) {
+                        ForEach(MotionGallery.Section.allCases) { section in
+                            NavigationLink(value: section) {
+                                HStack {
+                                    Text(section.title).leafStyle(.headline)
+                                    Spacer()
+                                    Image(systemName: "chevron.right").foregroundStyle(Color.inkTertiary)
+                                }
+                                .frame(minHeight: Space.hitTarget)
+                                .contentShape(.rect)
+                            }
+                            .buttonStyle(.plain)
+                            Hairline()
+                        }
+                    }
+                    .padding(.bottom, Space.l)
+
                     EmptyState(title: "The queue is clear.", message: "Add the books you mean to get to.")
                 }
                 .leafMargins()
@@ -81,6 +105,9 @@ struct DesignSystemGallery: View {
             .scrollEdgeEffectStyle(.soft, for: .top)
             .paperBackground()
             .navigationTitle("Design")
+            .navigationDestination(for: MotionGallery.Section.self) { section in
+                MotionGallery(section: section)
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {

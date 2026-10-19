@@ -74,7 +74,7 @@ struct SettingsView: View {
                 HStack(alignment: .firstTextBaseline, spacing: Space.s) {
                     Text("\(wpm)")
                         .leafStyle(.statNumeral)
-                        .contentTransition(.numericText(value: Double(wpm)))
+                        .numericBlur(value: Double(wpm))
                         .leafAnimation(Motion.paper, value: wpm)
                     Text("wpm")
                         .leafStyle(.ui, color: .inkSecondary)

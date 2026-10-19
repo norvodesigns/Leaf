@@ -20,13 +20,14 @@ Tokens are `Color`s declared on `ShapeStyle where Self == Color`, so all forms w
 | `.glassTint` | `.glassEffect(.regular.tint(.glassTint).interactive(), in: .capsule)` |
 | `.lamp` | session mesh centre point |
 | `.coverShadow` | cover shadow base (alpha per use). There is no `.shadow` token. |
+| `.teaPaper` `.chai` `.matcha` `.rooibos` `.steam` `.amber` `.rose` | cozy tints, **atmosphere only** (never text, never state): tea rings, steam, lamplight, bokeh, scenes. Light and dark each. |
 
 - `Color(hex: UInt32, opacity: Double = 1)` — `Color(hex: 0xF4EFE6)`.
 - `UIColor(hex: UInt32, alpha: CGFloat = 1)`, `UIColor.leafDynamic(light:dark:lightAlpha:darkAlpha:)`.
 - `LeafUIColor.paper`, `.ink`, … — the same tokens as dynamic `UIColor`s for UIKit code.
 - `CoverPalette(book: Book)` → `.background`, `.foreground`, `.rule` (`Color`), `.name`, `.index`.
   `CoverPalette.all` (10 palettes, §2 order), `CoverPalette.index(for: book)` (= `paletteSeed % 10`).
-  Book detail's stage for a generated cover: `CoverPalette(book: book).background.opacity(0.18)` over paper.
+  Book detail's stage is `BlurredCoverBackdrop(book:)` (see Motion language).
 - Destructive actions: system `role: .destructive`, never a custom red.
 
 ## Type — `LeafType.swift`
@@ -100,8 +101,8 @@ Constants: `inkInStagger 0.05`, `inkInRise 8`, `inkInMaxItems 6`, `countUpDurati
 - `view.breathing(_ isActive: Bool = true)` — 1 ↔ 0.55 opacity loop; off under Reduce Motion.
 - `view.reflowFlash(trigger: some Equatable, delay: TimeInterval = 0)` — 0.6 s `ribbonSoft` flash behind
   a date when `trigger` changes. Stagger rows: `delay: Motion.reflowStagger * Double(row)`.
-- `view.ribbonSway(trigger: some Equatable)` — the §7 keyframes (rotation about the top edge). `BookCover`
-  uses it via `swaysRibbon:`.
+- `view.ribbonSway(trigger: some Equatable)` — the §7 keyframes (rotation about the top edge), for
+  a flat ribbon-like view. Cover ribbons are `PhysicalRibbon`s now.
 - Transitions: `.transition(.inkIn)`, `.transition(.rise())` / `.rise(12)` (onboarding steps),
   `.transition(.countdownNumeral)`, `.transition(.deltaChip)`.
 - Strike / rules: draw with `.trim(from: 0, to: drawn ? 1 : 0)` animated by `Motion.strike` /
@@ -110,11 +111,13 @@ Constants: `inkInStagger 0.05`, `inkInRise 8`, `inkInMaxItems 6`, `countUpDurati
 
 ## Covers — `BookCover.swift`, `GeneratedCover.swift`
 
-- `BookCover(book: Book, size: BookCover.Size, ribbon: Bool = false, swaysRibbon: Bool = false)`
+- `BookCover(book: Book, size: BookCover.Size, ribbon: Bool = false, swaysRibbon: Bool = false, ribbonTucked: Bool = false)`
   (also `BookCover(_ book:, size:, …)`). Generated cover underneath, Open Library scan (`?default=false`,
   `.large` for L/XL) fading in over 0.3 s, bad-scan handling, hinge finish, inner stroke, shadow.
   VoiceOver: "Cover of {title} by {author}". `ribbon` draws on M+ and hangs `size.ribbonTail` (0.12 h)
-  **below** the frame — leave room. `swaysRibbon` plays `ribbonSway` on each appearance (Today hero).
+  **below** the frame — leave room. The ribbon is a `PhysicalRibbon`: it follows tilt and can be tugged.
+  `swaysRibbon` sways it on appearance and lets it breathe a little before it sleeps (Today hero);
+  `ribbonTucked` pulls it up behind the cover (a finished book).
   The frame is exactly the cover, so zoom straight from it:
   `BookCover(book: b, size: .m).matchedTransitionSource(id: b.id, in: ns)` and
   `BookDetailView(book: b).navigationTransition(.zoom(sourceID: b.id, in: ns))`.
@@ -199,6 +202,8 @@ Constants: `inkInStagger 0.05`, `inkInRise 8`, `inkInMaxItems 6`, `countUpDurati
   `range` must be valid (`lower <= upper`); clamp `page` into it before showing.
 - `TickRuler(range: ClosedRange<Int>, value: Binding<Int>, spacing: CGFloat = 8, majorEvery: Int = 5, labels: Set<Int> = [], estimate: Int? = nil, rigidAtLabels: Bool = false, voiceOverLabel: String = "Value", adjustStep: Int = 1, valueDescription: @escaping (Int) -> String = { "\($0)" })`
   — the shared ruler (88 pt tall, full width, centre `ribbon` needle, faded edges). `TickRuler.height`.
+  Runs on `ScrubController` (flick to coast, rubber band, velocity blur; `estimate` is a magnet, and so are the
+  labels with `rigidAtLabels`). Haptics come from `ScrubModel` through `Haptics.shared.scrub(_:)`.
 - `WeekdayPicker(selection: Binding<Set<Int>>)` — weekdays 1 = Sun … 7 = Sat, laid out from
   `Calendar.current.firstWeekday`; `masthead` letters, `ribbon` underline, `selection()` haptic, each
   column a toggle ("Monday, reading day"). `WeekdayPicker.orderedWeekdays()` → `[Int]` in display order.
@@ -226,8 +231,8 @@ Constants: `inkInStagger 0.05`, `inkInRise 8`, `inkInMaxItems 6`, `countUpDurati
 
 Warm tints for atmosphere only; ink and the one green accent still do the work, and none of these carries text.
 
-- `CozyColor.teaPaper`, `.chai`, `.matcha`, `.rooibos`, `.steam` (a warm grey on light paper, near white at night),
-  `.amber` (lamp), `.rose`, `.teaRing` — dynamic light/dark `Color`s.
+- The tints are `LeafColor` tokens now (`.chai`, `Color.matcha`, `LeafUIColor.amber`); `CozyColor.teaPaper` … `.rose`
+  remain as aliases, plus `.teaRing`. `.steam` is a warm grey on light paper, near white at night; `.amber` is the lamp.
   `CozyColor.color(for: CozyPalette.chai)` maps the data layer's tokens; `CozyColor.liquor(for: Tea)` is the tea in
   the cup (fixed colours, like covers).
 - `TeaCup(fill: Double, liquor: Color, steams: Bool = false, width: CGFloat = 96)` — an inked cup that fills 0…1 with
@@ -241,6 +246,44 @@ Warm tints for atmosphere only; ink and the one green accent still do the work, 
   the afternoon, the lamp and a few soft bokeh lights from dusk, a small pool of lamplight late. Fades into paper at
   the bottom. Reduce Transparency → flat tint; Reduce Motion / Low Power / inactive → still.
   `NookAtmosphere.light(for:dark:)` returns the recipe.
+
+## Motion language (UI-3, NEXT.md §7–9)
+
+Blur is for what you feel, crispness for what you act on. Nothing runs a frame when nothing moves: every timeline
+pauses when its scene is still, the app is inactive, Reduce Motion is on or Low Power Mode is on.
+
+- **Blur** — `Blur.swift`. `.transition(.focusPull)` / `.focusPullTransition()` (outgoing blurs and drifts back as the
+  incoming sharpens; crossfade under Reduce Motion or Reduce Transparency). `.focusPull(isFocused:radius: 6)` keeps a
+  view soft while something is in front of it (Today while a book is open). `.numericBlur(value:velocityBlur:)` is
+  the big numerals' transition: `numericText` plus a 0.28 s blur-through, and a live smear (≤ 6 pt) while scrubbing.
+  `PerDigitBlurText(text:value:)` runs a blur wave across the digits (`DigitBlurRenderer`, a `TextRenderer`).
+- **Cover backdrop** — `CoverBackdrop.swift`. `BlurredCoverBackdrop(book:scrim: 0.5)`: paper, a 3×3 `MeshGradient`
+  from the cover's colours, the cover pre-rendered once at 60×90 and blurred (Core Image), then a paper scrim that
+  reaches full paper at the bottom. Rendered once per cover and cached (`CoverBackdropRenderer.shared`). Flat 18% wash
+  under Reduce Transparency. Use it behind a cover-led stage (book detail).
+- **Scenes** — `AtmosphereScene.swift`. `AtmosphereScene(kind: .bokeh | .rain | .steam, calm: 0...1, density: 1,
+  tint: .amber, seed:)`: a `Canvas` at 15 fps drawn from `AtmosphereField`; as `calm` reaches 0 the clock eases to a
+  stop and the timeline pauses. Put it over a background of your own; it is hidden from VoiceOver.
+- **Ribbon** — `PhysicalRibbon.swift`. `PhysicalRibbon(length:width:color: .ribbon, seed:breathes:swaysOnAppear:
+  isTucked:grabFrom:isInteractive:followsTilt:)`: `RibbonSimulation` drawn as a Catmull-Rom satin strip that tapers to
+  a swallowtail, with a highlight from curvature and a soft shadow. Tilt from `RibbonTilt.shared` (Core Motion, 30 Hz,
+  only while a ribbon is on screen, published only when gravity really changes). Drag below `grabFrom` to tug it
+  (rubber band, a continuous haptic that follows `stretch`), let go to flick. Its timeline stops when the ribbon
+  settles. Reduce Motion → `reducedMotionPose`. `PhysicalRibbon.canvasSize(length:width:)` is the room it draws in.
+- **Ribbon as progress control** — `RibbonPageControl(page:pages:startPage:)`: the ribbon hangs down a page block as
+  thick as the book; drag down the block to set the page (`RibbonDepthMapping`: slow lands on pages, fast snaps to
+  round numbers). Typed field and VoiceOver adjustable action always present.
+- **Scrub numbers** — `Scrub.swift`, `ScrubVariants.swift`. `ScrubController(configuration:value:)` (observable
+  `ScrubModel` with coasting, haptics and blur) drives `ScrubRuler` (the Canvas ruler) and
+  `ScrubNumber(value:configuration:caption:numeral:labels:estimate:accessibilityLabel:spoken:adjustSteps:consequence:)`
+  — numeral, ruler, a tap-to-type fallback and adjustable VoiceOver. Variants: `MinutesDial`, `PageScrubber` (via
+  `TickRuler`), `SteepTimeScrub(seconds:suggested:)`, `FinishByScrub(scrub: DateScrub, offset:magnetOffsets:)` ("About
+  N min a day" under the date), `TimeDrum(hour:minute:minuteStep: 5)` built from `DrumWheel`s.
+  `.scrubsHorizontally(controller)` adds the gesture to any view.
+- **Haptics** — `Haptics.shared.scrub(_ event: ScrubHapticEvent)`, named moments `.magnetSnap`, `.boundsHit`, and the
+  continuous stretch `beginStretch()` / `updateStretch(_:)` / `endStretch()`.
+- **Gallery** — `MotionGallery(section:)` (debug): `-LeafScreen gallery`, `gallery.palette`, `.blur`, `.scenes`,
+  `.ribbon`, `.scrub`, `.drum`; also linked from `DesignSystemGallery`.
 
 ## Today, position, reading times, deck (feature components)
 

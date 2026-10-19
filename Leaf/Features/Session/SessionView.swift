@@ -335,7 +335,7 @@ struct SessionView: View {
                 .accessibilityAddTraits(.isHeader)
             Text("\(page)")
                 .leafStyle(.heroNumeral)
-                .contentTransition(.numericText(value: Double(page)))
+                .numericBlur(value: Double(page))
                 .leafAnimation(Motion.paper, value: page)
                 .accessibilityHidden(true)
             PageScrubber(page: $page, range: range, estimate: estimatedPage)

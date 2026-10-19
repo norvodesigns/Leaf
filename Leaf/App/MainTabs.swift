@@ -18,6 +18,7 @@ struct MainTabs: View {
             Tab("Today", systemImage: "sun.horizon", value: AppTab.today) {
                 NavigationStack(path: $router.todayPath) {
                     TodayView()
+                        .focusPull(isFocused: router.todayPath.isEmpty)
                         .navigationDestination(for: BookRoute.self) { route in
                             BookDetailView(book: route.book)
                                 .navigationTransition(.zoom(sourceID: route.book.id, in: todayBookZoom))

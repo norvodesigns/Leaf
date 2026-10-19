@@ -228,7 +228,7 @@ struct WhereAreYouSheet: View {
         VStack(spacing: Space.m) {
             Text("\(page)")
                 .leafStyle(.heroNumeral)
-                .contentTransition(.numericText(value: Double(page)))
+                .numericBlur(value: Double(page))
                 .leafAnimation(Motion.paper, value: page)
                 .accessibilityHidden(true)
             Text("of \(LeafFormat.number(book.pages)) pages · \(percentText(forPage: page)) read")
@@ -264,7 +264,7 @@ struct WhereAreYouSheet: View {
         VStack(spacing: Space.m) {
             Text("\(percent)%")
                 .leafStyle(.heroNumeral)
-                .contentTransition(.numericText(value: Double(percent)))
+                .numericBlur(value: Double(percent))
                 .leafAnimation(Motion.paper, value: percent)
                 .accessibilityHidden(true)
             Text("about p. \(pageFromPercent) of \(LeafFormat.number(book.pages))")

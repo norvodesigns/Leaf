@@ -58,6 +58,15 @@ enum LeafUIColor {
     static let glassTint = UIColor.leafDynamic(light: 0xF4EFE6, dark: 0x1A1714, lightAlpha: 0.22, darkAlpha: 0.30)
     static let lamp = UIColor.leafDynamic(light: 0xFBF1DD, dark: 0x2E261C)
     static let coverShadow = UIColor.leafDynamic(light: 0x2A1F14, dark: 0x000000)
+
+    // Cozy tokens (NEXT.md section 6): warm tints for atmosphere only, never text.
+    static let teaPaper = UIColor.leafDynamic(light: 0xEADFCB, dark: 0x2A241D)
+    static let chai = UIColor.leafDynamic(light: 0xB58456, dark: 0xC99A6E)
+    static let matcha = UIColor.leafDynamic(light: 0x7F9C5A, dark: 0x9DB97A)
+    static let rooibos = UIColor.leafDynamic(light: 0xA9532F, dark: 0xCC714C)
+    static let steam = UIColor.leafDynamic(light: 0x9A8F80, dark: 0xE8E1D3)
+    static let amber = UIColor.leafDynamic(light: 0xD99A42, dark: 0xE5AA55)
+    static let rose = UIColor.leafDynamic(light: 0xB65A6B, dark: 0xD4808F)
 }
 
 /// Cached SwiftUI wrappers so each token is built once.
@@ -78,6 +87,13 @@ private enum LeafColorCache {
     static let glassTint = Color(uiColor: LeafUIColor.glassTint)
     static let lamp = Color(uiColor: LeafUIColor.lamp)
     static let coverShadow = Color(uiColor: LeafUIColor.coverShadow)
+    static let teaPaper = Color(uiColor: LeafUIColor.teaPaper)
+    static let chai = Color(uiColor: LeafUIColor.chai)
+    static let matcha = Color(uiColor: LeafUIColor.matcha)
+    static let rooibos = Color(uiColor: LeafUIColor.rooibos)
+    static let steam = Color(uiColor: LeafUIColor.steam)
+    static let amber = Color(uiColor: LeafUIColor.amber)
+    static let rose = Color(uiColor: LeafUIColor.rose)
 }
 
 /// Leaf's colour tokens. Declared on `ShapeStyle where Self == Color` so all of these work:
@@ -115,6 +131,20 @@ extension ShapeStyle where Self == Color {
     static var lamp: Color { LeafColorCache.lamp }
     /// Base colour for cover shadows; set the alpha per use.
     static var coverShadow: Color { LeafColorCache.coverShadow }
+
+    // Cozy tokens: atmosphere only (tea in the cup, tea rings, the nook's light, scenes). Never text, never a
+    // second accent; ink and `accent` still do the work.
+
+    /// Tea-stained paper: the nook's table, quiet wells.
+    static var teaPaper: Color { LeafColorCache.teaPaper }
+    static var chai: Color { LeafColorCache.chai }
+    static var matcha: Color { LeafColorCache.matcha }
+    static var rooibos: Color { LeafColorCache.rooibos }
+    /// Steam: a warm grey on light paper, near white at night.
+    static var steam: Color { LeafColorCache.steam }
+    /// Lamp amber.
+    static var amber: Color { LeafColorCache.amber }
+    static var rose: Color { LeafColorCache.rose }
 }
 
 // MARK: - Generated-cover palettes (DESIGN.md §2)
@@ -168,6 +198,8 @@ struct CoverPalette: Hashable, Identifiable {
         ("hairline", .hairline), ("hairlineStrong", .hairlineStrong),
         ("accent", .accent), ("accentSoft", .accentSoft), ("ribbon", .ribbon), ("ribbonSoft", .ribbonSoft),
         ("glassTint", .glassTint), ("lamp", .lamp), ("coverShadow", .coverShadow),
+        ("teaPaper", .teaPaper), ("chai", .chai), ("matcha", .matcha), ("rooibos", .rooibos),
+        ("steam", .steam), ("amber", .amber), ("rose", .rose),
     ]
     return ScrollView {
         VStack(alignment: .leading, spacing: 8) {

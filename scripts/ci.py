@@ -58,6 +58,21 @@ def job_log(run_id=None):
     return path, log
 
 
+def shots_from_ref(outdir):
+    """CI also pushes the JPEGs to the hidden ref refs/ci/screenshots, for machines that can reach github.com but
+    not the storage that serves job logs. Returns how many were written."""
+    root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+    ref = "refs/ci/screenshots"
+    if subprocess.run(["git", "fetch", "-q", "origin", f"+{ref}:{ref}"], cwd=root).returncode != 0:
+        return 0
+    git = lambda *a: subprocess.run(["git", *a], cwd=root, capture_output=True)
+    print(git("log", "-1", "--format=%s", ref).stdout.decode().strip())
+    names = git("ls-tree", "--name-only", ref).stdout.decode().split()
+    for name in names:
+        open(os.path.join(outdir, name), "wb").write(git("show", f"{ref}:{name}").stdout)
+    return len(names)
+
+
 def main():
     cmd = sys.argv[1] if len(sys.argv) > 1 else "status"
     arg = sys.argv[2] if len(sys.argv) > 2 else None
@@ -92,6 +107,8 @@ def main():
             lines = [re.sub(r"^\S+Z ", "", l).strip() for l in body.splitlines()]
             open(os.path.join(outdir, name + ".jpg"), "wb").write(base64.b64decode("".join(lines)))
             count += 1
+        if count == 0:
+            count = shots_from_ref(outdir)
         print(f"wrote {count} screenshots to {outdir}")
     else:
         sys.exit(__doc__)
