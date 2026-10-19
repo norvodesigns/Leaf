@@ -42,8 +42,8 @@ struct TeaRingStamp: View {
     }
 
     private func ring(share: Double) -> some View {
-        let clamped = min(1, max(0, share))
-        let size = diameter * (0.48 + 0.52 * clamped)
+        let clamped: Double = min(1, max(0, share))
+        let size: CGFloat = diameter * CGFloat(0.48 + 0.52 * clamped)
         let angle = Double((seed &* 47) % 360)
         return ZStack {
             Circle()

@@ -139,16 +139,21 @@ struct SwipeDeckView: View {
         ZStack {
             ForEach(Array(model.cards.enumerated()), id: \.element.id) { index, card in
                 let isTop = index == 0
+                let depth = CGFloat(index)
+                let scale: CGFloat = 1 - depth * 0.05
+                let drop: CGFloat = depth * 12
+                let lift: Double = isTop && drag != .zero ? 0.18 : 0
+                let tilt: Double = isTop ? rotation : 0
                 SwipeCard(card: card, wpm: wpm, roomy: cardHeight >= 420)
                     .frame(height: cardHeight)
                     .overlay(alignment: .top) {
                         if isTop { stamp }
                     }
-                    .shadow(color: Color.coverShadow.opacity(isTop && drag != .zero ? 0.18 : 0), radius: 16, y: 10)
-                    .scaleEffect(isTop ? 1 : 1 - CGFloat(index) * 0.05, anchor: .top)
-                    .offset(y: isTop ? 0 : CGFloat(index) * 12)
+                    .shadow(color: Color.coverShadow.opacity(lift), radius: 16, y: 10)
+                    .scaleEffect(scale, anchor: .top)
+                    .offset(y: drop)
                     .offset(isTop ? drag : .zero)
-                    .rotationEffect(.degrees(isTop ? rotation : 0), anchor: .bottom)
+                    .rotationEffect(.degrees(tilt), anchor: .bottom)
                     .zIndex(Double(Self.zBase - index))
                     .allowsHitTesting(isTop && !isFlinging)
                     .modifier(DeckGesture(isEnabled: isTop, simultaneous: style == .compact, gesture: dragGesture))
@@ -188,8 +193,8 @@ struct SwipeDeckView: View {
                 let translation = style == .compact
                     ? CGSize(width: value.predictedEndTranslation.width, height: 0)
                     : value.predictedEndTranslation
-                if let choice = choice(for: drag) ?? choice(for: translation) {
-                    fling(choice)
+                if let picked = choice(for: drag) ?? choice(for: translation) {
+                    fling(picked)
                 } else {
                     armed = nil
                     withAnimation(Motion.resolved(Motion.board, reduceMotion: reduceMotion)) {
@@ -255,7 +260,8 @@ struct SwipeDeckView: View {
     @ViewBuilder
     private var stamp: some View {
         let shown = armed ?? choice(for: drag)
-        let progress = min(1, max(abs(drag.width), style == .full ? -drag.height : 0) / threshold)
+        let upward: CGFloat = style == .full ? -drag.height : 0
+        let progress: CGFloat = min(1, max(abs(drag.width), upward) / threshold)
         if let shown {
             DeckStamp(choice: shown)
                 .opacity(Double(progress))

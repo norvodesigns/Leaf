@@ -76,7 +76,7 @@ struct NookAtmosphere: View {
                         colors: [light.glow.opacity(light.glowOpacity), light.glow.opacity(light.glowOpacity * 0.35), .clear],
                         center: light.glowCenter,
                         startRadius: 0,
-                        endRadius: longest * light.glowRadius
+                        endRadius: longest * CGFloat(light.glowRadius)
                     )
                     if light.showsWindow {
                         windowLight(size: proxy.size)
@@ -121,10 +121,10 @@ struct NookAtmosphere: View {
                 let shorter = min(size.width, size.height)
                 for light in lights {
                     // Keep the lights in the upper right, around the lamp.
-                    let center = CGPoint(x: size.width * (0.45 + light.x * 0.55), y: size.height * light.y * 0.6)
-                    let radius = max(6, light.radius * shorter * 0.9)
+                    let center = CGPoint(x: size.width * CGFloat(0.45 + light.x * 0.55), y: size.height * CGFloat(light.y * 0.6))
+                    let radius: CGFloat = max(6, CGFloat(light.radius) * shorter * 0.9)
                     let rect = CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
-                    let alpha = min(0.5, light.opacity * 0.6)
+                    let alpha: Double = min(0.5, light.opacity * 0.6)
                     let gradient = Gradient(stops: [
                         .init(color: color.opacity(alpha), location: 0),
                         .init(color: color.opacity(alpha * 0.8), location: 0.62),

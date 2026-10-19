@@ -173,8 +173,8 @@ struct SteamWisps: View {
                 let wisps = AtmosphereField.steam(seed: seed, time: time, count: 5, calm: 1)
                 for wisp in wisps where wisp.opacity > 0.01 {
                     var path = Path()
-                    let x = wisp.x * size.width
-                    let base = wisp.y * size.height
+                    let x = CGFloat(wisp.x) * size.width
+                    let base = CGFloat(wisp.y) * size.height
                     let length = size.height * 0.34
                     let sway = size.width * 0.08
                     path.move(to: CGPoint(x: x, y: base))
@@ -183,11 +183,12 @@ struct SteamWisps: View {
                         control1: CGPoint(x: x - sway, y: base - length * 0.35),
                         control2: CGPoint(x: x + sway, y: base - length * 0.65)
                     )
-                    let opacity = min(0.9, wisp.opacity * 2.2)
+                    let opacity: Double = min(0.9, wisp.opacity * 2.2)
+                    let lineWidth: CGFloat = max(1.5, CGFloat(wisp.width) * size.width * 0.5)
                     canvas.stroke(
                         path,
                         with: .color(CozyColor.steam.opacity(opacity)),
-                        style: StrokeStyle(lineWidth: max(1.5, wisp.width * size.width * 0.5), lineCap: .round)
+                        style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
                     )
                 }
             }
