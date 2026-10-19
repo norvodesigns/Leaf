@@ -187,23 +187,25 @@ struct BestTimeCard: View {
                         let percent = Text("\(Int((part.minuteShare * 100).rounded()))%")
                             .font(LeafType.caption.monospacedDigit())
                             .foregroundStyle(Color.inkTertiary)
-                        if typeSize.isAccessibilitySize {
-                            VStack(alignment: .leading, spacing: Space.xs) {
-                                HStack {
-                                    Text(name(part.daypart)).leafStyle(.caption)
-                                    Spacer()
-                                    percent
+                        Group {
+                            if typeSize.isAccessibilitySize {
+                                VStack(alignment: .leading, spacing: Space.xs) {
+                                    HStack {
+                                        Text(name(part.daypart)).leafStyle(.caption)
+                                        Spacer()
+                                        percent
+                                    }
+                                    bar
                                 }
-                                bar
-                            }
-                        } else {
-                            HStack(spacing: Space.s) {
-                                Text(name(part.daypart))
-                                    .leafStyle(.caption)
-                                    .frame(width: labelWidth, alignment: .leading)
-                                bar
-                                percent
-                                    .frame(minWidth: 36, alignment: .trailing)
+                            } else {
+                                HStack(spacing: Space.s) {
+                                    Text(name(part.daypart))
+                                        .leafStyle(.caption)
+                                        .frame(width: labelWidth, alignment: .leading)
+                                    bar
+                                    percent
+                                        .frame(minWidth: 36, alignment: .trailing)
+                                }
                             }
                         }
                         .accessibilityElement(children: .ignore)
