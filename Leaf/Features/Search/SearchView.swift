@@ -385,6 +385,10 @@ struct SearchView: View {
         withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
             store.dismiss(book.id)
             undoBook = book
+            // Gone from every row at once; the rebuild that follows the dismissal takes a moment.
+            for index in collections.indices {
+                collections[index].books.removeAll { $0.id == book.id }
+            }
         }
     }
 

@@ -141,7 +141,7 @@ struct RootView: View {
             router.searchStage = String(key.dropFirst("search.".count))
         case "search.similar":
             router.tab = .search
-            router.searchPath.append(SimilarRoute(book: DemoData.circe))
+            router.searchPath.append(SimilarRoute(book: DemoData.hobbit))
         case "search.taste":
             router.tab = .search
             router.searchPath.append(TasteRoute())

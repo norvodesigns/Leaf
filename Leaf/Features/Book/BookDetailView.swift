@@ -526,7 +526,7 @@ struct BookDetailView: View {
         guard let stage = router.bookStage else { return }
         router.bookStage = nil
         if stage == "journal" { lowerTab = .journal }
-        try? await Task.sleep(for: .milliseconds(stage == "more" ? 1_200 : 600))
+        try? await Task.sleep(for: .milliseconds(stage == "more" ? 4_000 : 600))
         proxy.scrollTo(stage == "journal" ? "lower" : stage, anchor: .top)
     }
 

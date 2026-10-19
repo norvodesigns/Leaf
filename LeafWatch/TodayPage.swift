@@ -191,7 +191,7 @@ struct SteepTimerView: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(ready ? "Your tea is ready" : "\(Int(remaining.rounded(.up))) seconds left to steep")
             Button(action: onStart) {
-                Label(ready ? "Start the cup" : "Start reading now", systemImage: "book.fill")
+                Label(ready ? "Start the cup" : "Read now", systemImage: "book.fill")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.glassProminent)

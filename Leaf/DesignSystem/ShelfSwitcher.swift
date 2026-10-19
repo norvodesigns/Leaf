@@ -29,16 +29,26 @@ struct ShelfSwitcher: View {
     }
 
     var body: some View {
-        ScrollView(.horizontal) {
-            HStack(alignment: .top, spacing: Space.xl) {
-                ForEach(shelves, id: \.self) { shelf in
-                    tab(shelf)
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal) {
+                // A fourth shelf (Paused) sits a little closer so all four fit on most phones.
+                HStack(alignment: .top, spacing: shelves.count > 3 ? Space.l : Space.xl) {
+                    ForEach(shelves, id: \.self) { shelf in
+                        tab(shelf)
+                            .id(shelf)
+                    }
+                }
+            }
+            .scrollIndicators(.hidden)
+            .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+            .scrollClipDisabled()
+            .onAppear { proxy.scrollTo(selection) }
+            .onChange(of: selection) { _, shelf in
+                withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
+                    proxy.scrollTo(shelf)
                 }
             }
         }
-        .scrollIndicators(.hidden)
-        .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
-        .scrollClipDisabled()
     }
 
     private func tab(_ shelf: Shelf) -> some View {

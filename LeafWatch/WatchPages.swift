@@ -136,7 +136,7 @@ struct QuickLogView: View {
     private var caption: String {
         let pages = max(0, Int(page) - book.currentPage)
         if Int(page) >= book.pages { return "The end!" }
-        return "+\(pages) \(pages == 1 ? "page" : "pages") · tap a number, turn the crown"
+        return "+\(pages) \(pages == 1 ? "page" : "pages") · tap a number"
     }
 
     /// Where your pace says `minutes` would get you from your current page.
@@ -279,6 +279,12 @@ struct AddPage: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
+                if let sent {
+                    Label(sent, systemImage: "checkmark")
+                        .font(.system(size: 12))
+                        .foregroundStyle(WatchTheme.accent)
+                        .transition(.opacity)
+                }
                 TextFieldLink(prompt: Text("Title or author")) {
                     Label("A book to read", systemImage: "plus")
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -306,12 +312,6 @@ struct AddPage: View {
                         store.addJournal(bookID: book.id, kind: .quote, text: text)
                         confirm("Kept with p. \(book.currentPage).")
                     }
-                }
-                if let sent {
-                    Label(sent, systemImage: "checkmark")
-                        .font(.system(size: 12))
-                        .foregroundStyle(WatchTheme.accent)
-                        .transition(.opacity)
                 }
             }
             .buttonStyle(.glass)

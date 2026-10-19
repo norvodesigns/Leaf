@@ -25,6 +25,8 @@ struct SessionView: View {
                     ProgressView()
                 }
             }
+            // Opaque, so the page underneath never shows through the cover; black in Always-On.
+            .containerBackground(isLuminanceReduced ? Color.black.gradient : WatchTheme.warm.gradient, for: .navigation)
         }
         .onAppear {
             if LaunchScreen.current == "pages" { askingForPage = true }

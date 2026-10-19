@@ -106,7 +106,7 @@ struct SearchShelfRow: View {
     @ViewBuilder
     private var header: some View {
         if kind.style == .author {
-            AuthorShelfHeader(collection: collection, topSpacing: isFirst ? 0 : Space.xxxl)
+            AuthorShelfHeader(collection: collection, topSpacing: isFirst ? 0 : Space.xxxl + Space.m)
         } else {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .firstTextBaseline, spacing: Space.s) {
