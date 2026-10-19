@@ -6,9 +6,13 @@ Package: UI-4 (Plan tab: forecast, insights, challenges and stamps)
 Status: done
 Commits pushed to main:
   14b1d31 UI-4: Plan becomes Forecast, Insights and Challenges
-  (follow-up commits from the screenshot review and the code review are listed in the final chat report)
-CI: run 39239991576 (14b1d31) green: build and unit tests (two new store tests), watch, unsigned archive, zero
-  warnings, 98 screenshots. Later runs: see the final chat report.
+  cfd7a91 UI-4 screenshot review: heatmap ends today, empty states, goal pace line
+  9841ea2 UI-4 review fixes: honest leaving, fresh what-ifs, pinned odds, readable evidence
+  c40c6dd Insights: best-time rows wrap their two layouts in a Group before the accessibility modifiers
+CI: run 39239991576 (14b1d31) and 39245240942 (cfd7a91) green. 9841ea2 failed to compile (a modifier on an
+  if/else in InsightsPage's best-time rows); runs for the next pushes stopped at the same error until c40c6dd fixed
+  it. Run 39284653017 (c40c6dd) green: build, unit tests, watch, unsigned archive and 132 screenshots. A scan of
+  every Swift file for the same mistake found no other case.
 Screens / states built (staging name -> screenshot file):
   Forecast: year chart + header sentence      -LeafScreen plan                    -> 70-plan-forecast(-dark)
   Now reading: per-book fan charts            -LeafScreen plan.reading            -> 69-plan-reading
@@ -62,7 +66,11 @@ Design decisions the owner should know about or veto:
   - The year chart draws the goal as a steady-pace line from January, so the gap to the forecast is visible.
   - A single missed day doesn't raise the catch-up card; two or more (or a non-default mode) do.
   - Share images are always on paper in the day palette.
-Known issues / follow-ups, most important first: see the final chat report.
+Known issues / follow-ups, most important first:
+  - The plan's dates (every planned minute) and the forecast median (real life) can differ by weeks; the plan
+    section says so, but a single shared "likely finish" would read better.
+  - The review fixes (9841ea2) were verified by CI only from c40c6dd onward; their screenshots are in that run.
+  - Weekly letter mapping (WeeklyLetterData -> WeeklyLetterInput) lives in the view; it belongs in Shared/.
 Next package you recommend: a device pass on UI-3/UI-4 feel (haptics, ribbon, scrub, chart selection).
 === END REPORT ===
 ```
