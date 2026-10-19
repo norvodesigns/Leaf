@@ -17,18 +17,11 @@ struct OnboardingWelcomeView: View {
                     .frame(width: 28, height: 2)
                     .opacity(showsTagline ? 1 : 0)
                     .accessibilityHidden(true)
-                VStack(spacing: Space.m) {
-                    Text("Read on purpose.")
-                        .leafStyle(.masthead)
-                        .multilineTextAlignment(.center)
-                    Text("Tell Leaf how you read. It plans the rest.")
-                        .leafStyle(.body, color: .inkSecondary)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: 300)
-                }
-                .opacity(showsTagline ? 1 : 0)
-                .offset(y: showsTagline || reduceMotion ? 0 : Motion.inkInRise)
+                Text("Read on purpose.")
+                    .leafStyle(.masthead)
+                    .multilineTextAlignment(.center)
+                    .opacity(showsTagline ? 1 : 0)
+                    .offset(y: showsTagline || reduceMotion ? 0 : Motion.inkInRise)
             }
         }
         .task {
