@@ -19,10 +19,13 @@ struct InsightsPage: View {
                     router.planSheet = .yearInBooks
                 }
                 .inkIn(1)
-                WeeklyLetterCard(letter: insights.letter, calendar: store.calendar) {
-                    router.planSheet = .weeklyLetter
+                // A letter needs a week to write about: not on a brand-new reader's first days.
+                if insights.letter.week.sessions > 0 || insights.letter.previous.sessions > 0 {
+                    WeeklyLetterCard(letter: insights.letter, calendar: store.calendar) {
+                        router.planSheet = .weeklyLetter
+                    }
+                    .inkIn(2)
                 }
-                .inkIn(2)
                 BestTimeCard(best: insights.bestTime)
                     .id("time")
                 SpeedCard(trend: insights.speed)
@@ -162,6 +165,9 @@ struct TeaRingHeatmap: View {
 struct BestTimeCard: View {
     let best: BestTimeOfDay?
 
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @ScaledMetric(relativeTo: .caption) private var labelWidth: CGFloat = 84
+
     var body: some View {
         TodayCard("Best time to read") {
             if let best {
@@ -172,20 +178,33 @@ struct BestTimeCard: View {
                 let top = parts.map(\.minuteShare).max() ?? 1
                 VStack(spacing: Space.xs) {
                     ForEach(parts, id: \.daypart) { part in
-                        HStack(spacing: Space.s) {
-                            Text(name(part.daypart))
-                                .leafStyle(.caption)
-                                .frame(width: 84, alignment: .leading)
-                            GeometryReader { proxy in
-                                Capsule()
-                                    .fill(part.daypart == best.consistent.daypart ? Color.accent : Color.hairlineStrong)
-                                    .frame(width: max(3, proxy.size.width * part.minuteShare / max(top, 0.01)))
+                        let bar = GeometryReader { proxy in
+                            Capsule()
+                                .fill(part.daypart == best.consistent.daypart ? Color.accent : Color.hairlineStrong)
+                                .frame(width: max(3, proxy.size.width * part.minuteShare / max(top, 0.01)))
+                        }
+                        .frame(height: 6)
+                        let percent = Text("\(Int((part.minuteShare * 100).rounded()))%")
+                            .font(LeafType.caption.monospacedDigit())
+                            .foregroundStyle(Color.inkTertiary)
+                        if typeSize.isAccessibilitySize {
+                            VStack(alignment: .leading, spacing: Space.xs) {
+                                HStack {
+                                    Text(name(part.daypart)).leafStyle(.caption)
+                                    Spacer()
+                                    percent
+                                }
+                                bar
                             }
-                            .frame(height: 6)
-                            Text("\(Int((part.minuteShare * 100).rounded()))%")
-                                .font(.system(size: 11, weight: .medium).monospacedDigit())
-                                .foregroundStyle(Color.inkTertiary)
-                                .frame(width: 36, alignment: .trailing)
+                        } else {
+                            HStack(spacing: Space.s) {
+                                Text(name(part.daypart))
+                                    .leafStyle(.caption)
+                                    .frame(width: labelWidth, alignment: .leading)
+                                bar
+                                percent
+                                    .frame(minWidth: 36, alignment: .trailing)
+                            }
                         }
                         .accessibilityElement(children: .ignore)
                         .accessibilityLabel("\(name(part.daypart)): \(Int((part.minuteShare * 100).rounded())) percent of your reading time")

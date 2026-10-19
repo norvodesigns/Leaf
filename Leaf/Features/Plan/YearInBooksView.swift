@@ -16,7 +16,7 @@ struct YearInBooksView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     Eyebrow("\(String(summary.year)) in books")
-                    Text(summary.booksFinished == 1 ? "One book." : "\(summary.booksFinished) books.")
+                    Text(YearInBooksText.title(summary))
                         .leafStyle(.display)
                         .padding(.top, Space.s)
                     Text(YearInBooksText.headline(summary))
@@ -29,6 +29,7 @@ struct YearInBooksView: View {
                     MonthRingCollage(months: summary.months, ringSize: 50, showsLabels: true)
                         .accessibilityElement(children: .ignore)
                         .accessibilityLabel(YearInBooksText.monthsSentence(summary, calendar: store.calendar))
+                        .accessibilityValue(YearInBooksText.monthByMonth(summary, calendar: store.calendar))
 
                     SectionHeader("Habits")
                     StatTileRow {
@@ -173,6 +174,15 @@ enum YearInBooksText {
         let detail: String?
     }
 
+    /// "14 books.", "One book.", or, before the first finish, "Still reading."
+    static func title(_ summary: YearInBooks) -> String {
+        switch summary.booksFinished {
+        case 0: "Still reading."
+        case 1: "One book."
+        default: "\(summary.booksFinished) books."
+        }
+    }
+
     /// "4,210 pages, 98 hours, 235 cups."
     static func headline(_ summary: YearInBooks) -> String {
         "\(LeafFormat.number(summary.pages)) pages, \(LeafFormat.duration(minutes: summary.minutes)), \(summary.cups) \(summary.cups == 1 ? "cup" : "cups")."
@@ -190,6 +200,17 @@ enum YearInBooksText {
         let name = LeafFormat.format(date, template: "MMMM", calendar: calendar)
         let read = summary.months.filter { $0.minutes > 0 }.count
         return "You read in \(read) \(read == 1 ? "month" : "months") of the year; \(name) was the busiest."
+    }
+
+    /// "January: 9 hours, 2 books. February: …", for the months with any reading.
+    static func monthByMonth(_ summary: YearInBooks, calendar: Calendar) -> String {
+        summary.months.filter { $0.minutes > 0 }.compactMap { month in
+            guard let date = calendar.date(from: DateComponents(year: summary.year, month: month.month, day: 1)) else { return nil }
+            let name = LeafFormat.format(date, template: "MMMM", calendar: calendar)
+            let books = month.booksFinished == 0 ? "" : ", \(month.booksFinished) \(month.booksFinished == 1 ? "book" : "books") finished"
+            return "\(name): \(LeafFormat.duration(minutes: month.minutes))\(books)."
+        }
+        .joined(separator: " ")
     }
 
     static func habitsSentence(_ summary: YearInBooks) -> String {
@@ -235,7 +256,7 @@ struct YearInBooksPoster: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Space.m) {
             Eyebrow("My \(String(summary.year)) in books")
-            Text(summary.booksFinished == 1 ? "One book." : "\(summary.booksFinished) books.")
+            Text(YearInBooksText.title(summary))
                 .leafStyle(.display)
             Text(YearInBooksText.headline(summary))
                 .leafStyle(.pullQuote)
@@ -379,7 +400,8 @@ struct WeeklyLetterView: View {
     /// "13 – 19 October".
     private var weekLine: String {
         let calendar = store.calendar
-        let start = LeafFormat.format(letter.week.start, template: "d", calendar: calendar)
+        let sameMonth = calendar.component(.month, from: letter.week.start) == calendar.component(.month, from: letter.week.end)
+        let start = LeafFormat.format(letter.week.start, template: sameMonth ? "d" : "dMMMM", calendar: calendar)
         let end = LeafFormat.format(letter.week.end, template: "dMMMM", calendar: calendar)
         return "\(start) – \(end)"
     }

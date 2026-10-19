@@ -176,17 +176,17 @@ struct FinishLineSheet: View {
                     }
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel("\(minutes) minutes a day, from \(answer.currentMinutes) now. \(feasibilityLabel(answer.feasibility)).")
-                    if let tonight = answer.tonight {
-                        Text(narrator.tonightSentence(tonight))
+                    if let tonight = answer.tonight, tonight.daysEarlier > 0 {
+                        Text(narrator.tonightGain(tonight, title: item?.book.title ?? "it"))
                             .leafStyle(.caption)
                     }
                     // Offer a new daily time only when the date needs more than the reader gives now; the comfortable
                     // margin is the honest number to offer.
-                    let offer = max(minutes, answer.likelyMinutesPerDay ?? minutes)
+                    // The button saves exactly what it says, within what the daily-time dial allows.
+                    let offer = min(max(minutes, answer.likelyMinutesPerDay ?? minutes), MinutesDial.range.upperBound)
                     if answer.feasibility != .onTrack, offer > store.preferences.dailyMinutes {
                         PrimaryGlassButton("Make it \(offer) min a day") {
-                            let clamped = min(max(offer, MinutesDial.range.lowerBound), MinutesDial.range.upperBound)
-                            store.updatePreferences { $0.dailyMinutes = clamped }
+                            store.updatePreferences { $0.dailyMinutes = offer }
                             dismiss()
                         }
                     }
@@ -218,6 +218,7 @@ struct FinishLineSheet: View {
 struct SmartOrderSheet: View {
     let desk: PlanDesk
 
+    @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(LibraryStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -313,16 +314,21 @@ struct SmartOrderSheet: View {
                     let change = suggestion.changes.first { $0.bookID == id }
                     HStack(alignment: .center, spacing: Space.m) {
                         IndexNumeral(index + 1)
-                        BookCover(book: item.book, size: .s)
+                        if !typeSize.isAccessibilitySize {
+                            BookCover(book: item.book, size: .s)
+                        }
                         VStack(alignment: .leading, spacing: 2) {
                             Text(item.book.title)
                                 .leafStyle(.headline)
-                                .lineLimit(2)
+                                .lineLimit(typeSize.isAccessibilitySize ? nil : 2)
                             Text(detail(change: change, delta: delta))
                                 .leafStyle(.caption)
+                            if typeSize.isAccessibilitySize, let days = delta?.daysEarlier, days != 0 {
+                                DeltaChip(daysSooner: days)
+                            }
                         }
                         Spacer(minLength: 0)
-                        if let days = delta?.daysEarlier, days != 0 {
+                        if !typeSize.isAccessibilitySize, let days = delta?.daysEarlier, days != 0 {
                             DeltaChip(daysSooner: days)
                         }
                     }

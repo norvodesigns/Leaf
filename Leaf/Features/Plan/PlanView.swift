@@ -20,7 +20,7 @@ struct PlanView: View {
     private var dataKey: DataKey {
         DataKey(
             now: store.now,
-            items: store.data.items.map { "\($0.id)|\($0.shelf.rawValue)|\($0.currentPage)|\($0.order)" },
+            items: store.data.items.map { "\($0.id)|\($0.shelf.rawValue)|\($0.currentPage)|\($0.order)|\($0.positionConfirmed)|\($0.progressMode)" },
             sessions: store.data.sessions.count,
             journal: store.data.journal.count,
             challenges: store.data.challenges.count,

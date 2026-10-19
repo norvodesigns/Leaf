@@ -37,8 +37,9 @@ struct ChallengeSnapshot: Sendable {
 
 /// The Plan tab's engines, run off the main actor and kept until the library changes.
 ///
-/// A refresh computes the forecast first (the page's top half), then insights and challenges, then the backtest,
-/// which replays the reader's history and is the slowest. What-ifs, finish lines and suggested orders run on demand
+/// A refresh computes the challenges first (cheap, and a join should show at once), then the forecast (with any
+/// what-if re-run against the same inputs, so the two always compare like with like), then insights, then the
+/// backtest, which replays the reader's history and is the slowest. What-ifs, finish lines and suggested orders run on demand
 /// with the same day seed as the baseline, so the difference between two results is the change itself.
 @MainActor
 @Observable
@@ -55,6 +56,8 @@ final class PlanDesk {
 
     @ObservationIgnored private var refreshTask: Task<Void, Never>?
     @ObservationIgnored private var whatIfTask: Task<Void, Never>?
+    /// The what-if last asked for, so a refresh can re-run it against fresh data.
+    @ObservationIgnored private var whatIfAsk: (minutes: Int?, days: Set<Int>?)?
 
     private struct Inputs: Sendable {
         var data: LeafData
@@ -78,22 +81,29 @@ final class PlanDesk {
         let tonightBookID = store.reading.first?.id
         refreshTask?.cancel()
         isWorking = true
+        let ask = whatIfAsk
         refreshTask = Task { [weak self] in
-            let forecast = await Task.detached(priority: .userInitiated) {
-                PlanDesk.forecastSnapshot(inputs, tonightBookID: tonightBookID)
-            }.value
+            let challenges = await Task.detached(priority: .userInitiated) { PlanDesk.challengeSnapshot(inputs) }.value
             guard !Task.isCancelled, let self else { return }
+            self.challenges = challenges
+
+            let (forecast, whatIf) = await Task.detached(priority: .userInitiated) {
+                let snapshot = PlanDesk.forecastSnapshot(inputs, tonightBookID: tonightBookID)
+                let rerun = ask.map { inputs.engine.whatIf(dailyMinutes: $0.minutes, readingDays: $0.days, seed: inputs.seed) }
+                return (snapshot, rerun)
+            }.value
+            guard !Task.isCancelled else { return }
             self.forecast = forecast
             self.isWorking = false
-            if let whatIf = self.whatIf { self.comparison = whatIf.comparison(against: forecast.result) }
+            // Only if the controls haven't moved since: a newer what-if is already on its way.
+            if let whatIf, let ask, let current = self.whatIfAsk, current.minutes == ask.minutes, current.days == ask.days {
+                self.whatIf = whatIf
+                self.comparison = whatIf.comparison(against: forecast.result)
+            }
 
             let insights = await Task.detached(priority: .utility) { PlanDesk.insightsSnapshot(inputs) }.value
             guard !Task.isCancelled else { return }
             self.insights = insights
-
-            let challenges = await Task.detached(priority: .utility) { PlanDesk.challengeSnapshot(inputs) }.value
-            guard !Task.isCancelled else { return }
-            self.challenges = challenges
 
             let backtest = await Task.detached(priority: .background) { inputs.engine.backtest() }.value
             guard !Task.isCancelled else { return }
@@ -111,6 +121,7 @@ final class PlanDesk {
             return
         }
         let inputs = Inputs(store)
+        whatIfAsk = (dailyMinutes, readingDays)
         whatIfTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(160))
             guard !Task.isCancelled else { return }
@@ -125,9 +136,47 @@ final class PlanDesk {
 
     func clearWhatIf() {
         whatIfTask?.cancel()
+        whatIfAsk = nil
         whatIf = nil
         comparison = nil
     }
+
+    /// "Keep this plan": the what-if becomes the forecast at once, so nothing flickers back to the old numbers while
+    /// the refresh that the new preferences trigger catches up.
+    func adoptWhatIf() {
+        whatIfTask?.cancel()
+        if let whatIf, var snapshot = forecast {
+            snapshot.result = whatIf
+            forecast = snapshot
+        }
+        whatIfAsk = nil
+        whatIf = nil
+        comparison = nil
+    }
+
+    // MARK: Gone-quiet books the reader chose to keep
+
+    private static let keptKey = "leaf.plan.keptQuietBooks"
+    /// How long "Keep it" quiets the prompt for that book.
+    static let keepQuietDays = 14
+
+    /// Remembers "Keep it" for a book that had gone quiet, so the prompt rests for two weeks.
+    func keepQuietBook(_ bookID: String, now: Date) {
+        var kept = UserDefaults.standard.dictionary(forKey: Self.keptKey) as? [String: Double] ?? [:]
+        kept[bookID] = now.timeIntervalSince1970
+        UserDefaults.standard.set(kept, forKey: Self.keptKey)
+        keptVersion += 1
+    }
+
+    /// Whether the reader said "Keep it" to this book in the last two weeks.
+    func isKeptQuiet(_ bookID: String, now: Date) -> Bool {
+        _ = keptVersion
+        guard let kept = UserDefaults.standard.dictionary(forKey: Self.keptKey) as? [String: Double], let stamp = kept[bookID] else { return false }
+        return now.timeIntervalSince1970 - stamp < Double(Self.keepQuietDays) * 86_400
+    }
+
+    /// Bumped on "Keep it" so views that ask `isKeptQuiet` redraw.
+    private var keptVersion = 0
 
     // MARK: On demand
 

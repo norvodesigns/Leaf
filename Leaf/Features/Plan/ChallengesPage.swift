@@ -27,7 +27,10 @@ struct ChallengesPage: View {
                     if let leaving { leave(leaving) }
                 }
             } message: {
-                Text("Its stamps stay on your wall.")
+                // Stamps are worked out from the challenges joined, so leaving takes the ones earned in it too.
+                Text(leaving.map { $0.stamps.isEmpty } ?? true
+                    ? "You can join again while it’s on offer."
+                    : "The stamps you earned in it will leave your wall too.")
             }
         } else {
             ProgressView()
@@ -50,7 +53,7 @@ struct ChallengesPage: View {
                 .fixedSize(horizontal: false, vertical: true)
         } else {
             VStack(spacing: Space.m) {
-                ForEach(progress, id: \.challengeID) { item in
+                ForEach(progress, id: \.instanceID) { item in
                     if let challenge = ChallengeCatalog.challenge(id: item.challengeID) {
                         ChallengeProgressCard(challenge: challenge, progress: item) {
                             leaving = item
@@ -112,6 +115,8 @@ struct ChallengeProgressCard: View {
     let progress: ChallengeProgress
     let onLeave: () -> Void
 
+    @Environment(LibraryStore.self) private var store
+
     private var tint: Color { StampSeal.color(for: challenge.paletteToken) }
 
     var body: some View {
@@ -134,15 +139,18 @@ struct ChallengeProgressCard: View {
                         .leafStyle(.caption, color: .ink)
                 }
                 Spacer(minLength: 0)
-                Menu {
-                    Button("Leave challenge", systemImage: "xmark", role: .destructive, action: onLeave)
-                } label: {
-                    Image(systemName: "ellipsis")
-                        .foregroundStyle(Color.inkTertiary)
-                        .frame(width: Space.hitTarget, height: Space.hitTarget)
-                        .contentShape(.rect)
+                // A finished or ended challenge stays: leaving it would only take its stamps away.
+                if progress.status == .active || progress.status == .upcoming {
+                    Menu {
+                        Button("Leave challenge", systemImage: "xmark", role: .destructive, action: onLeave)
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .foregroundStyle(Color.inkTertiary)
+                            .frame(width: Space.hitTarget, height: Space.hitTarget)
+                            .contentShape(.rect)
+                    }
+                    .accessibilityLabel("More for \(challenge.title)")
                 }
-                .accessibilityLabel("More for \(challenge.title)")
             }
             .accessibilityElement(children: .contain)
             Text(progress.statusLine)
@@ -162,6 +170,14 @@ struct ChallengeProgressCard: View {
                 }
             }
         }
+    }
+
+    /// A completed prompt names the book or tea that did it; the engine hands over an id.
+    private func evidenceName(_ evidence: String?) -> String? {
+        guard let evidence else { return nil }
+        if let book = store.item(evidence)?.book { return book.title }
+        if let tea = TeaCatalog.tea(id: evidence) { return tea.name }
+        return nil
     }
 
     private var eyebrow: String {
@@ -184,13 +200,13 @@ struct ChallengeProgressCard: View {
                     VStack(alignment: .leading, spacing: 0) {
                         Text(task.title)
                             .leafStyle(.ui, color: task.isComplete ? Color.ink : Color.inkSecondary)
-                        if let evidence = task.evidence {
+                        if let evidence = evidenceName(task.evidence) {
                             Text(evidence).leafStyle(.caption, color: .inkTertiary)
                         }
                     }
                 }
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("\(task.title), \(task.isComplete ? "done" : "to do")\(task.evidence.map { ", \($0)" } ?? "")")
+                .accessibilityLabel("\(task.title), \(task.isComplete ? "done" : "to do")\(evidenceName(task.evidence).map { ", \($0)" } ?? "")")
             }
         }
     }
@@ -199,7 +215,7 @@ struct ChallengeProgressCard: View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 3), spacing: 4) {
             ForEach(progress.tasks) { task in
                 Text(task.title)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.caption2.weight(.medium))
                     .foregroundStyle(task.isComplete ? Color.ink : Color.inkSecondary)
                     .multilineTextAlignment(.center)
                     .lineLimit(3)
@@ -243,6 +259,7 @@ struct ChallengeOfferCard: View {
             }
             .accessibilityElement(children: .combine)
             SecondaryGlassButton(offer.isOpenNow ? "Join" : "Join for when it starts", compact: true, action: onJoin)
+                .accessibilityLabel(offer.isOpenNow ? "Join \(offer.challenge.title)" : "Join \(offer.challenge.title) for when it starts")
         }
     }
 
@@ -273,12 +290,12 @@ struct StampWall: View {
                     VStack(spacing: Space.xs) {
                         StampSeal(rings: stamp.rings, token: stamp.paletteToken, diameter: 62, symbol: symbol(for: stamp.source))
                         Text(stamp.name)
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.caption.weight(.semibold))
                             .foregroundStyle(Color.ink)
                             .multilineTextAlignment(.center)
                             .lineLimit(2)
                         Text(stamp.detail)
-                            .font(.system(size: 11))
+                            .font(.caption2)
                             .foregroundStyle(Color.inkTertiary)
                             .multilineTextAlignment(.center)
                             .lineLimit(2)
@@ -290,7 +307,7 @@ struct StampWall: View {
                     VStack(spacing: Space.xs) {
                         StampSeal(rings: design.rings, token: design.paletteToken, diameter: 62, isEarned: false)
                         Text(design.name)
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.caption.weight(.medium))
                             .foregroundStyle(Color.inkTertiary)
                             .lineLimit(2)
                     }
@@ -359,4 +376,9 @@ struct StampSeal: View {
         }
         .frame(width: diameter, height: diameter)
     }
+}
+
+extension ChallengeProgress {
+    /// A challenge can be joined again in a later year or season: the id plus the instance's year tells them apart.
+    var instanceID: String { "\(challengeID)@\(year)" }
 }

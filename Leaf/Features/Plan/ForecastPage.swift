@@ -17,7 +17,6 @@ struct ForecastPage: View {
     @State private var minutes = 25
     @State private var days: Set<Int> = []
     @State private var didLoad = false
-    @State private var dismissedStalls: Set<String> = []
 
     /// The plan-style switch reflows the running order live (as the old Plan screen did).
     @State private var baseline: [String: Date] = [:]
@@ -139,14 +138,20 @@ struct ForecastPage: View {
                         }
                     }
                     .accessibilityElement(children: .ignore)
-                    .accessibilityLabel(finishedSentence(year))
+                    .accessibilityLabel(finishedSentence(year) + yearChangeSentence)
                     YearForecastChart(year: year, finishes: finishesThisYear(year.year), today: store.now, calendar: store.calendar)
+                    if let caveat = yearCaveat(year) {
+                        Text(caveat)
+                            .leafStyle(.caption, color: .inkTertiary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     if let goal = narrator.goalSentence(year) {
                         Text(goal)
                             .leafStyle(.body)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    if !isWhatIf, let plan = snapshot.yearPlan, year.finishedSoFar < plan.target {
+                    // What the goal asks for, unless the goal sentence above already says it is in hand.
+                    if !isWhatIf, let plan = snapshot.yearPlan, year.finishedSoFar < plan.target, plan.feasibility != .onTrack {
                         Text(narrator.yearPlanSentence(plan))
                             .leafStyle(.caption)
                             .fixedSize(horizontal: false, vertical: true)
@@ -159,6 +164,21 @@ struct ForecastPage: View {
                     .frame(maxWidth: .infinity, minHeight: 170)
             }
         }
+    }
+
+    /// " A what-if adds one book this year." for VoiceOver, alongside the chip.
+    private var yearChangeSentence: String {
+        guard isWhatIf, let change = desk.comparison?.yearMedianChange, change != 0 else { return "" }
+        let books = abs(change) == 1 ? "one book" : "\(narrator.number(abs(change))) books"
+        return change > 0 ? " This what-if adds \(books) this year." : " This what-if means \(books) fewer this year."
+    }
+
+    /// Honest small print: the count includes books not chosen yet, or it's an early guess.
+    private func yearCaveat(_ year: YearForecast) -> String? {
+        var parts: [String] = []
+        if year.includesFuturePicks { parts.append("Counts books you haven’t picked yet, read at your usual pace.") }
+        if year.confidence == .low { parts.append("An early guess; it firms up as you read.") }
+        return parts.isEmpty ? nil : parts.joined(separator: " ")
     }
 
     private func finishedSentence(_ year: YearForecast) -> String {
@@ -205,7 +225,7 @@ struct ForecastPage: View {
     @ViewBuilder
     private var care: some View {
         let snapshot = desk.forecast
-        let stalled = (snapshot?.stalled ?? []).filter { !dismissedStalls.contains($0.id) && store.item($0.bookID)?.shelf == .reading }
+        let stalled = (snapshot?.stalled ?? []).filter { !desk.isKeptQuiet($0.bookID, now: store.now) && store.item($0.bookID)?.shelf == .reading }
         let tonight = snapshot?.tonight
         let tonightBookID = snapshot?.tonightBookID
         let showsTonight = (tonight?.daysEarlier ?? 0) > 0 && tonightBookID != nil
@@ -221,13 +241,13 @@ struct ForecastPage: View {
                     TodayCard("Tonight only", actionTitle: "Read now", action: {
                         _ = ReadingSessionLauncher.start(bookID: bookID, store: store, router: router, from: ReadingSessionLauncher.accessorySource)
                     }) {
-                        Text(narrator.tonightSentence(tonight))
+                        // Said as days sooner rather than a date: the plan's date and the forecast's median differ, and
+                        // the gain is the same either way.
+                        Text(tonightLine(tonight, bookID: bookID))
                             .leafStyle(.pullQuote)
                             .fixedSize(horizontal: false, vertical: true)
-                        if let title = store.item(bookID)?.book.title {
-                            Text("\(title) · \(tonight.daysEarlier == 1 ? "a day" : "\(tonight.daysEarlier) days") sooner")
-                                .leafStyle(.caption)
-                        }
+                        Text("\(tonight.extraMinutes) min on top of today’s \(preferences.dailyMinutes)")
+                            .leafStyle(.caption)
                     }
                 }
                 if let catchUp {
@@ -240,12 +260,16 @@ struct ForecastPage: View {
                         }
                     } onKeep: {
                         withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
-                            _ = dismissedStalls.insert(book.id)
+                            desk.keepQuietBook(book.bookID, now: store.now)
                         }
                     }
                 }
             }
         }
+    }
+
+    private func tonightLine(_ tonight: ForecastTonight, bookID: String) -> String {
+        narrator.tonightGain(tonight, title: store.item(bookID)?.book.title ?? "your book")
     }
 
     private var catchUpBinding: Binding<CatchUpMode> {
@@ -324,7 +348,7 @@ struct ForecastPage: View {
             prefs.dailyMinutes = newMinutes
             prefs.readingDays = newDays
         }
-        desk.clearWhatIf()
+        desk.adoptWhatIf()
     }
 
     // MARK: Running order
@@ -486,6 +510,9 @@ struct ForecastPage: View {
             let days = preferences.readingDays.count
             return "\(preferences.dailyMinutes) min a day · \(days) \(days == 1 ? "day" : "days") a week · \(Int(store.wpm.rounded())) wpm"
         }
+        guard assumptions.sessionCount > 0 else {
+            return "\(assumptions.dailyMinutes) min a day at \(Int(assumptions.paceWPM.rounded())) words a minute, until your first sittings show your real rhythm."
+        }
         let sittings = assumptions.sessionCount == 1 ? "1 sitting" : "\(assumptions.sessionCount) sittings"
         let perWeek = Int(assumptions.expectedDaysPerWeek.rounded())
         return "From \(sittings): \(assumptions.dailyMinutes) min a day, about \(perWeek) \(perWeek == 1 ? "day" : "days") a week, \(Int(assumptions.paceWPM.rounded())) words a minute."
@@ -578,6 +605,7 @@ struct BookForecastCard: View {
             .accessibilityElement(children: .combine)
             if forecast.median != nil {
                 BookFanChart(
+                    title: item.book.title,
                     forecast: forecast,
                     currentPage: item.currentPage,
                     pages: item.book.pages,
@@ -611,7 +639,7 @@ struct CatchUpCard: View {
     @Binding var mode: CatchUpMode
 
     var body: some View {
-        TodayCard(catchUp.missedDays == 1 ? "A missed day" : "\(catchUp.missedDays) missed days this week") {
+        TodayCard("Catching up") {
             Text(narrator.catchUpSentence(catchUp))
                 .leafStyle(.body)
                 .fixedSize(horizontal: false, vertical: true)
@@ -630,8 +658,8 @@ struct CatchUpCard: View {
     private var caption: String {
         switch mode {
         case .forgive: "Leaf moves on. Nothing to make up, and no guilt."
-        case .shift: "Finish dates move back by the time you missed."
-        case .compress: "A few extra minutes on the next days, then back to normal."
+        case .shift: "Leaf tells you how far your finish dates moved."
+        case .compress: "Leaf suggests a few extra minutes a day until you’re back on track."
         }
     }
 }
@@ -668,6 +696,8 @@ struct WhatIfSummary: View {
     let narrator: ForecastNarrator
     let titles: (String) -> String
 
+    @Environment(\.dynamicTypeSize) private var typeSize
+
     var body: some View {
         VStack(alignment: .leading, spacing: Space.s) {
             Text(narrator.yearSentence(result.year))
@@ -679,16 +709,37 @@ struct WhatIfSummary: View {
                     .leafStyle(.caption)
             }
             ForEach(comparison.books.filter { ($0.medianDaysEarlier ?? 0) != 0 }.prefix(4), id: \.bookID) { delta in
-                HStack(alignment: .firstTextBaseline, spacing: Space.s) {
-                    Text(titles(delta.bookID))
-                        .leafStyle(.headline)
-                        .lineLimit(1)
-                    LeaderDots()
-                    DeltaChip(daysSooner: delta.medianDaysEarlier ?? 0)
+                Group {
+                    if typeSize.isAccessibilitySize {
+                        VStack(alignment: .leading, spacing: Space.xs) {
+                            Text(titles(delta.bookID))
+                                .leafStyle(.headline)
+                            DeltaChip(daysSooner: delta.medianDaysEarlier ?? 0)
+                        }
+                    } else {
+                        HStack(alignment: .firstTextBaseline, spacing: Space.s) {
+                            Text(titles(delta.bookID))
+                                .leafStyle(.headline)
+                                .lineLimit(1)
+                            LeaderDots()
+                            DeltaChip(daysSooner: delta.medianDaysEarlier ?? 0)
+                        }
+                    }
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("\(titles(delta.bookID)). \(narrator.changeSentence(delta))")
             }
         }
+    }
+}
+
+extension ForecastNarrator {
+    /// "Eight more minutes tonight brings The Hobbit a day sooner." The gain in days rather than a date, because the
+    /// plan's date and the forecast's median for the same book differ and the gain is the same either way.
+    func tonightGain(_ tonight: ForecastTonight, title: String) -> String {
+        let spoken = number(tonight.extraMinutes)
+        let minutes = tonight.extraMinutes == 1 ? "One more minute" : spoken.prefix(1).uppercased() + spoken.dropFirst() + " more minutes"
+        let days = tonight.daysEarlier == 1 ? "a day" : "\(number(tonight.daysEarlier)) days"
+        return "\(minutes) tonight brings \(title) \(days) sooner."
     }
 }

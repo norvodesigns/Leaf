@@ -124,9 +124,12 @@ enum DemoData {
         // The finished books of the standard library keep their dates; the new ones fill the months before.
         let firstStandardStart = data.items.filter { $0.shelf == .finished }.compactMap(\.startedAt).min() ?? today
         let earlySpan = max(30, -dayIndex(yearStart) + dayIndex(firstStandardStart))
-        let share = earlySpan / max(1, yearBooks.count)
+        // Early in the year there is room for fewer books; never let one start before New Year or run into the others.
+        let room = min(earlySpan, totalDays + dayIndex(firstStandardStart) - 2)
+        let fitting = min(yearBooks.count, max(0, room / 12))
+        let share = room / max(1, fitting)
         var finished: [(book: Book, start: Int, end: Int)] = []
-        for (index, book) in yearBooks.enumerated() {
+        for (index, book) in yearBooks.prefix(fitting).enumerated() {
             let start = -totalDays + index * share
             let end = start + share - 1 - (index % 3)
             finished.append((book, start, end))

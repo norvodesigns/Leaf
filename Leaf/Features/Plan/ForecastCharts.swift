@@ -10,6 +10,7 @@ import SwiftUI
 /// percentile finishes as a shaded fan around it. Tap or drag across the dates to see the chance of being done by
 /// then (`BookForecast.probability(by:)`).
 struct BookFanChart: View {
+    let title: String
     let forecast: BookForecast
     let currentPage: Int
     let pages: Int
@@ -17,7 +18,11 @@ struct BookFanChart: View {
     let calendar: Calendar
     let today: Date
 
+    /// The date under the finger; Charts clears it when the finger lifts.
+    @State private var touch: Date?
+    /// The last date checked, which stays (with its odds) after the finger lifts.
     @State private var selected: Date?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private struct Sample: Identifiable {
         let date: Date
@@ -75,12 +80,12 @@ struct BookFanChart: View {
             Text(oddsLine)
                 .leafStyle(.caption, color: selected == nil ? Color.inkTertiary : Color.ink)
                 .contentTransition(.numericText())
-                .animation(Motion.paper, value: selected)
+                .animation(reduceMotion ? nil : Motion.paper, value: selected)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityHidden(true)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Forecast")
+        .accessibilityLabel("\(title) forecast")
         .accessibilityValue(spokenValue)
         .accessibilityHint("Swipe up or down to check a later or earlier date.")
         .accessibilityAdjustableAction { direction in
@@ -135,7 +140,10 @@ struct BookFanChart: View {
                     .foregroundStyle(Color.inkTertiary)
             }
         }
-        .chartXSelection(value: $selected)
+        .chartXSelection(value: $touch)
+        .onChange(of: touch) { _, date in
+            if let date { selected = min(max(date, start), end) }
+        }
     }
 
     private var oddsLine: String {
