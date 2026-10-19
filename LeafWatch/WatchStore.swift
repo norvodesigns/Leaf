@@ -284,6 +284,7 @@ final class WatchStore {
     private func save() {
         guard persist, let data = SyncCodec.encode(snapshot, key: SyncCodec.snapshotKey)[SyncCodec.snapshotKey] else { return }
         defaults.set(data, forKey: Self.key)
+        ComplicationFeed.publish(snapshot)
     }
 }
 

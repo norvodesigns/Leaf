@@ -35,11 +35,13 @@ APP = "Leaf"
 TESTS = "LeafTests"
 WATCH = "LeafWatch"
 WIDGETS = "LeafWidgets"
+WATCH_WIDGETS = "LeafWatchWidgets"
 BUNDLE_IDS = {
     APP: "com.norvodesigns.leaf",
     TESTS: "com.norvodesigns.leafTests",
     WATCH: "com.norvodesigns.leaf.watchkitapp",
     WIDGETS: "com.norvodesigns.leaf.widgets",
+    WATCH_WIDGETS: "com.norvodesigns.leaf.watchkitapp.widgets",
 }
 APP_GROUP = "group.com.norvodesigns.leaf"
 ICLOUD_CONTAINER = "iCloud.com.norvodesigns.leaf"
@@ -52,6 +54,8 @@ FOLDER_MEMBERS = {
     "LeafTests": {TESTS},
     "LeafWidgets": {WIDGETS},
     "LiveActivityShared": {APP, WIDGETS},
+    "LeafWatchWidgets": {WATCH_WIDGETS},
+    "WatchComplicationShared": {WATCH, WATCH_WIDGETS},
 }
 
 PRODUCT_EXT = {
@@ -854,7 +858,7 @@ class Checker:
                     self.error(f"{name} ({config}) bundle id is '{actual}', expected '{bundle}'", named[name])
                 if self.effective(named[name], config, "SWIFT_VERSION") != "5.0":
                     self.error(f"{name} ({config}) must build in Swift 5 language mode (SWIFT_VERSION = 5.0)", named[name])
-                key = "WATCHOS_DEPLOYMENT_TARGET" if name == WATCH else "IPHONEOS_DEPLOYMENT_TARGET"
+                key = "WATCHOS_DEPLOYMENT_TARGET" if name in (WATCH, WATCH_WIDGETS) else "IPHONEOS_DEPLOYMENT_TARGET"
                 if self.effective(named[name], config, key) != "26.0":
                     self.error(f"{name} ({config}) {key} should be 26.0", named[name])
         teams = {
@@ -869,6 +873,13 @@ class Checker:
             self.error("Leaf must embed LeafWidgets.appex (Embed Foundation Extensions)", named[APP])
         if named[WATCH] not in {p for _ph, p, _b in self.embedded(named[APP])}:
             self.error("Leaf must embed LeafWatch.app", named[APP])
+        if self.objects[named[WATCH_WIDGETS]].get("productType") != "com.apple.product-type.app-extension":
+            self.error("LeafWatchWidgets must be an app extension", named[WATCH_WIDGETS])
+        if named[WATCH_WIDGETS] not in {p for _ph, p, _b in self.embedded(named[WATCH])}:
+            self.error("LeafWatch must embed LeafWatchWidgets.appex (Embed Foundation Extensions)", named[WATCH])
+        for config in self.configs_of(named[WATCH_WIDGETS]):
+            if self.effective(named[WATCH_WIDGETS], config, "SDKROOT") != "watchos":
+                self.error(f"LeafWatchWidgets ({config}) must build for watchOS (SDKROOT = watchos)", named[WATCH_WIDGETS])
         for gid in self.of_isa("PBXFileSystemSynchronizedRootGroup"):
             folder = as_dict(self.objects[gid]).get("path")
             members = {self.target_name(t) for t in self.targets() if gid in as_list(self.objects[t].get("fileSystemSynchronizedGroups"))}
@@ -893,11 +904,12 @@ class Checker:
                 self.error("Config/Info.plist: UIBackgroundModes must include remote-notification (CloudKit silent pushes)")
             if app_info.get("ITSAppUsesNonExemptEncryption") is not False:
                 self.error("Config/Info.plist: ITSAppUsesNonExemptEncryption must stay false")
-        widget_info = self.load_plist("Config/LeafWidgets-Info.plist")
-        if widget_info is None:
-            self.error("Config/LeafWidgets-Info.plist is missing or unreadable")
-        elif as_dict(widget_info.get("NSExtension")).get("NSExtensionPointIdentifier") != WIDGET_EXTENSION_POINT:
-            self.error(f"Config/LeafWidgets-Info.plist: NSExtension.NSExtensionPointIdentifier must be {WIDGET_EXTENSION_POINT}")
+        for rel in ("Config/LeafWidgets-Info.plist", "Config/LeafWatchWidgets-Info.plist"):
+            widget_info = self.load_plist(rel)
+            if widget_info is None:
+                self.error(f"{rel} is missing or unreadable")
+            elif as_dict(widget_info.get("NSExtension")).get("NSExtensionPointIdentifier") != WIDGET_EXTENSION_POINT:
+                self.error(f"{rel}: NSExtension.NSExtensionPointIdentifier must be {WIDGET_EXTENSION_POINT}")
         watch_info = self.load_plist("Config/LeafWatch-Info.plist")
         if watch_info is None:
             self.error("Config/LeafWatch-Info.plist is missing or unreadable")
@@ -921,25 +933,45 @@ class Checker:
             self.error("LeafWidgets/LeafWidgets.entitlements is missing or unreadable")
         elif as_list(widget_ent.get("com.apple.security.application-groups")) != [APP_GROUP]:
             self.error(f"LeafWidgets.entitlements: application-groups must be exactly [{APP_GROUP}]")
+        # The watch app and its complications share the watch's own copy of the group (LeafWatch/ComplicationFeed.swift).
+        for rel in ("Config/LeafWatch.entitlements", "Config/LeafWatchWidgets.entitlements"):
+            ent = self.load_plist(rel)
+            if ent is None:
+                self.error(f"{rel} is missing or unreadable")
+            elif as_list(ent.get("com.apple.security.application-groups")) != [APP_GROUP]:
+                self.error(f"{rel}: application-groups must be exactly [{APP_GROUP}]")
         named = self.by_name()
-        for name, rel in ((APP, "Leaf/Leaf.entitlements"), (WIDGETS, "LeafWidgets/LeafWidgets.entitlements")):
+        for name, rel in (
+            (APP, "Leaf/Leaf.entitlements"),
+            (WIDGETS, "LeafWidgets/LeafWidgets.entitlements"),
+            (WATCH, "Config/LeafWatch.entitlements"),
+            (WATCH_WIDGETS, "Config/LeafWatchWidgets.entitlements"),
+        ):
             for config in self.configs_of(named[name]):
                 if self.effective(named[name], config, "CODE_SIGN_ENTITLEMENTS") != rel:
                     self.error(f"{name} ({config}) must set CODE_SIGN_ENTITLEMENTS = {rel}", named[name])
-        for name, rel in ((APP, "Config/Info.plist"), (WIDGETS, "Config/LeafWidgets-Info.plist"), (WATCH, "Config/LeafWatch-Info.plist")):
+        for name, rel in (
+            (APP, "Config/Info.plist"),
+            (WIDGETS, "Config/LeafWidgets-Info.plist"),
+            (WATCH, "Config/LeafWatch-Info.plist"),
+            (WATCH_WIDGETS, "Config/LeafWatchWidgets-Info.plist"),
+        ):
             for config in self.configs_of(named[name]):
                 if self.effective(named[name], config, "INFOPLIST_FILE") != rel:
                     self.error(f"{name} ({config}) must set INFOPLIST_FILE = {rel}", named[name])
 
     def check_widget_sources(self):
-        """The extension needs exactly one @main (the bundle) or it will not link."""
-        count = 0
-        for folder in ("LeafWidgets", "LiveActivityShared"):
-            for path in self.swift_files(os.path.join(self.root, folder)):
-                with open(path, encoding="utf-8") as handle:
-                    count += len(re.findall(r"^\s*@main\b", handle.read(), re.M))
-        if count != 1:
-            self.error(f"the LeafWidgets extension must contain exactly one @main, found {count}")
+        """Each extension needs exactly one @main (the bundle) or it will not link."""
+        for target in (WIDGETS, WATCH_WIDGETS):
+            count = 0
+            for folder, members in FOLDER_MEMBERS.items():
+                if target not in members:
+                    continue
+                for path in self.swift_files(os.path.join(self.root, folder)):
+                    with open(path, encoding="utf-8") as handle:
+                        count += len(re.findall(r"^\s*@main\b", handle.read(), re.M))
+            if count != 1:
+                self.error(f"the {target} extension must contain exactly one @main, found {count}")
 
     # -- output -----------------------------------------------------------------------------------------------------
     def summary(self):
@@ -986,8 +1018,8 @@ def mutations():
 
     return [
         ("unclosed brace", lambda t: t.rstrip().rsplit("}", 1)[0] + "\n", "syntax error"),
-        ("unclosed parenthesis", replace(f"{W}01A5 /* LeafWidgets.appex */,\n\t\t\t);", f"{W}01A5 /* LeafWidgets.appex */,\n\t\t\t}};"), "syntax error"),
-        ("unterminated string", replace('name = "Embed Foundation Extensions";', 'name = "Embed Foundation Extensions;'), "syntax error"),
+        ("unclosed parenthesis", replace(f"{W}02A5 /* LeafWatchWidgets.appex */,\n\t\t\t);", f"{W}02A5 /* LeafWatchWidgets.appex */,\n\t\t\t}};"), "syntax error"),
+        ("unterminated string", replace('name = "Embed Watch Content";', 'name = "Embed Watch Content;'), "syntax error"),
         ("duplicate id", replace(f"\t\t{W}01C3 /* Resources */ = {{", f"\t\t{W}01C2 /* Resources */ = {{"), "defined more than once"),
         ("missing definition", drop_line(f"{W}01C5 /* LeafWidgets.appex in Embed Foundation Extensions */ = {{isa"), "referenced but never defined"),
         ("lowercase id", replace(f"remoteGlobalIDString = {W}01B1;", f"remoteGlobalIDString = {W.lower()}01b1;"), "uppercase"),
@@ -997,12 +1029,12 @@ def mutations():
         ("entitlements bundled as resource", replace("\t\t\t\tLeaf.entitlements,\n", ""), "bundled as a resource"),
         ("exception for a file that is gone", replace("\t\t\t\tLeafWidgets.entitlements,\n", "\t\t\t\tGone.entitlements,\n"), "does not exist in LeafWidgets"),
         ("extension bundle id outside the app", replace("PRODUCT_BUNDLE_IDENTIFIER = com.norvodesigns.leaf.widgets;", "PRODUCT_BUNDLE_IDENTIFIER = com.norvodesigns.widgets;", 2), "must start with"),
-        ("extension embedded in the wrong place", replace("dstSubfolderSpec = 13;", "dstSubfolderSpec = 7;"), "PlugIns"),
+        ("extension embedded in the wrong place", replace("dstSubfolderSpec = 13;", "dstSubfolderSpec = 7;", 2), "PlugIns"),
         ("target without build phases", replace(f"\t\t\t\t{W}01C1 /* Sources */,\n\t\t\t\t{W}01C2 /* Frameworks */,\n\t\t\t\t{W}01C3 /* Resources */,\n", ""), "no build phases"),
         ("target without a configuration list", drop_line(f"buildConfigurationList = {W}01E1"), "buildConfigurationList"),
         ("product file name drifts", replace("path = LeafWidgets.appex;", "path = LeafWidgetsX.appex;"), "product file is"),
         ("version mismatch with the host", replace(f"\t\t\t\tCODE_SIGN_ENTITLEMENTS = LeafWidgets/LeafWidgets.entitlements;\n\t\t\t\tCODE_SIGN_STYLE = Automatic;", f"\t\t\t\tCODE_SIGN_ENTITLEMENTS = LeafWidgets/LeafWidgets.entitlements;\n\t\t\t\tCODE_SIGN_STYLE = Automatic;\n\t\t\t\tMARKETING_VERSION = 2.0;", 2), "must match their host"),
-        ("wrong Swift language mode", replace("SWIFT_VERSION = 5.0;", "SWIFT_VERSION = 6.0;", 8), "Swift 5 language mode"),
+        ("wrong Swift language mode", replace("SWIFT_VERSION = 5.0;", "SWIFT_VERSION = 6.0;", 10), "Swift 5 language mode"),
         ("entitlements file setting removed", replace("\t\t\t\tCODE_SIGN_ENTITLEMENTS = LeafWidgets/LeafWidgets.entitlements;\n", "", 2), "CODE_SIGN_ENTITLEMENTS"),
         ("shared folder leaks into the widget", replace(f"\t\t\t\t{W}01A3 /* LeafWidgets */,\n\t\t\t\t{W}01A4 /* LiveActivityShared */,\n\t\t\t);\n\t\t\tname = LeafWidgets;", f"\t\t\t\t{W}01A3 /* LeafWidgets */,\n\t\t\t\t4C1EAF0000000000000000A8 /* Shared */,\n\t\t\t\t{W}01A4 /* LiveActivityShared */,\n\t\t\t);\n\t\t\tname = LeafWidgets;"), "expected ['Leaf', 'LeafWatch']"),
         ("proxy points at the wrong target", replace(f"remoteGlobalIDString = {W}01B1;", "remoteGlobalIDString = 4C1EAF0000000000000000B3;"), "its proxy points at"),

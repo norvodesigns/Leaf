@@ -180,4 +180,5 @@ if [ -n "${WATCH_SIM:-}" ] && [ -d "$WATCH_APP" ]; then
   wshot w13-week -LeafDemo YES -LeafScreen week
   wshot w14-shelf-actions -LeafDemo YES -LeafScreen shelf.actions
   wshot w15-add -LeafDemo YES -LeafScreen add.sent
+  wshot w16-complications -LeafDemo YES -LeafScreen complications
 fi

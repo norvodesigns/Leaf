@@ -28,6 +28,18 @@ struct WatchRootView: View {
     enum WatchPage: Hashable { case today, log, forecast, week, shelf, add }
 
     var body: some View {
+        #if DEBUG
+        if LaunchScreen.current == "complications" {
+            ComplicationGallery()
+        } else {
+            root
+        }
+        #else
+        root
+        #endif
+    }
+
+    private var root: some View {
         NavigationStack(path: $path) {
             TabView(selection: $page) {
                 TodayPage(onOpenSession: { sessionMinimized = false }).tag(WatchPage.today)
