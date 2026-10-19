@@ -257,6 +257,19 @@ Warm tints for atmosphere only; ink and the one green accent still do the work, 
 - Haptics: `.teaReady`, `.deckKeep` (the heavier keeper), `.deckStart`; a pass is `soft(0.45)`, crossing into a
   choice while dragging is `selection()`.
 
+## Session and Live Activity (UI-2)
+
+- `ReadingSessionLauncher.beginRitual(bookID:teaID:store:router:from:)` opens the session screen at the tea
+  (`router.ritual`): `SessionRitualView` picks a tea and strength, pours (`TeaSteepState`), counts the steep down with
+  digits that come into focus as it gets ready, then starts one cup (`TeaRitual.goalSeconds`). Nothing is counted
+  until the cup starts.
+- `SessionClock(…, cup:)` counts down the cup for a tea session; today's goal still decides "goal met".
+- `AmbienceSheet` (opt-in sounds and volume), `JournalCaptureSheet` (thought or quote, with `QuoteScanSheet` /
+  `QuoteScannerView` for Live Text, text only).
+- `ReadingActivityModel`, `ReadingActivityLockScreen`, `ReadingActivityCompactLeading/Trailing`,
+  `ReadingActivityMinimal`, `ReadingActivityExpanded*`, `ReadingActivityGallery`, `ReadingActivityPalette` (the
+  night palette; the activity always sits on a darkened blurred cover).
+
 ## Rules of thumb (from DESIGN.md)
 
 - Paper is content, glass is chrome: glass only on tab bar, toolbars, accessory, buttons, session

@@ -21,6 +21,8 @@ struct SessionView: View {
     @State private var showDiscardDialog = false
     @State private var showShortNotice = false
     @State private var goalIsMet = false
+    @State private var showsAmbience = false
+    @State private var showsJournal = false
 
     @ScaledMetric(relativeTo: .headline) private var controlHeight: CGFloat = 54
 
@@ -32,6 +34,9 @@ struct SessionView: View {
 
             if let session, let book = store.item(session.bookID)?.book {
                 content(session: session, book: book)
+            } else if let ritual = router.ritual, store.item(ritual.bookID) != nil {
+                SessionRitualView(request: ritual)
+                    .transition(.opacity)
             }
 
             if isDimmed && !isEnding {
@@ -58,19 +63,38 @@ struct SessionView: View {
         }
         .task(id: interaction) {
             try? await Task.sleep(for: .seconds(20))
-            guard !Task.isCancelled, !isEnding, !showDiscardDialog else { return }
+            guard !Task.isCancelled, !isEnding, !showDiscardDialog, !showsJournal, !showsAmbience,
+                  store.activeSession != nil else { return }
             withAnimation(Motion.fade) { isDimmed = true }
         }
         .onAppear {
             frozen = store.activeSession
             UIApplication.shared.isIdleTimerDisabled = true
-            if store.activeSession == nil { router.showSession = false }
+            if store.activeSession == nil && router.ritual == nil { router.showSession = false }
+            // Screenshot runs open the note or the ambience over the session.
+            switch LaunchOptions.current.screen ?? "" {
+            case "session.note": showsJournal = true
+            case "session.ambience": showsAmbience = true
+            default: break
+            }
+        }
+        .sheet(isPresented: $showsAmbience) {
+            AmbienceSheet()
+        }
+        .sheet(isPresented: $showsJournal) {
+            if let session, let book = store.item(session.bookID)?.book {
+                JournalCaptureSheet(book: book, sessionID: session.id, page: max(session.startPage, store.item(book.id)?.currentPage ?? 0))
+            }
         }
         .onDisappear {
             UIApplication.shared.isIdleTimerDisabled = false
         }
         .onChange(of: store.activeSession) { _, new in
-            if let new { frozen = new }
+            if let new {
+                frozen = new
+                // Reading has begun, from the ritual or from anywhere else: the tea stage is done.
+                router.ritual = nil
+            }
         }
         .onChange(of: store.activeSession == nil) { _, ended in
             // Ended or discarded somewhere else (the watch): close the cover.
@@ -92,6 +116,9 @@ struct SessionView: View {
                 face(session: session)
                     .transition(.opacity)
                 Spacer(minLength: Space.l)
+                extras
+                    .opacity(isDimmed ? 0.25 : 1)
+                    .padding(.bottom, Space.l)
             }
 
             controls(session: session, book: book)
@@ -148,6 +175,11 @@ struct SessionView: View {
                             .padding(.horizontal, Space.xxl)
                     }
                 VStack(spacing: Space.xs) {
+                    if let tea = session.teaID.flatMap({ TeaCatalog.tea(id: $0) }) {
+                        Text(cupLine(clock: clock, tea: tea))
+                            .leafStyle(.eyebrow, color: clock.cupDone ? Color.accent : nil)
+                            .contentTransition(.opacity)
+                    }
                     Text(caption(clock: clock, session: session))
                         .leafStyle(.caption)
                         .contentTransition(.opacity)
@@ -159,11 +191,20 @@ struct SessionView: View {
                 .opacity(isDimmed ? 0.25 : 1)
             }
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(clock.countsDown ? "Time left to today’s goal" : "Time read in this session")
+            .accessibilityLabel(clock.countsDown ? (clock.hasCup ? "Time left in the cup" : "Time left to today’s goal") : "Time read in this session")
             .accessibilityValue(spokenTime(clock.displaySeconds) + (session.isPaused ? ", paused" : ""))
             .accessibilityAddTraits(.updatesFrequently)
             .onChange(of: clock.crossedGoal) { _, crossed in
-                if crossed { Haptics.shared.play(.goalReached) }
+                if crossed {
+                    Haptics.shared.play(.goalReached)
+                    LiveActivityController.shared.sync()
+                }
+            }
+            .onChange(of: clock.cupDone) { _, done in
+                if done {
+                    if !clock.crossedGoal { Haptics.shared.soft(0.7) }
+                    LiveActivityController.shared.sync()
+                }
             }
             .onChange(of: clock.goalMet, initial: true) { _, met in
                 goalIsMet = met
@@ -173,7 +214,53 @@ struct SessionView: View {
 
     private func timerColor(clock: SessionClock, isPaused: Bool) -> Color {
         if isPaused { return Color.inkTertiary }
+        if clock.hasCup { return clock.cupDone ? Color.accent : Color.ink }
         return clock.goalMet ? Color.accent : Color.ink
+    }
+
+    /// "Earl Grey · one cup", then "Cup finished · stretch for 5 min".
+    private func cupLine(clock: SessionClock, tea: Tea) -> String {
+        guard clock.cupDone, let cup = clock.cup else { return "\(tea.name) · one cup" }
+        let stretch = TeaRitual.breakSeconds(forReadSeconds: Int(cup)) / 60
+        return "Cup finished · stretch for \(stretch) min"
+    }
+
+    // MARK: Note and ambience
+
+    /// A thought or a quote, and the room's sound: quiet glass capsules under the face.
+    private var extras: some View {
+        GlassEffectContainer(spacing: Space.m) {
+            HStack(spacing: Space.m) {
+                extraButton(title: "Note", systemImage: "square.and.pencil", label: "Write a thought or a quote") {
+                    showsJournal = true
+                }
+                extraButton(title: ambienceTitle, systemImage: AmbiencePlayer.shared.currentID == nil ? "speaker.slash" : "speaker.wave.2", label: "Ambience: \(ambienceTitle)") {
+                    showsAmbience = true
+                }
+            }
+        }
+    }
+
+    private var ambienceTitle: String {
+        AmbienceCatalog.ambience(id: AmbiencePlayer.shared.currentID)?.name ?? "Silence"
+    }
+
+    private func extraButton(title: String, systemImage: String, label: String, action: @escaping () -> Void) -> some View {
+        Button {
+            Haptics.shared.tap()
+            action()
+        } label: {
+            Label(title, systemImage: systemImage)
+                .font(.system(.subheadline, weight: .medium))
+                .foregroundStyle(Color.ink)
+                .lineLimit(1)
+                .padding(.horizontal, Space.l)
+                .frame(minHeight: Space.hitTarget)
+                .contentShape(.capsule)
+        }
+        .buttonStyle(.plain)
+        .glassEffect(.regular.tint(Color.glassTint).interactive(), in: .capsule)
+        .accessibilityLabel(label)
     }
 
     private func caption(clock: SessionClock, session: ActiveSession) -> String {
@@ -333,8 +420,10 @@ struct SessionView: View {
         // The page panel stops the clock, so time spent choosing a page isn't logged as reading.
         if !session.isPaused { store.pauseSession() }
         let guess = ReadingSessionLauncher.estimatedPage(for: session, book: book, wpm: store.wpm, at: now)
-        estimatedPage = guess
-        page = guess
+        // Pages logged on the way (the Live Activity's button, Siri) are a floor for the guess.
+        let logged = min(book.pages, max(session.startPage, store.item(book.id)?.currentPage ?? 0))
+        estimatedPage = max(guess, logged)
+        page = max(guess, logged)
         withAnimation(Motion.resolved(Motion.board, reduceMotion: reduceMotion)) {
             isEnding = true
         }
@@ -351,6 +440,7 @@ struct SessionView: View {
 
     private func savePage() {
         Haptics.shared.play(.pageTurn)
+        AmbiencePlayer.shared.stop()
         if let outcome = store.finishSession(toPage: page) {
             ReadingSessionLauncher.present(outcome, router: router)
         } else {
@@ -359,6 +449,7 @@ struct SessionView: View {
     }
 
     private func discardShortSession() {
+        AmbiencePlayer.shared.stop()
         withAnimation(Motion.fade) { showShortNotice = true }
         let store = store
         let router = router
@@ -371,6 +462,7 @@ struct SessionView: View {
 
     private func discard() {
         Haptics.shared.warning()
+        AmbiencePlayer.shared.stop()
         store.cancelSession()
         router.showSession = false
     }

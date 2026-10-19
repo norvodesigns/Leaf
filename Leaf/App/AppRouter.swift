@@ -17,6 +17,8 @@ struct PositionRequest: Identifiable, Hashable {
         case save
         /// Begin reading from the answer, zooming from `source`, with the tea and cup-length goal if there is one.
         case startSession(source: String, teaID: String?, goalSeconds: Double?)
+        /// Open the tea ritual for the book once it's answered.
+        case ritual(source: String, teaID: String?)
     }
 
     let bookID: String
@@ -25,6 +27,13 @@ struct PositionRequest: Identifiable, Hashable {
     var opensOn: PositionChoice?
 
     var id: String { bookID }
+}
+
+/// A tea ritual waiting in the session screen: the book, and the tea it opens with. No reading time is counted
+/// until the reader starts the cup.
+struct RitualRequest: Hashable {
+    let bookID: String
+    var teaID: String?
 }
 
 /// App-wide navigation state.
@@ -58,6 +67,8 @@ final class AppRouter {
     var readingSlotToEdit: UUID?
     /// The swipe deck as a full sheet (from Search and Today).
     var showDeck = false
+    /// "Steep and read": the session screen opens at the tea instead of the timer.
+    var ritual: RitualRequest?
 
     /// Opens the full-screen session, zooming from `source`.
     func presentSession(from source: String) {

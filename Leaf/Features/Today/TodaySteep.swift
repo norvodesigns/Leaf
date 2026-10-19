@@ -10,6 +10,16 @@ struct TeaSteepState: Codable, Equatable {
     var steepSeconds: Int
     var startedAt: Date
     var bookID: String?
+    /// How strong it was poured; the cup's length comes from preferences.
+    var strength: TeaStrength?
+
+    init(teaID: String, steepSeconds: Int, startedAt: Date, bookID: String? = nil, strength: TeaStrength? = nil) {
+        self.teaID = teaID
+        self.steepSeconds = steepSeconds
+        self.startedAt = startedAt
+        self.bookID = bookID
+        self.strength = strength
+    }
 
     var readyAt: Date { startedAt.addingTimeInterval(Double(steepSeconds)) }
 

@@ -128,6 +128,13 @@ struct TodayView: View {
             .task(id: brief == nil) {
                 await stageScroll(proxy)
             }
+            .onAppear {
+                steep = TeaSteepState.load()
+            }
+            .onChange(of: router.showSession) { _, showing in
+                // A pot may have been poured, or the cup started, in the session screen.
+                if !showing { steep = TeaSteepState.load() }
+            }
             .onChange(of: brief?.mode) { old, new in
                 guard new == .goalMet, old == .reading, router.lastOutcome == nil, !router.showSession else { return }
                 Haptics.shared.play(.goalReached)
@@ -209,17 +216,13 @@ struct TodayView: View {
         return teas
     }
 
+    /// "Steep and read" opens the session screen at the tea: pick, pour, steep, then a cup-length read.
     private func beginSteep() {
         guard let brief, let bookID = brief.current?.item.id else { return }
-        let tea = chosenTea(brief)
-        let ritual = TeaRitual.plan(tea: tea, cupMinutes: store.preferences.cupMinutes)
-        let state = TeaSteepState(teaID: tea.id, steepSeconds: ritual.steepSeconds, startedAt: Date(), bookID: bookID)
-        Haptics.shared.soft(0.6)
-        withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
-            steepReady = false
-            steep = state
-        }
-        TeaSteepState.save(state)
+        ReadingSessionLauncher.beginRitual(
+            bookID: bookID, teaID: chosenTea(brief).id, store: store, router: router,
+            from: ReadingSessionLauncher.heroSource
+        )
     }
 
     /// The tea is poured: read one cup of the book it was poured for.

@@ -73,7 +73,8 @@ final class Reminders: NSObject {
         await scheduleWeeklyLetters(store: store, calendar: Calendar.current, now: Date())
 
         let prefs = store.preferences
-        guard prefs.reminderEnabled else { return }
+        // A Reading Focus with Leaf's filter on holds the reading reminders until it ends.
+        guard prefs.reminderEnabled, !ReadingFocus.holdsReminders else { return }
         let calendar = Calendar.current
         let now = Date()
         // One reminder per reading time, so a reader with a morning and an evening time (or a book for each) hears

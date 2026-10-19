@@ -56,9 +56,16 @@ struct SessionOutcomeView: View {
     private var normalContent: some View {
         VStack(alignment: .leading, spacing: Space.m) {
             Eyebrow("Session logged")
-            Text(summary)
+            Text(wrapUp.headline)
                 .leafStyle(.title)
+                .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
+            Text(summary)
+                .leafStyle(.data, color: .inkSecondary)
+            if let teaLine {
+                Text(teaLine)
+                    .leafStyle(.caption)
+            }
             if let paceLine {
                 Text(paceLine)
                     .leafStyle(.pullQuote)
@@ -78,6 +85,31 @@ struct SessionOutcomeView: View {
         let time = LeafFormat.duration(minutes: outcome.session.minutes)
         guard pages > 0 else { return time }
         return "\(pages) \(pages == 1 ? "page" : "pages") · \(time)"
+    }
+
+    /// The warm line for what just happened (`SessionWrapUp`); the real numbers sit under it.
+    private var wrapUp: SessionWrapUpLine {
+        let session = outcome.session
+        let others = store.data.sessions.filter { $0.id != session.id }
+        let longest = others.map(\.minutes).max() ?? 0
+        let mostPages = others.map(\.pagesRead).max() ?? 0
+        let longestYet = session.minutes >= 10 && session.minutes > longest
+        let mostPagesYet = session.pagesRead >= 10 && session.pagesRead > mostPages
+        let input = SessionWrapUpInput(
+            pagesRead: session.pagesRead,
+            minutes: session.minutes,
+            goalMetNow: outcome.reachedGoalNow,
+            bookFinished: outcome.finishedBook,
+            isPersonalBest: others.count >= 3 && (longestYet || mostPagesYet),
+            bookTitle: book?.title
+        )
+        return SessionWrapUp.line(for: input, seed: SeededGenerator.hash(session.id.uuidString))
+    }
+
+    /// "With a cup of Earl Grey."
+    private var teaLine: String? {
+        guard let tea = outcome.session.teaID.flatMap({ TeaCatalog.tea(id: $0) }) else { return nil }
+        return "With a cup of \(tea.name)."
     }
 
     /// Only when the pace moved by 3% or more.

@@ -17,7 +17,8 @@ enum ReadingActivityState: String, Codable, Hashable, Sendable {
 }
 
 /// The part of a reading Live Activity that changes. ActivityKit caps attributes plus state at about 4 KB, so this stays
-/// small: numbers and a date, never text or images.
+/// small: numbers, a date and two short lines of text, never images (those live in the App Group, see
+/// `ReadingActivityAssets`).
 ///
 /// The timer fields work together. `timerStart` is the real start moved forward by every pause so far, which means
 /// `Text(timerInterval:)` shows reading time only and keeps counting by itself between updates. While paused,
@@ -32,6 +33,10 @@ struct ReadingActivityContent: Codable, Hashable, Sendable {
     var goalSeconds: Int?
     var currentPage: Int
     var state: ReadingActivityState
+    /// A short line written by the app (`LiveActivityLines`, at most 28 characters), or nil for the plain wording.
+    var line: String?
+    /// The tea in the cup when the session is a tea ritual ("Earl Grey"), so the goal reads as a cup.
+    var teaName: String?
 
     init(
         timerStart: Date,
@@ -39,7 +44,9 @@ struct ReadingActivityContent: Codable, Hashable, Sendable {
         pausedElapsedSeconds: Int = 0,
         goalSeconds: Int? = nil,
         currentPage: Int,
-        state: ReadingActivityState = .reading
+        state: ReadingActivityState = .reading,
+        line: String? = nil,
+        teaName: String? = nil
     ) {
         self.timerStart = timerStart
         self.isPaused = isPaused
@@ -47,6 +54,8 @@ struct ReadingActivityContent: Codable, Hashable, Sendable {
         self.goalSeconds = goalSeconds
         self.currentPage = currentPage
         self.state = state
+        self.line = line
+        self.teaName = teaName
     }
 }
 
@@ -74,6 +83,20 @@ extension ReadingActivityContent {
         return timerStart...timerStart.addingTimeInterval(length)
     }
 
+    /// The moment the goal is reached if reading carries on uninterrupted, or nil when there is no countdown or the
+    /// timer is paused. The app sets it as the activity's stale date, so the view can turn to "goal met" on time
+    /// without an update from the app.
+    var goalDate: Date? {
+        guard countsDown, !isPaused, let goalLength else { return nil }
+        return timerStart.addingTimeInterval(goalLength)
+    }
+
+    /// Reading time so far at `date`, in seconds.
+    func elapsed(at date: Date) -> TimeInterval {
+        if isPaused { return TimeInterval(max(0, pausedElapsedSeconds)) }
+        return max(0, date.timeIntervalSince(timerStart))
+    }
+
     /// The date to freeze the timer at, or nil while it runs. Always inside `timerRange`.
     var pauseDate: Date? {
         guard isPaused else { return nil }
@@ -99,3 +122,29 @@ struct ReadingActivityAttributes: ActivityAttributes {
     var coverFileName: String?
 }
 #endif
+
+/// Where the app leaves pictures for the Live Activity: the shared App Group container. The app writes a small cover
+/// and a heavily blurred copy (for the backdrop) once per book; the extension only reads them.
+enum ReadingActivityAssets {
+    static let appGroup = "group.com.norvodesigns.leaf"
+    static let folder = "LiveActivity"
+
+    static var directory: URL? {
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup)?
+            .appendingPathComponent(folder, isDirectory: true)
+    }
+
+    /// A file name for a book's pictures: letters and digits only, so any book id is safe on disk.
+    static func baseName(forBookID id: String) -> String {
+        let safe = String(id.unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) })
+        return "cover-" + String(safe.prefix(60))
+    }
+
+    static func coverURL(_ baseName: String) -> URL? {
+        directory?.appendingPathComponent(baseName + ".jpg")
+    }
+
+    static func blurredCoverURL(_ baseName: String) -> URL? {
+        directory?.appendingPathComponent(baseName + "-blur.jpg")
+    }
+}

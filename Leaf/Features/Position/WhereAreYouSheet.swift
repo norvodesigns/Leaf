@@ -77,8 +77,10 @@ struct WhereAreYouSheet: View {
     private var pages: Int { max(1, book.pages) }
 
     private var startsReading: Bool {
-        if case .startSession = request.then { return true }
-        return false
+        switch request.then {
+        case .save: return false
+        case .startSession, .ritual: return true
+        }
     }
 
     private var pageFromPercent: Int { LibraryItem.page(forPercent: Double(percent), pages: pages) }
@@ -348,17 +350,25 @@ struct WhereAreYouSheet: View {
         store.apply(position, to: book.id)
         dismiss()
 
-        guard choice != .alreadyRead, case .startSession(let source, let teaID, let goalSeconds) = request.then else { return }
+        guard choice != .alreadyRead else { return }
         let store = store
         let router = router
         let bookID = book.id
+        let then = request.then
         Task { @MainActor in
             // Let the sheet leave before the session cover goes up.
             try? await Task.sleep(for: .milliseconds(550))
-            ReadingSessionLauncher.start(
-                bookID: bookID, store: store, router: router, from: source,
-                teaID: teaID, goalSeconds: goalSeconds, asksPosition: false
-            )
+            switch then {
+            case .save:
+                break
+            case .startSession(let source, let teaID, let goalSeconds):
+                ReadingSessionLauncher.start(
+                    bookID: bookID, store: store, router: router, from: source,
+                    teaID: teaID, goalSeconds: goalSeconds, asksPosition: false
+                )
+            case .ritual(let source, let teaID):
+                ReadingSessionLauncher.beginRitual(bookID: bookID, teaID: teaID, store: store, router: router, from: source, asksPosition: false)
+            }
         }
     }
 }

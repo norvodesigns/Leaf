@@ -93,9 +93,21 @@ widget extension.
 - `LeafWidgets/ReadingLiveActivity.swift`: a deliberately plain Lock Screen view and compact, expanded and minimal
   Dynamic Island regions. The visual design replaces it.
 
-Not built yet (a later step, once CI shows these targets work): the Live Activity controller that starts, updates and
-ends the activity, the App Intents, the widget snapshot writer, the cover pre-rendering into the App Group, and the
-CloudKit sync itself. A Live Activity can only be started while the app is in the foreground, lasts up to 8 hours, and
+Built in UI-2 (not yet verified by CI or on a device):
+
+- `LiveActivityShared/ReadingActivityViews.swift`: the Lock Screen, compact, minimal and expanded views, shared so
+  the app can stage them (`-LeafScreen liveactivity.reading|paused|goal|cup`). `LeafWidgets/ReadingLiveActivity.swift`
+  only wires them to ActivityKit.
+- `LiveActivityShared/ReadingIntents.swift`: `PauseReadingIntent`, `ResumeReadingIntent`, `LogPagesIntent`
+  (`LiveActivityIntent`, compiled into both targets); they reach the app through `ReadingIntentBridge`.
+- `Leaf/Services/LiveActivityController.swift`: starts the activity in the foreground, updates it on state changes,
+  sets the stale date to the goal so it turns to "goal met" without an update, renews it after 7½ hours, and ends it.
+  `LiveActivityCover` writes a small cover and a blurred copy to `group.com.norvodesigns.leaf/LiveActivity/`.
+- `Leaf/Services/ReadingAppIntents.swift`: `StartReadingIntent`, the `LeafShortcuts` App Shortcuts, and the
+  `ReadingFocusFilter` Focus filter (holds Leaf's reminders while a Reading Focus is on).
+- `NSCameraUsageDescription` in `Config/Info.plist`, for Live Text quote scanning in the session (text only).
+
+Still to do: the widget snapshot writer and the Home Screen widgets, and the CloudKit sync itself. A Live Activity can only be started while the app is in the foreground, lasts up to 8 hours, and
 can sit on the Lock Screen for about 4 more (NEXT.md section 11).
 
 ## Privacy manifests

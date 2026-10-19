@@ -63,6 +63,18 @@ for appearance in light dark; do
     shot 37-position-read 5 -LeafDemo YES -LeafScreen position.read
     shot 39-readingtimes-edit 5 -LeafDemo YES -LeafScreen readingtimes.edit
     shot 41-onboarding-deck 8 -LeafScreen onboarding.deck
+    # Session: the tea ritual, the cup, the extras (UI-2).
+    shot 43-session-steeping 5 -LeafDemo YES -LeafScreen session.steeping
+    shot 44-session-ready 5 -LeafDemo YES -LeafScreen session.ready
+    shot 46-session-cupdone 5 -LeafDemo YES -LeafScreen session.cupdone
+    shot 47-session-paused 5 -LeafDemo YES -LeafScreen session.paused
+    shot 48-session-note 6 -LeafDemo YES -LeafScreen session.note
+    shot 49-session-ambience 6 -LeafDemo YES -LeafScreen session.ambience
+    # The Live Activity on a stand-in Lock Screen, with the Dynamic Island regions.
+    shot 50-la-reading 5 -LeafDemo YES -LeafScreen liveactivity.reading
+    shot 51-la-paused 5 -LeafDemo YES -LeafScreen liveactivity.paused
+    shot 52-la-goal 5 -LeafDemo YES -LeafScreen liveactivity.goal
+    shot 53-la-cup 5 -LeafDemo YES -LeafScreen liveactivity.cup
   fi
   shot "10-today$suffix" 5 -LeafDemo YES -LeafScreen today -LeafTime 20:30
   shot "21-today-late$suffix" 6 -LeafDemo YES -LeafScreen today -LeafTime 23:30
@@ -71,6 +83,8 @@ for appearance in light dark; do
   shot "34-position$suffix" 5 -LeafDemo YES -LeafScreen position -LeafScenario newbook
   shot "38-readingtimes$suffix" 5 -LeafDemo YES -LeafScreen readingtimes
   shot "40-deck$suffix" 8 -LeafDemo YES -LeafScreen deck
+  shot "42-session-ritual$suffix" 5 -LeafDemo YES -LeafScreen session.ritual
+  shot "45-session-cup$suffix" 5 -LeafDemo YES -LeafScreen session.cup
   shot "11-library$suffix" 5 -LeafDemo YES -LeafScreen library
   shot "12-plan$suffix" 5 -LeafDemo YES -LeafScreen plan
   shot "15-book$suffix" 5 -LeafDemo YES -LeafScreen book:OL27482W

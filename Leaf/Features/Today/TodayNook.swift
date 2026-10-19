@@ -278,6 +278,7 @@ struct TodayNook: View {
                     }
                 }
             }
+            .sessionZoomSource(ReadingSessionLauncher.heroSource)
             .contextMenu { optionsMenu }
             ViewThatFits(in: .horizontal) {
                 HStack(alignment: .firstTextBaseline, spacing: Space.m) {
@@ -303,7 +304,6 @@ struct TodayNook: View {
         TextButton("Read without tea", color: .inkSecondary) {
             actions.startWithoutTea()
         }
-        .sessionZoomSource(ReadingSessionLauncher.heroSource)
     }
 
     private func steepingControls(_ state: TeaSteepState) -> some View {

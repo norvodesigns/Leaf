@@ -9,17 +9,22 @@ struct RootView: View {
     /// Screenshot runs can show onboarding on top of a demo library.
     @State private var forceOnboarding: Bool
     @State private var didApplyLaunchRoute = false
+    /// Screenshot runs can show the Live Activity on a stand-in Lock Screen (`-LeafScreen liveactivity.goal`).
+    private let liveActivityStage: LiveActivityStage.Kind?
 
     init() {
         let key = LaunchOptions.current.screen ?? ""
         let step = key.hasPrefix("onboarding.") ? OnboardingStep(rawValue: String(key.dropFirst("onboarding.".count))) : nil
         _onboardingStart = State(initialValue: step ?? .welcome)
         _forceOnboarding = State(initialValue: step != nil)
+        liveActivityStage = key.hasPrefix("liveactivity.") ? LiveActivityStage.Kind(rawValue: String(key.dropFirst("liveactivity.".count))) : nil
     }
 
     var body: some View {
         ZStack {
-            if store.hasOnboarded && !forceOnboarding {
+            if let liveActivityStage {
+                LiveActivityStage(kind: liveActivityStage)
+            } else if store.hasOnboarded && !forceOnboarding {
                 MainTabs()
                     .transition(.opacity)
             } else {
@@ -89,6 +94,20 @@ struct RootView: View {
             router.showSettings = true
         case "session":
             store.startSession(bookID: DemoData.hobbit.id, startedAt: Date().addingTimeInterval(-(9 * 60 + 41)))
+            router.showSession = true
+        case "session.cup", "session.cupdone", "session.paused", "session.note", "session.ambience":
+            let minutes = key == "session.cupdone" ? 26.5 : 9 + 41.0 / 60
+            let teaID: String? = key.hasPrefix("session.cup") || key == "session.note" ? TeaCatalog.earlGrey.id : nil
+            store.startSession(
+                bookID: DemoData.hobbit.id,
+                startedAt: Date().addingTimeInterval(-minutes * 60),
+                teaID: teaID,
+                goalSeconds: teaID == nil ? nil : 25 * 60
+            )
+            if key == "session.paused" { store.pauseSession() }
+            router.showSession = true
+        case "session.ritual", "session.steeping", "session.ready":
+            router.ritual = RitualRequest(bookID: DemoData.hobbit.id, teaID: TeaCatalog.earlGrey.id)
             router.showSession = true
         case "session.outcome":
             let session = ReadingSession(bookID: DemoData.hobbit.id, startedAt: Date().addingTimeInterval(-26 * 60), seconds: 26 * 60, fromPage: 142, toPage: 165)

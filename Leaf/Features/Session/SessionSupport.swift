@@ -110,6 +110,26 @@ enum ReadingSessionLauncher {
         return true
     }
 
+    /// "Steep and read": opens the session screen at the tea for `bookID` (or the next book). The steep comes before
+    /// the session, so no reading time is counted until the cup is poured. Asks "Where are you?" first for a book
+    /// that needs it. With a session already running, it just opens it.
+    @discardableResult
+    static func beginRitual(bookID: String?, teaID: String?, store: LibraryStore, router: AppRouter, from source: String, asksPosition: Bool = true) -> Bool {
+        if store.activeSession != nil {
+            router.presentSession(from: source)
+            return true
+        }
+        let requested = bookID.flatMap { store.item($0) }
+        guard let id = requested?.id ?? store.nextBook?.id else { return false }
+        if asksPosition, let item = store.item(id), needsPosition(item, store: store) {
+            router.askPosition(for: id, then: .ritual(source: source, teaID: teaID))
+            return true
+        }
+        router.ritual = RitualRequest(bookID: id, teaID: teaID)
+        router.presentSession(from: source)
+        return true
+    }
+
     /// A book that has never been read here and hasn't been told where the reader is: starting it should ask first.
     static func needsPosition(_ item: LibraryItem, store: LibraryStore) -> Bool {
         !item.positionConfirmed && item.shelf != .finished && store.sessionCount(for: item.id) == 0
@@ -162,7 +182,8 @@ enum ReadingSessionLauncher {
 
 // MARK: - Session clock
 
-/// The numbers a live session shows at one moment: time read, today's goal, and how the timer reads.
+/// The numbers a live session shows at one moment: time read, today's goal, and how the timer reads. A tea
+/// ritual's session counts down its cup instead of today's goal; today's goal still decides "goal met".
 struct SessionClock {
     /// Seconds read in this session.
     let elapsed: Double
@@ -171,12 +192,15 @@ struct SessionClock {
     /// Today's goal in seconds.
     let goal: Double
     let isReadingDay: Bool
+    /// The cup-length read of a tea ritual, in seconds, or nil.
+    let cup: Double?
 
-    init(elapsed: Double, readBefore: Double, goal: Double, isReadingDay: Bool) {
+    init(elapsed: Double, readBefore: Double, goal: Double, isReadingDay: Bool, cup: Double? = nil) {
         self.elapsed = max(0, elapsed)
         self.readBefore = max(0, readBefore)
         self.goal = max(0, goal)
         self.isReadingDay = isReadingDay
+        self.cup = cup.flatMap { $0 > 0 ? $0 : nil }
     }
 
     @MainActor
@@ -185,11 +209,20 @@ struct SessionClock {
             elapsed: session.elapsed(at: date),
             readBefore: store.minutesReadToday * 60,
             goal: Double(store.preferences.dailyMinutes) * 60,
-            isReadingDay: store.isReadingDay
+            isReadingDay: store.isReadingDay,
+            cup: session.goalSeconds
         )
     }
 
     var hasGoal: Bool { goal > 0 }
+
+    var hasCup: Bool { cup != nil }
+
+    /// The cup is drunk: the ritual's read is done.
+    var cupDone: Bool {
+        guard let cup else { return false }
+        return elapsed >= cup
+    }
 
     /// Today plus this session.
     var total: Double { readBefore + elapsed }
@@ -203,15 +236,22 @@ struct SessionClock {
     /// The goal was reached during this session (the moment for `goalReached`).
     var crossedGoal: Bool { hasGoal && readBefore < goal && total >= goal }
 
-    var countsDown: Bool { tracksGoal && !goalMet }
+    var countsDown: Bool {
+        if hasCup { return !cupDone }
+        return tracksGoal && !goalMet
+    }
 
-    var remaining: Double { max(0, goal - total) }
+    var remaining: Double {
+        if let cup { return max(0, cup - elapsed) }
+        return max(0, goal - total)
+    }
 
-    /// What the timer face shows: time left to the goal, or time read in this session once it's met
-    /// (or on a rest day).
+    /// What the timer face shows: time left in the cup or to the goal, or time read in this session once that's
+    /// done (or on a rest day).
     var displaySeconds: Double { countsDown ? remaining.rounded(.up) : elapsed }
 
     var ringProgress: Double {
+        if let cup { return min(1, elapsed / cup) }
         guard hasGoal else { return 0 }
         return min(1, total / goal)
     }

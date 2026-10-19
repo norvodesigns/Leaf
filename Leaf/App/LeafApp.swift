@@ -3,7 +3,7 @@ import SwiftUI
 @main
 struct LeafApp: App {
     @State private var store: LibraryStore
-    @State private var router = AppRouter()
+    @State private var router: AppRouter
     @State private var catalog = BookCatalog.shared
     @Environment(\.scenePhase) private var scenePhase
 
@@ -16,10 +16,18 @@ struct LeafApp: App {
             store.replaceAll(with: DemoData.make(now: now, scenario: scenario))
         }
         _store = State(initialValue: store)
+        let router = AppRouter()
+        _router = State(initialValue: router)
         if options.isScripted {
             // Screenshot runs start with no pot on the stove, except the one that shows it steeping.
-            let steeping = TeaSteepState(teaID: TeaCatalog.earlGrey.id, steepSeconds: 240, startedAt: Date().addingTimeInterval(-75), bookID: DemoData.hobbit.id)
-            TeaSteepState.save(options.screen == "today.steep" ? steeping : nil)
+            let steeped: TimeInterval? = switch options.screen ?? "" {
+            case "today.steep", "session.steeping": 75
+            case "session.ready": 250
+            default: nil
+            }
+            TeaSteepState.save(steeped.map {
+                TeaSteepState(teaID: TeaCatalog.earlGrey.id, steepSeconds: 240, startedAt: Date().addingTimeInterval(-$0), bookID: DemoData.hobbit.id)
+            })
         }
 
         if !options.isScripted, CloudSync.isAvailable {
@@ -31,9 +39,12 @@ struct LeafApp: App {
 
         Reminders.shared.configure(store: store)
         WatchBridge.shared.activate(store: store)
+        AppReadingIntents.shared.connect(store: store, router: router)
+        LiveActivityController.shared.configure(store: store)
         store.onChange = { [weak store] in
             Reminders.shared.scheduleRefresh()
             WatchBridge.shared.schedulePush()
+            LiveActivityController.shared.sync()
             if let level = store?.preferences.hapticsLevel { Haptics.shared.level = level }
         }
         Haptics.shared.level = store.preferences.hapticsLevel
@@ -63,6 +74,7 @@ struct LeafApp: App {
                     case .active:
                         store.refreshDay(LaunchOptions.current.now())
                         Haptics.shared.prepare()
+                        LiveActivityController.shared.sync()
                     case .background:
                         store.flush()
                     default:
