@@ -9,7 +9,9 @@ struct LeafWatchApp: App {
             WatchRootView()
                 .environment(store)
                 .task {
-                    if !LaunchScreen.isDemo { PhoneBridge.shared.activate(store: store) }
+                    guard !LaunchScreen.isDemo else { return }
+                    PhoneBridge.shared.activate(store: store)
+                    WatchNotifications.shared.configure(store: store)
                 }
         }
     }
@@ -19,26 +21,64 @@ struct WatchRootView: View {
     @Environment(WatchStore.self) private var store
     /// Lets the reader step away from a live session to browse, without ending it.
     @State private var sessionMinimized = false
-    @State private var page = 0
+    @State private var page = WatchPage.today
+    @State private var path: [WatchRoute] = []
+
+    /// The pages, top to bottom. The crown pages between them; screens that need the crown are pushed instead.
+    enum WatchPage: Hashable { case today, log, forecast, week, shelf, add }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             TabView(selection: $page) {
-                TodayPage(onOpenSession: { sessionMinimized = false }).tag(0)
-                WeekPage().tag(1)
-                BooksPage(onStart: { sessionMinimized = false }).tag(2)
+                TodayPage(onOpenSession: { sessionMinimized = false }).tag(WatchPage.today)
+                LogPage().tag(WatchPage.log)
+                ForecastPage().tag(WatchPage.forecast)
+                WeekPage().tag(WatchPage.week)
+                ShelfPage(onStart: { sessionMinimized = false }).tag(WatchPage.shelf)
+                AddPage().tag(WatchPage.add)
             }
             .tabViewStyle(.verticalPage)
+            .navigationDestination(for: WatchRoute.self) { route in
+                switch route {
+                case .quickLog(let bookID):
+                    if let book = store.snapshot.book(bookID) { QuickLogView(book: book) }
+                case .whereWasI(let bookID):
+                    if let book = store.snapshot.book(bookID) { WhereWasIView(book: book) }
+                case .shelfBook(let bookID):
+                    if let book = store.snapshot.book(bookID) {
+                        ShelfBookActions(book: book, isReading: store.reading.contains { $0.id == bookID }) {
+                            sessionMinimized = false
+                            path.removeAll()
+                        }
+                    }
+                }
+            }
         }
         .fullScreenCover(isPresented: sessionPresented) {
             SessionView(onMinimize: { sessionMinimized = true })
                 .environment(store)
+                .stagedAlwaysOn(LaunchScreen.current == "aod")
         }
         .onChange(of: store.activeSession?.id) { _, id in
             if id != nil { sessionMinimized = false }
         }
-        .onAppear {
-            if LaunchScreen.current == "books" { page = 2 }
+        .onAppear(perform: stage)
+    }
+
+    /// Screenshot staging (`-LeafScreen`, DEBUG only).
+    private func stage() {
+        guard let screen = LaunchScreen.current else { return }
+        let bookID = store.suggestedBook?.id ?? ""
+        switch screen {
+        case "log": page = .log
+        case "quicklog": page = .log; path = [.quickLog(bookID: bookID)]
+        case "where": page = .log; path = [.whereWasI(bookID: bookID)]
+        case "forecast": page = .forecast
+        case "week": page = .week
+        case "books", "shelf": page = .shelf
+        case "shelf.actions": page = .shelf; path = [.shelfBook(bookID: store.snapshot.queue.first?.id ?? bookID)]
+        case "add", "add.sent": page = .add
+        default: break
         }
     }
 
@@ -52,5 +92,12 @@ struct WatchRootView: View {
                 }
             }
         )
+    }
+}
+
+private extension View {
+    /// Shows the Always-On look in a screenshot. Never overrides the real value otherwise.
+    @ViewBuilder func stagedAlwaysOn(_ isOn: Bool) -> some View {
+        if isOn { environment(\.isLuminanceReduced, true) } else { self }
     }
 }

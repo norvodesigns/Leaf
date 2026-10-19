@@ -9,6 +9,10 @@ enum WatchTheme {
     static let inkSecondary = Color(red: 0xB9 / 255, green: 0xB0 / 255, blue: 0x9F / 255)
     static let ribbon = Color(red: 0xE0 / 255, green: 0x69 / 255, blue: 0x4F / 255)
     static let track = Color.white.opacity(0.14)
+    /// Chai: the tea's own colour, for the cup and the steep timer.
+    static let tea = Color(red: 0xC9 / 255, green: 0x9A / 255, blue: 0x6E / 255)
+    /// A warm near-black for raised rows: paper at night, never pure black.
+    static let warm = Color(red: 0x2A / 255, green: 0x21 / 255, blue: 0x18 / 255)
 
     /// Generated-cover colours: the ten cover backgrounds from DESIGN.md §2, in the same order as the phone.
     static let covers: [Color] = [

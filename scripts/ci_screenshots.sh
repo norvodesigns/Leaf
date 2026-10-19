@@ -168,5 +168,16 @@ if [ -n "${WATCH_SIM:-}" ] && [ -d "$WATCH_APP" ]; then
   wshot w1-today -LeafDemo YES -LeafScreen today
   wshot w2-session -LeafDemo YES -LeafScreen session
   wshot w3-pages -LeafDemo YES -LeafScreen pages
-  wshot w4-books -LeafDemo YES -LeafScreen books
+  wshot w4-shelf -LeafDemo YES -LeafScreen shelf
+  wshot w5-steep -LeafDemo YES -LeafScreen steep
+  wshot w6-steep-ready -LeafDemo YES -LeafScreen steepready
+  wshot w7-session-cup -LeafDemo YES -LeafScreen session.cup
+  wshot w8-always-on -LeafDemo YES -LeafScreen aod
+  wshot w9-log -LeafDemo YES -LeafScreen log
+  wshot w10-quicklog -LeafDemo YES -LeafScreen quicklog
+  wshot w11-where -LeafDemo YES -LeafScreen where
+  wshot w12-forecast -LeafDemo YES -LeafScreen forecast
+  wshot w13-week -LeafDemo YES -LeafScreen week
+  wshot w14-shelf-actions -LeafDemo YES -LeafScreen shelf.actions
+  wshot w15-add -LeafDemo YES -LeafScreen add.sent
 fi

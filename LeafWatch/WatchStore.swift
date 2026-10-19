@@ -21,7 +21,9 @@ final class WatchStore {
         self.defaults = defaults
         self.persist = !demo
         if demo {
-            snapshot = WatchDemo.snapshot()
+            let demoSnapshot = WatchDemo.snapshot()
+            snapshot = demoSnapshot
+            steep = WatchDemo.steep(for: demoSnapshot)
         } else if let data = defaults.data(forKey: Self.key), let saved = SyncCodec.decode(WatchSnapshot.self, from: [SyncCodec.snapshotKey: data], key: SyncCodec.snapshotKey) {
             snapshot = saved
         } else {
@@ -41,6 +43,14 @@ final class WatchStore {
     }
 
     func assignment(for bookID: String) -> WatchAssignment? { snapshot.today.first { $0.bookID == bookID } }
+
+    /// What the session timer counts down to: the cup's length when it began with tea, else what was left of today's
+    /// goal. Nil once today's goal is met: the timer then just counts up.
+    func sessionTarget(for session: ActiveSession) -> Double? {
+        if let cup = session.goalSeconds, cup > 0 { return cup }
+        let left = (Double(snapshot.dailyMinutes) - snapshot.minutesReadToday) * 60
+        return left >= 60 ? left : nil
+    }
 
     /// Today's progress including the session running right now.
     func goalProgress(at now: Date) -> Double {
@@ -82,7 +92,7 @@ final class WatchStore {
         cancelSteepNotification()
         save()
         send?(.sessionChanged(session))
-        scheduleGoalNudge()
+        keepAwake()
     }
 
     func pause() {
@@ -90,7 +100,7 @@ final class WatchStore {
         snapshot.activeSession?.pause()
         save()
         if let session = snapshot.activeSession { send?(.sessionChanged(session)) }
-        cancelGoalNudge()
+        letSleep()
     }
 
     func resume() {
@@ -98,7 +108,7 @@ final class WatchStore {
         snapshot.activeSession?.resume()
         save()
         if let session = snapshot.activeSession { send?(.sessionChanged(session)) }
-        scheduleGoalNudge()
+        keepAwake()
     }
 
     func cancel() {
@@ -106,7 +116,7 @@ final class WatchStore {
         snapshot.activeSession = nil
         save()
         send?(.sessionCancelled(session.id))
-        cancelGoalNudge()
+        letSleep()
     }
 
     /// Logs the session at `page`, updates the local copy optimistically, and tells the phone.
@@ -124,7 +134,29 @@ final class WatchStore {
         lastLogged = logged
         save()
         send?(.sessionLogged(logged, activeID: active.id))
+        letSleep()
+    }
+
+    // MARK: Wrist down
+
+    /// A session timed on the watch keeps running with the wrist down and taps at its goal (WatchRuntime.swift).
+    /// A session mirrored from the phone is the phone's to time; it gets the old scheduled nudge.
+    private func keepAwake() {
+        guard persist, let session = snapshot.activeSession, !session.isPaused else { return }
+        guard session.origin == .watch else {
+            scheduleGoalNudge()
+            return
+        }
+        let runtime = ReadingRuntime.shared
+        runtime.onLost = { [weak self] in self?.scheduleGoalNudge() }
         cancelGoalNudge()
+        runtime.begin(secondsToGoal: sessionTarget(for: session).map { $0 - session.elapsed() })
+    }
+
+    private func letSleep() {
+        cancelGoalNudge()
+        guard persist else { return }
+        ReadingRuntime.shared.end()
     }
 
     // MARK: Quick actions (no timer needed)
@@ -197,6 +229,7 @@ final class WatchStore {
     /// Starts steeping. A local notification taps the wrist when the tea is ready, even with the app in the background.
     func startSteep(_ tea: WatchTea, now: Date = Date()) {
         steep = SteepTimer(tea: tea, startedAt: now)
+        guard persist else { return }
         scheduleSteepNotification(tea: tea, seconds: Double(tea.steepSeconds))
     }
 
@@ -227,7 +260,7 @@ final class WatchStore {
     // MARK: Goal nudge (a wrist tap when today's minutes are done, even with the app in the background)
 
     private func scheduleGoalNudge() {
-        guard let session = snapshot.activeSession, !session.isPaused else { return }
+        guard persist, let session = snapshot.activeSession, !session.isPaused else { return }
         let remaining = (Double(snapshot.dailyMinutes) - snapshot.minutesReadToday) * 60 - session.elapsed()
         guard remaining > 5 else { return }
         let center = UNUserNotificationCenter.current()
@@ -295,14 +328,35 @@ enum WatchDemo {
             WatchForecast(bookID: circe.id, sentence: "Likely early next month.", median: circe.finish),
         ]
         snapshot.yearGoal = WatchYearGoal(year: calendar.component(.year, from: now), finished: 9, goal: 24, sentence: "On track for 22 books.")
-        if LaunchScreen.current == "session" || LaunchScreen.current == "pages" {
-            snapshot.activeSession = ActiveSession(bookID: hobbit.id, startedAt: now.addingTimeInterval(-9 * 60 - 41), startPage: 142, origin: .watch)
+        snapshot.slots = [
+            WatchSlot(id: UUID(), minuteOfDay: 7 * 60 + 30, label: "Morning tea", bookID: hobbit.id, title: hobbit.title, minutes: 10, fromPage: 143, toPage: 151),
+            WatchSlot(id: UUID(), minuteOfDay: 21 * 60 + 30, label: "Before bed", bookID: hobbit.id, title: hobbit.title, minutes: 15, fromPage: 151, toPage: 163),
+        ]
+        if ["session", "pages", "aod", "session.cup"].contains(LaunchScreen.current ?? "") {
+            let cup = LaunchScreen.current == "session.cup"
+            snapshot.activeSession = ActiveSession(
+                bookID: hobbit.id, startedAt: now.addingTimeInterval(cup ? -6 * 60 - 40 : -9 * 60 - 41), startPage: 142, origin: .watch,
+                teaID: cup ? "earl-grey" : nil, goalSeconds: cup ? Double(snapshot.cupMinutes * 60) : nil
+            )
         }
         return snapshot
     }
 }
 
-/// Debug launch arguments: `-LeafDemo YES -LeafScreen today|session|pages|books`.
+extension WatchDemo {
+    /// The steep timer for `steep` (a minute in) and `steepready` screenshots.
+    static func steep(for snapshot: WatchSnapshot, now: Date = Date()) -> SteepTimer? {
+        guard let tea = snapshot.tea else { return nil }
+        switch LaunchScreen.current {
+        case "steep": return SteepTimer(tea: tea, startedAt: now.addingTimeInterval(-70))
+        case "steepready": return SteepTimer(tea: tea, startedAt: now.addingTimeInterval(-Double(tea.steepSeconds) - 5))
+        default: return nil
+        }
+    }
+}
+
+/// Debug launch arguments: `-LeafDemo YES -LeafScreen <name>`: today, steep, steepready, session, session.cup, aod,
+/// pages (the page picker), log, quicklog, where, forecast, week, shelf (or books), shelf.actions, add, add.sent.
 enum LaunchScreen {
     static var isDemo: Bool {
         #if DEBUG

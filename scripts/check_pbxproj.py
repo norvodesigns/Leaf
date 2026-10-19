@@ -898,6 +898,12 @@ class Checker:
             self.error("Config/LeafWidgets-Info.plist is missing or unreadable")
         elif as_dict(widget_info.get("NSExtension")).get("NSExtensionPointIdentifier") != WIDGET_EXTENSION_POINT:
             self.error(f"Config/LeafWidgets-Info.plist: NSExtension.NSExtensionPointIdentifier must be {WIDGET_EXTENSION_POINT}")
+        watch_info = self.load_plist("Config/LeafWatch-Info.plist")
+        if watch_info is None:
+            self.error("Config/LeafWatch-Info.plist is missing or unreadable")
+        elif as_list(watch_info.get("WKBackgroundModes")) != ["mindfulness"]:
+            # The reading session's WKExtendedRuntimeSession (LeafWatch/WatchRuntime.swift). Add a mode only with a reason.
+            self.error("Config/LeafWatch-Info.plist: WKBackgroundModes must be exactly [mindfulness]")
         app_ent = self.load_plist("Leaf/Leaf.entitlements")
         widget_ent = self.load_plist("LeafWidgets/LeafWidgets.entitlements")
         if app_ent is None:
@@ -920,7 +926,7 @@ class Checker:
             for config in self.configs_of(named[name]):
                 if self.effective(named[name], config, "CODE_SIGN_ENTITLEMENTS") != rel:
                     self.error(f"{name} ({config}) must set CODE_SIGN_ENTITLEMENTS = {rel}", named[name])
-        for name, rel in ((APP, "Config/Info.plist"), (WIDGETS, "Config/LeafWidgets-Info.plist")):
+        for name, rel in ((APP, "Config/Info.plist"), (WIDGETS, "Config/LeafWidgets-Info.plist"), (WATCH, "Config/LeafWatch-Info.plist")):
             for config in self.configs_of(named[name]):
                 if self.effective(named[name], config, "INFOPLIST_FILE") != rel:
                     self.error(f"{name} ({config}) must set INFOPLIST_FILE = {rel}", named[name])
