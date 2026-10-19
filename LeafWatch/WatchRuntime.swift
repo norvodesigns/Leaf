@@ -67,9 +67,11 @@ final class ReadingRuntime: NSObject, WKExtendedRuntimeSessionDelegate {
     }
 }
 
-/// The reading reminder's actions on the wrist: Start, Snooze 30 min, Skip today. The phone schedules the reminders
-/// and handles them when it is in hand; registering the same category here lets the watch act on them too when the
-/// notification shows on the wrist. The identifiers match `ReminderID` in the iPhone app.
+/// The reading reminder on the wrist. The phone schedules it with its Start / Snooze 30 min / Skip today actions, and
+/// the watch shows it mirrored with those same actions. Snooze and Skip are background actions, which the system hands
+/// to the iPhone app, so the phone keeps its own bookkeeping (the snooze, the skipped day). Start opens the watch app,
+/// so it lands here and starts timing on the wrist. The watch registers no category of its own, so the mirrored
+/// actions stay the phone's. The identifiers match `ReminderID` in the iPhone app.
 @MainActor
 final class WatchNotifications: NSObject, UNUserNotificationCenterDelegate {
     static let shared = WatchNotifications()
@@ -85,14 +87,7 @@ final class WatchNotifications: NSObject, UNUserNotificationCenterDelegate {
 
     func configure(store: WatchStore) {
         self.store = store
-        let center = UNUserNotificationCenter.current()
-        center.delegate = self
-        let start = UNNotificationAction(identifier: Self.startAction, title: "Start reading", options: [.foreground])
-        let snooze = UNNotificationAction(identifier: Self.snoozeAction, title: "In \(Self.snoozeMinutes) minutes", options: [])
-        let skip = UNNotificationAction(identifier: Self.skipAction, title: "Skip today", options: [])
-        center.setNotificationCategories([
-            UNNotificationCategory(identifier: Self.category, actions: [start, snooze, skip], intentIdentifiers: [], options: [])
-        ])
+        UNUserNotificationCenter.current().delegate = self
     }
 
     nonisolated func userNotificationCenter(
@@ -114,6 +109,7 @@ final class WatchNotifications: NSObject, UNUserNotificationCenterDelegate {
                 if let id = bookID ?? store.suggestedBook?.id { store.start(bookID: id) }
             }
         case Self.snoozeAction:
+            // Normally the phone's. If it ever reaches the wrist, snooze here rather than drop it.
             let again = UNMutableNotificationContent()
             again.title = content.title
             again.body = content.body
@@ -123,7 +119,7 @@ final class WatchNotifications: NSObject, UNUserNotificationCenterDelegate {
             let trigger = UNTimeIntervalNotificationTrigger(timeInterval: TimeInterval(Self.snoozeMinutes * 60), repeats: false)
             try? await center.add(UNNotificationRequest(identifier: "leaf.watch.snooze", content: again, trigger: trigger))
         default:
-            // Skip today, or a plain tap: nothing more to do on the wrist.
+            // Skip today is the phone's (it remembers the day); a plain tap just opens the app.
             break
         }
     }
