@@ -38,6 +38,7 @@ struct LeafApp: App {
         }
 
         Reminders.shared.configure(store: store)
+        Reminders.shared.onOpenWeeklyLetter = { [weak router] in router?.openWeeklyLetter() }
         WatchBridge.shared.activate(store: store)
         AppReadingIntents.shared.connect(store: store, router: router)
         LiveActivityController.shared.configure(store: store)

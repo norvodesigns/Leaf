@@ -38,6 +38,8 @@ enum DemoData {
         case newBook = "newbook"
         /// Side by side, with the morning time kept for *Circe*.
         case sideBySide = "sidebyside"
+        /// The standard library with a whole year of reading behind it, for the Plan tab's insights and stamps.
+        case year
     }
 
     static func make(now: Date = Date(), calendar: Calendar = .current, scenario: Scenario) -> LeafData {
@@ -90,8 +92,101 @@ enum DemoData {
         case .sideBySide:
             data.preferences.planMode = .sideBySide
             if !data.preferences.readingSlots.isEmpty { data.preferences.readingSlots[0].bookID = circe.id }
+        case .year:
+            addYearOfReading(to: &data, now: now, calendar: calendar)
         }
         return data
+    }
+
+    /// Books finished earlier in the year (generated covers; the ids are not Open Library's).
+    static let yearBooks: [Book] = [
+        book("demo-station", "Station Eleven", "Emily St. John Mandel", 2014, pages: 333, words: 89_910, genres: ["science-fiction", "literary"]),
+        book("demo-cerulean", "The House in the Cerulean Sea", "TJ Klune", 2020, pages: 394, words: 106_380, genres: ["fantasy"]),
+        book("demo-anxious", "Anxious People", "Fredrik Backman", 2019, pages: 341, words: 92_070, genres: ["fiction", "humor"]),
+        book("demo-thursday", "The Thursday Murder Club", "Richard Osman", 2020, pages: 382, words: 103_140, genres: ["mystery"]),
+        book("demo-legends", "Legends & Lattes", "Travis Baldree", 2022, pages: 296, words: 79_920, genres: ["fantasy"]),
+        book("demo-pachinko", "Pachinko", "Min Jin Lee", 2017, pages: 490, words: 132_300, genres: ["historical", "literary"]),
+        book("demo-braiding", "Braiding Sweetgrass", "Robin Wall Kimmerer", 2013, pages: 391, words: 105_570, genres: ["nature", "memoir"]),
+    ]
+
+    /// Fills the year before the standard library's last twelve days: the books above finished from January on, and
+    /// sittings for every finished book between its start and finish. Mostly evenings, some weekday mornings, long
+    /// weekend afternoons, a few rest days, a pace that creeps up over the year, and a rotation of teas. Deterministic.
+    private static func addYearOfReading(to data: inout LeafData, now: Date, calendar: Calendar) {
+        let today = calendar.startOfDay(for: now)
+        let year = calendar.component(.year, from: now)
+        guard let yearStart = calendar.date(from: DateComponents(year: year, month: 1, day: 3)) else { return }
+        func dayIndex(_ date: Date) -> Int { calendar.dateComponents([.day], from: today, to: calendar.startOfDay(for: date)).day ?? 0 }
+        func noise(_ day: Int, _ salt: Int) -> Int { (((day &* 2_654_435_761) ^ (salt &* 40_503)) & 0x7FFF_FFFF) % 1_000 }
+        let teas = ["earl-grey", "sencha", "english-breakfast", "milk-oolong", "jasmine-green", "darjeeling", "matcha", "genmaicha"]
+        let totalDays = -dayIndex(yearStart)
+
+        // The finished books of the standard library keep their dates; the new ones fill the months before.
+        let firstStandardStart = data.items.filter { $0.shelf == .finished }.compactMap(\.startedAt).min() ?? today
+        let earlySpan = max(30, -dayIndex(yearStart) + dayIndex(firstStandardStart))
+        let share = earlySpan / max(1, yearBooks.count)
+        var finished: [(book: Book, start: Int, end: Int)] = []
+        for (index, book) in yearBooks.enumerated() {
+            let start = -totalDays + index * share
+            let end = start + share - 1 - (index % 3)
+            finished.append((book, start, end))
+            data.items.append(LibraryItem(
+                book: book, shelf: .finished, currentPage: book.pages, order: Double(10 + index),
+                addedAt: calendar.date(byAdding: .day, value: start - 6, to: today) ?? today,
+                startedAt: calendar.date(byAdding: .day, value: start, to: today),
+                finishedAt: calendar.date(byAdding: .day, value: end, to: today),
+                rating: 3 + noise(index, 7) % 3
+            ))
+        }
+        for item in data.items where item.shelf == .finished && !yearBooks.contains(where: { $0.id == item.id }) {
+            guard let started = item.startedAt, let ended = item.finishedAt else { continue }
+            finished.append((item.book, dayIndex(started), dayIndex(ended)))
+        }
+
+        for entry in finished {
+            let days = (entry.start...max(entry.start, entry.end)).filter { day in
+                guard let date = calendar.date(byAdding: .day, value: day, to: today) else { return false }
+                let weekend = calendar.isDateInWeekend(date)
+                return day == entry.end || noise(day, 1) < (weekend ? 880 : 690)
+            }
+            guard !days.isEmpty else { continue }
+            let perSitting = Int((Double(entry.book.pages) / Double(days.count)).rounded(.up))
+            var page = 0
+            for day in days where page < entry.book.pages {
+                guard let date = calendar.date(byAdding: .day, value: day, to: today) else { continue }
+                let weekend = calendar.isDateInWeekend(date)
+                let morning = !weekend && noise(day, 3) % 4 == 0
+                let hour = weekend ? 15 : (morning ? 7 : 21)
+                let minute = noise(day, 5) % 50
+                let start = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: date) ?? date
+                let pages = min(perSitting + (weekend ? perSitting / 2 : 0), entry.book.pages - page)
+                // Faster as the year goes on: about 240 wpm in January to about 275 by autumn.
+                let progress = Double(totalDays + day) / Double(max(1, totalDays))
+                let wpm = (240 + 35 * progress) * (0.9 + Double(noise(day, 9) % 200) / 1_000)
+                let seconds = Double(pages) * entry.book.wordsPerPage / wpm * 60
+                data.sessions.append(ReadingSession(
+                    bookID: entry.book.id, startedAt: start, seconds: seconds, fromPage: page, toPage: page + pages,
+                    teaID: noise(day, 11) % 3 == 0 ? nil : teas[noise(day, 13) % teas.count]
+                ))
+                page += pages
+            }
+        }
+
+        let quotes: [(Book, String, Int, Int)] = [
+            (yearBooks[0], "Because survival is insufficient.", 58, -280),
+            (yearBooks[1], "Sometimes the family you choose is the one that saves you.", 211, -250),
+            (yearBooks[4], "Sometimes you have to walk away from one thing to find another.", 140, -190),
+            (yearBooks[6], "All flourishing is mutual.", 166, -160),
+        ]
+        for (book, text, page, day) in quotes {
+            data.journal.append(JournalEntry(
+                bookID: book.id, bookTitle: book.title, bookAuthor: book.author, kind: .quote, text: text, page: page,
+                createdAt: calendar.date(byAdding: .day, value: max(day, -totalDays + 1), to: today) ?? today
+            ))
+        }
+        data.challenges.append(ChallengeEnrollment(id: "cozy-bingo", joinedAt: yearStart, year: year))
+        data.challenges.append(ChallengeEnrollment(id: "tea-tasting", joinedAt: yearStart, year: nil))
+        data.preferences.onboardedAt = yearStart
     }
 
     static func make(now: Date = Date(), calendar: Calendar = .current) -> LeafData {

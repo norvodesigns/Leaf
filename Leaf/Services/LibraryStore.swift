@@ -258,6 +258,13 @@ final class LibraryStore {
         applyOrder(ids)
     }
 
+    /// Puts To read in a suggested order the reader accepted. Books the order doesn't name keep their places after it.
+    func applyQueueOrder(_ ids: [String]) {
+        let shelf = data.items(on: .toRead).map(\.id)
+        let named = ids.filter { shelf.contains($0) }
+        applyOrder(named + shelf.filter { !named.contains($0) })
+    }
+
     /// Puts a book at the front of its shelf ("Read next").
     func moveToFront(_ id: String) {
         guard let shelf = shelf(of: id) else { return }

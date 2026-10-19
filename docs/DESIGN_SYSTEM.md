@@ -313,6 +313,41 @@ pauses when its scene is still, the app is inactive, Reduce Motion is on or Low 
   `ReadingActivityMinimal`, `ReadingActivityExpanded*`, `ReadingActivityGallery`, `ReadingActivityPalette` (the
   night palette; the activity always sits on a darkened blurred cover).
 
+## Plan: forecast, insights, challenges (UI-4)
+
+The Plan tab is three pages under `PlanSectionSwitcher` (`router.planSection`: `.forecast`, `.insights`,
+`.challenges`). `PlanDesk` (Leaf/Services) runs every engine off the main actor once per library change and keeps the
+results: `forecast` (`ForecastSnapshot`: result, tonight only, catch-up, stalled books, the year goal's inverse plan),
+`insights` (`InsightsSnapshot`), `challenges` (`ChallengeSnapshot`), `backtest`, plus on-demand `runWhatIf`,
+`inversePlan(bookID:by:)` and `smartOrder(goal:)`, all with the day seed so differences are the change itself.
+Sheets: `router.planSheet` (`.finishLine(bookID:)`, `.smartOrder`, `.yearInBooks`, `.weeklyLetter`);
+`router.openWeeklyLetter()` is what the Sunday notification calls.
+
+- **Charts** — `ForecastCharts.swift`, Swift Charts, hidden from VoiceOver behind the narrator's sentence.
+  `BookFanChart(forecast:currentPage:pages:narrator:calendar:today:)`: pages over dates, median line, 10–90 fan,
+  tap or drag a date for `chanceSentence` (VoiceOver: adjustable by two days). `YearForecastChart(year:finishes:today:calendar:)`:
+  the year's finishes as a step, a fan from today to 31 December, dashed median, goal rule. `SpeedTrendChart(trend:)`.
+- **Forecast page** — `ForecastPage(desk:)`: year card, a `BookForecastCard` per book in Reading, "For you"
+  (`TodayCard` tonight only, `CatchUpCard` with the reader's `CatchUpMode`, `StallCard` → `store.pause`), what-if
+  (`MinutesDial`, `WeekdayPicker`, `WhatIfSummary` with `DeltaChip`s; nothing changes until "Keep this plan"),
+  the plan as a running order (`PlanRow`, plan style), next seven days, assumptions and the backtest line.
+- **Sheets** — `FinishLineSheet(desk:initialBookID:)` (book menu, `FinishByScrub` with magnets at the likely finish,
+  Christmas and New Year's Eve, then `inverseSentence` and "Make it N min a day"); `SmartOrderSheet(desk:)` (three
+  goals, per-book `DeltaChip`, `store.applyQueueOrder(_:)`).
+- **Insights page** — `InsightsPage(desk:)`: `TeaRingHeatmap(cells:calendar:)` (a Canvas, a column per week, rings sized
+  by `HeatCell.ring`, gold drop for a finished book, scrolls from today), `YearInBooksCard`, `WeeklyLetterCard`,
+  `BestTimeCard`, `SpeedCard`, `MixCard`, `TBRCard`, `PersonalityCard` (shares `PersonalityPoster` as an image).
+- **Year in Books** — `YearInBooksView(summary:)` with `MonthRingCollage(months:ringSize:showsLabels:)`, highlights,
+  finished list, and a `YearInBooksPoster` share image. Words in `YearInBooksText`.
+- **Weekly letter** — `WeeklyLetterView(letter:)`; `WeeklyLetterView.copy(for:calendar:)` maps `WeeklyLetterData` to
+  `WeeklyLetterText` with a seed that holds for the week.
+- **Challenges page** — `ChallengesPage(desk:)`: `ChallengeProgressCard` (ring, status line, prompts or a bingo card,
+  stamps; leave from its menu), `ChallengeOfferCard` (join), `StampWall` of `StampSeal(rings:token:diameter:symbol:isEarned:)`.
+- **Share images** — `SharePoster.render(_:size:)` renders any view on paper in the day palette at 3x.
+- **Staging** — `-LeafScreen plan`, `plan.whatif`, `plan.care`, `plan.order`, `plan.finishline`, `plan.suggest`,
+  `plan.insights` (`.time`, `.mix`, `.personality`), `plan.year`, `plan.letter`, `plan.challenges`, `plan.stamps`;
+  `-LeafScenario year` adds a year of reading.
+
 ## Rules of thumb (from DESIGN.md)
 
 - Paper is content, glass is chrome: glass only on tab bar, toolbars, accessory, buttons, session

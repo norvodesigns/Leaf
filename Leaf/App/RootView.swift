@@ -103,6 +103,29 @@ struct RootView: View {
             router.libraryShelf = .finished
         case "plan":
             router.tab = .plan
+        case "plan.whatif", "plan.care", "plan.order":
+            router.tab = .plan
+            router.planStage = String(key.dropFirst("plan.".count))
+        case "plan.finishline":
+            router.tab = .plan
+            router.planSheet = .finishLine(bookID: nil)
+        case "plan.suggest":
+            router.tab = .plan
+            router.planSheet = .smartOrder
+        case "plan.insights", "plan.insights.time", "plan.insights.mix", "plan.insights.personality":
+            router.tab = .plan
+            router.planSection = .insights
+            if key != "plan.insights" { router.planStage = String(key.dropFirst("plan.insights.".count)) }
+        case "plan.year":
+            router.tab = .plan
+            router.planSection = .insights
+            router.planSheet = .yearInBooks
+        case "plan.letter":
+            router.openWeeklyLetter()
+        case "plan.challenges", "plan.stamps":
+            router.tab = .plan
+            router.planSection = .challenges
+            if key == "plan.stamps" { router.planStage = "stamps" }
         case "search":
             router.tab = .search
         case "search.query":

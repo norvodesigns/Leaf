@@ -5,6 +5,39 @@ enum AppTab: Hashable {
     case today, library, plan, search
 }
 
+/// The three pages of the Plan tab.
+enum PlanSection: String, CaseIterable, Identifiable, Hashable {
+    case forecast, insights, challenges
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .forecast: "Forecast"
+        case .insights: "Insights"
+        case .challenges: "Challenges"
+        }
+    }
+}
+
+/// A sheet over the Plan tab.
+enum PlanSheet: Identifiable, Hashable {
+    /// "Finish by a date": for one book, or the first in the plan.
+    case finishLine(bookID: String?)
+    case smartOrder
+    case yearInBooks
+    case weeklyLetter
+
+    var id: String {
+        switch self {
+        case .finishLine(let bookID): "finish-\(bookID ?? "")"
+        case .smartOrder: "order"
+        case .yearInBooks: "year"
+        case .weeklyLetter: "letter"
+        }
+    }
+}
+
 /// A pushed book detail. Carries the whole book so search results not yet in the library can open too.
 struct BookRoute: Hashable {
     let book: Book
@@ -69,6 +102,11 @@ final class AppRouter {
     var showDeck = false
     /// "Steep and read": the session screen opens at the tea instead of the timer.
     var ritual: RitualRequest?
+    /// Which page the Plan tab shows.
+    var planSection: PlanSection = .forecast
+    var planSheet: PlanSheet?
+    /// A what-if or scroll position to stage on the Plan tab (screenshots): "whatif", "care", "mix", "stamps"…
+    var planStage: String?
 
     /// Opens the full-screen session, zooming from `source`.
     func presentSession(from source: String) {
@@ -96,5 +134,12 @@ final class AppRouter {
         libraryPath.removeAll()
         planPath.removeAll()
         searchPath.removeAll()
+    }
+
+    /// The Sunday letter, from its notification.
+    func openWeeklyLetter() {
+        tab = .plan
+        planSection = .insights
+        planSheet = .weeklyLetter
     }
 }

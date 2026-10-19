@@ -377,7 +377,10 @@ struct TodayView: View {
             )
         case .forecast:
             if let sentence = brief.forecastSentence {
-                ForecastCard(sentence: sentence) { router.tab = .plan }
+                ForecastCard(sentence: sentence) {
+                    router.planSection = .forecast
+                    router.tab = .plan
+                }
             }
         case .week:
             WeekCard(days: brief.week, goalMinutes: brief.goalMinutes, streak: brief.streak, cupMinutes: brief.cupMinutes)

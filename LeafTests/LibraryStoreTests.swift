@@ -115,6 +115,33 @@ struct LibraryStoreTests {
         #expect(snapshot.dailyMinutes == 25)
     }
 
+    @Test func applyingASuggestedQueueOrderKeepsEveryBook() {
+        let store = makeStore()
+        store.replaceAll(with: DemoData.make())
+        let queue = store.toRead.map(\.id)
+        let suggested = Array(queue.reversed().prefix(2))
+        store.applyQueueOrder(suggested + ["not-on-the-shelf"])
+        #expect(Array(store.toRead.map(\.id).prefix(2)) == suggested)
+        #expect(store.toRead.count == queue.count)
+        #expect(Set(store.toRead.map(\.id)) == Set(queue))
+    }
+
+    @Test func yearScenarioFillsTheYearSensibly() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Europe/London") ?? .current
+        let now = calendar.date(from: DateComponents(year: 2026, month: 10, day: 19, hour: 20)) ?? Date()
+        let data = DemoData.make(now: now, calendar: calendar, scenario: .year)
+        let finished = data.items.filter { $0.shelf == .finished }
+        #expect(finished.count >= 10)
+        #expect(data.sessions.count > 100)
+        #expect(data.sessions.allSatisfy { $0.toPage > $0.fromPage && $0.seconds > 0 && $0.startedAt <= now })
+        #expect(finished.allSatisfy { ($0.finishedAt ?? .distantFuture) <= now && ($0.startedAt ?? now) <= ($0.finishedAt ?? now) })
+        let byBook = Dictionary(grouping: data.sessions, by: \.bookID)
+        for item in finished where byBook[item.id] != nil {
+            #expect((byBook[item.id]?.map(\.toPage).max() ?? 0) <= item.book.pages)
+        }
+    }
+
     // MARK: Foundation (paused shelf, position, tombstones, journal)
 
     @Test func settingABookAsideKeepsItsPageAndLeavesThePlan() {

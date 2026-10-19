@@ -94,6 +94,20 @@ for appearance in light dark; do
     shot 61-gallery-palette 4 -LeafDemo YES -LeafScreen gallery.palette
     shot 63-gallery-scenes 5 -LeafDemo YES -LeafScreen gallery.scenes
     shot 66-gallery-drum 4 -LeafDemo YES -LeafScreen gallery.drum
+    # Plan: forecast, insights and challenges (UI-4). The engines run off the main actor, so give them a moment.
+    shot 71-plan-whatif 8 -LeafDemo YES -LeafScreen plan.whatif
+    shot 72-plan-care 8 -LeafDemo YES -LeafScreen plan.care -LeafScenario returning
+    shot 73-plan-order 8 -LeafDemo YES -LeafScreen plan.order
+    shot 74-plan-finishline 8 -LeafDemo YES -LeafScreen plan.finishline
+    shot 75-plan-suggest 8 -LeafDemo YES -LeafScreen plan.suggest
+    shot 77-insights-time 9 -LeafDemo YES -LeafScreen plan.insights.time -LeafScenario year
+    shot 78-insights-mix 9 -LeafDemo YES -LeafScreen plan.insights.mix -LeafScenario year
+    shot 79-insights-personality 9 -LeafDemo YES -LeafScreen plan.insights.personality -LeafScenario year
+    shot 81-weekly-letter 8 -LeafDemo YES -LeafScreen plan.letter -LeafScenario year
+    shot 83-stamps 8 -LeafDemo YES -LeafScreen plan.stamps -LeafScenario year
+    shot 84-plan-new 6 -LeafDemo YES -LeafScreen plan -LeafScenario new
+    shot 85-insights-new 6 -LeafDemo YES -LeafScreen plan.insights -LeafScenario new
+    shot 86-plan-large-type 8 -LeafDemo YES -LeafScreen plan -UIPreferredContentSizeCategoryName UICTContentSizeCategoryAccessibilityL
   fi
   shot "10-today$suffix" 5 -LeafDemo YES -LeafScreen today -LeafTime 20:30
   shot "21-today-late$suffix" 6 -LeafDemo YES -LeafScreen today -LeafTime 23:30
@@ -105,12 +119,15 @@ for appearance in light dark; do
   shot "42-session-ritual$suffix" 5 -LeafDemo YES -LeafScreen session.ritual
   shot "45-session-cup$suffix" 5 -LeafDemo YES -LeafScreen session.cup
   shot "11-library$suffix" 5 -LeafDemo YES -LeafScreen library
-  shot "12-plan$suffix" 5 -LeafDemo YES -LeafScreen plan
   shot "15-book$suffix" 5 -LeafDemo YES -LeafScreen book:OL27482W
   shot "16-session$suffix" 5 -LeafDemo YES -LeafScreen session
   shot "62-gallery-blur$suffix" 6 -LeafDemo YES -LeafScreen gallery.blur
   shot "64-gallery-ribbon$suffix" 5 -LeafDemo YES -LeafScreen gallery.ribbon
   shot "65-gallery-scrub$suffix" 4 -LeafDemo YES -LeafScreen gallery.scrub
+  shot "70-plan-forecast$suffix" 8 -LeafDemo YES -LeafScreen plan
+  shot "76-insights$suffix" 9 -LeafDemo YES -LeafScreen plan.insights -LeafScenario year
+  shot "80-year-in-books$suffix" 9 -LeafDemo YES -LeafScreen plan.year -LeafScenario year
+  shot "82-challenges$suffix" 8 -LeafDemo YES -LeafScreen plan.challenges -LeafScenario year
 done
 xcrun simctl ui "$IOS_SIM" appearance light
 
