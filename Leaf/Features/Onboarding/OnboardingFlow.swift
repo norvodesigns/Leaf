@@ -47,6 +47,7 @@ private struct OnboardingFlowBody: View {
     @State private var minutes: Int
     @State private var days: Set<Int>
     @State private var reminderTime: Date
+    @State private var extraTime: OnboardingExtraTime?
     @State private var reminderDeclined = false
     @State private var isRequestingPermission = false
     @State private var picks: [Book] = []
@@ -136,7 +137,7 @@ private struct OnboardingFlowBody: View {
         case .days:
             OnboardingDaysView(days: $days, minutes: minutes)
         case .reminder:
-            OnboardingReminderView(time: $reminderTime, message: reminderPreview)
+            OnboardingTimesView(hour: reminderHour, minute: reminderMinute, extra: $extraTime, message: reminderPreview)
         case .deck:
             OnboardingDeckView(picks: $picks)
         case .books:
@@ -167,7 +168,8 @@ private struct OnboardingFlowBody: View {
         case .reminder:
             return reminderDeclined ? Text("No reminders. Leaf will be here when you are.") : nil
         case .books:
-            return Text(stackNote)
+            // The optional sync note: only where iCloud is on offer.
+            return Text(CloudSync.isAvailable ? stackNote + " Your shelves are kept in your own iCloud too, so they follow you to a new phone." : stackNote)
         default:
             return nil
         }
@@ -297,15 +299,36 @@ private struct OnboardingFlowBody: View {
         step = .deck
     }
 
+    /// Saves the first reading times (and whether they remind), replacing any set earlier in this flow.
     private func saveReminder(enabled: Bool) {
         let parts = Calendar.current.dateComponents([.hour, .minute], from: reminderTime)
         let hour = parts.hour ?? 20
         let minute = parts.minute ?? 30
+        var slots = [ReadingSlot(hour: hour, minute: minute, label: ReadingSlotText.defaultLabel(hour: hour))]
+        if let extraTime, extraTime.hour != hour {
+            slots.append(ReadingSlot(hour: extraTime.hour, minute: extraTime.minute, label: extraTime.label))
+        }
+        let ordered = slots.sorted { $0.minuteOfDay < $1.minuteOfDay }
         store.updatePreferences {
             $0.reminderEnabled = enabled
             $0.reminderHour = hour
             $0.reminderMinute = minute
+            $0.readingSlots = ordered
         }
+    }
+
+    private var reminderHour: Binding<Int> {
+        Binding(
+            get: { Calendar.current.component(.hour, from: reminderTime) },
+            set: { reminderTime = Self.date(hour: $0, minute: Calendar.current.component(.minute, from: reminderTime)) }
+        )
+    }
+
+    private var reminderMinute: Binding<Int> {
+        Binding(
+            get: { Calendar.current.component(.minute, from: reminderTime) },
+            set: { reminderTime = Self.date(hour: Calendar.current.component(.hour, from: reminderTime), minute: $0) }
+        )
     }
 
     /// The real reminder body for the chosen time: today's assignment when there is one, otherwise a

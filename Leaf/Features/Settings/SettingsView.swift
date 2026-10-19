@@ -17,20 +17,35 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                paceSection
-                scheduleSection
-                ReadingTimesSection()
-                feelSection
-                appearanceSection
-                if watch.isSupported {
-                    watchSection
+            ScrollViewReader { proxy in
+                Form {
+                    paceSection
+                    scheduleSection
+                    ReadingTimesSection()
+                    SettingsPlanSection()
+                        .id("plan")
+                    SettingsTeaSection()
+                        .id("tea")
+                    feelSection
+                    appearanceSection
+                    SettingsExtrasSection()
+                    if watch.isSupported {
+                        watchSection
+                    }
+                    SettingsCloudSection()
+                        .id("cloud")
+                    aboutSection
+                    dataSection
+                    colophonSection
                 }
-                aboutSection
-                dataSection
-                colophonSection
+                .scrollContentBackground(.hidden)
+                .task {
+                    guard let stage = router.settingsStage else { return }
+                    router.settingsStage = nil
+                    try? await Task.sleep(for: .milliseconds(600))
+                    proxy.scrollTo(stage, anchor: .top)
+                }
             }
-            .scrollContentBackground(.hidden)
             .paperBackground()
             .foregroundStyle(Color.ink)
             .tint(Color.accent)
@@ -51,7 +66,7 @@ struct SettingsView: View {
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("Your books, sessions and settings will be removed from this phone. This can’t be undone.")
+                Text(eraseMessage)
             }
         }
         .presentationBackground(Color.paper)
@@ -287,15 +302,30 @@ struct SettingsView: View {
         } header: {
             header("Data")
         } footer: {
-            Text("Removes your books, sessions and settings from this phone.")
+            Text(eraseFooter)
                 .leafStyle(.caption)
         }
         .settingsRows()
     }
 
+    /// Reset is per device (docs/SYNC.md): the iCloud copy is cleared, and other devices keep theirs.
+    private var syncsToCloud: Bool { store.sync?.status.isRunning == true }
+
+    private var eraseMessage: String {
+        syncsToCloud
+            ? "Your books, sessions and settings will be removed from this phone and from iCloud. Your other devices keep their own copy and will put it back in iCloud; to remove your library everywhere, erase each device. This can’t be undone."
+            : "Your books, sessions and settings will be removed from this phone. This can’t be undone."
+    }
+
+    private var eraseFooter: String {
+        syncsToCloud
+            ? "Removes your books, sessions and settings from this phone and its iCloud copy. Other devices keep theirs."
+            : "Removes your books, sessions and settings from this phone."
+    }
+
     private var colophonSection: some View {
         Section {
-            Text("Set in Instrument Serif, New York and SF Pro. Covers courtesy of Open Library. Printed on your phone, read by you.")
+            Text("Set in Instrument Serif, New York and SF Pro. Book data and covers from Open Library, a project of the Internet Archive. Printed on your phone, read by you.")
                 .leafStyle(.body, color: .inkSecondary)
                 .italic()
                 .fixedSize(horizontal: false, vertical: true)
@@ -343,7 +373,7 @@ struct SettingsView: View {
     }
 }
 
-private extension View {
+extension View {
     /// `paperRaised` rows with `hairline` separators.
     func settingsRows() -> some View {
         listRowBackground(Color.paperRaised)

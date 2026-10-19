@@ -27,7 +27,7 @@ struct SessionRitualView: View {
         let pot = saved?.bookID == request.bookID ? saved : nil
         _pot = State(initialValue: pot)
         _teaID = State(initialValue: pot?.teaID ?? request.teaID ?? TeaCatalog.earlGrey.id)
-        _strength = State(initialValue: pot?.strength ?? .regular)
+        _strength = State(initialValue: pot?.strength ?? CozySettings.teaStrength)
         _isReady = State(initialValue: pot?.isReady(at: Date()) ?? false)
     }
 

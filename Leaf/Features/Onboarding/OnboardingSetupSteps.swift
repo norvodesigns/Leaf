@@ -64,19 +64,54 @@ struct OnboardingDaysView: View {
 // MARK: - Step vii: reminder
 
 /// "A quiet nudge.": a wheel for the time over a preview of the notification it will send.
-struct OnboardingReminderView: View {
-    @Binding var time: Date
+/// A second time a new reader can add with one tap.
+enum OnboardingExtraTime: String, CaseIterable, Identifiable {
+    case morning, lunch
+
+    var id: String { rawValue }
+    var hour: Int { self == .morning ? 7 : 12 }
+    var minute: Int { 30 }
+    var label: String { self == .morning ? "Morning tea" : "Lunch break" }
+    var chip: String { self == .morning ? "Also a morning cup, 7:30" : "Also at lunch, 12:30" }
+}
+
+/// "When will you read?": the reader's first reading time on the time drum, an optional second one, and what the
+/// gentle reminder would say. Leaf shares each day's pages between the times.
+struct OnboardingTimesView: View {
+    @Binding var hour: Int
+    @Binding var minute: Int
+    @Binding var extra: OnboardingExtraTime?
     /// The real reminder body for the chosen time.
     let message: String
 
     var body: some View {
         OnboardingPage {
             VStack(spacing: Space.xl) {
-                OnboardingHeading(title: "A quiet nudge.", message: "Choose a time and Leaf will remind you on your reading days.")
-                DatePicker("Reminder time", selection: $time, displayedComponents: .hourAndMinute)
-                    .datePickerStyle(.wheel)
-                    .labelsHidden()
+                OnboardingHeading(
+                    title: "When will you read?",
+                    message: "Pick your reading time. Leaf plans each day’s pages around it and can give you a quiet nudge."
+                )
+                TimeDrum(hour: $hour, minute: $minute)
                     .frame(maxWidth: .infinity)
+                HStack(spacing: Space.s) {
+                    ForEach(OnboardingExtraTime.allCases) { option in
+                        let isOn = extra == option
+                        Button {
+                            Haptics.shared.selection()
+                            extra = isOn ? nil : option
+                        } label: {
+                            Text(option.chip)
+                                .leafStyle(.caption, color: isOn ? Color.accent : Color.inkSecondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, Space.m)
+                                .padding(.vertical, Space.s)
+                                .frame(maxWidth: .infinity, minHeight: Space.hitTarget)
+                                .background(isOn ? Color.accentSoft : Color.paperRaised, in: .capsule)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(isOn ? .isSelected : [])
+                    }
+                }
                 OnboardingNotificationPreview(message: message)
             }
         }

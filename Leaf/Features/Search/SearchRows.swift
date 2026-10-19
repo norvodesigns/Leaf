@@ -165,65 +165,50 @@ enum SearchShelfName {
 
 // MARK: - Carousel
 
-/// A themed row on the empty Search tab: a SectionHeader eyebrow over a horizontal carousel of M covers
-/// with their titles in `caption`. Long-press a cover to add it without opening it.
-struct SearchCollectionRow: View {
-    let collection: BookCollection
-    let isFirst: Bool
-    let shelfOf: (String) -> Shelf?
-    let onAdd: (Book, Shelf, Bool) -> Void
-    let onDismiss: (Book) -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            SectionHeader(collection.title, topSpacing: isFirst ? 0 : Space.xxxl)
-            Text(collection.subtitle)
-                .leafStyle(.caption)
-                .padding(.bottom, Space.m)
-            ScrollView(.horizontal) {
-                LazyHStack(alignment: .top, spacing: Space.m) {
-                    ForEach(collection.books) { book in
-                        SearchCarouselCover(
-                            book: book,
-                            shelf: shelfOf(book.id),
-                            reason: collection.reasons[book.id],
-                            onAdd: { shelf, front in onAdd(book, shelf, front) },
-                            onDismiss: { onDismiss(book) }
-                        )
-                    }
-                }
-                .scrollTargetLayout()
-                .padding(.bottom, Space.l)
-            }
-            .contentMargins(.horizontal, Space.margin, for: .scrollContent)
-            .scrollIndicators(.hidden)
-            .scrollClipDisabled()
-            .scrollTargetBehavior(.viewAligned)
-            .padding(.horizontal, -Space.margin)
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel(collection.title)
-    }
-}
-
-/// One cover in a carousel: it opens the book, and its context menu adds it.
+/// One cover in a browsing row: it opens the book; its menu adds it, finds more like it, or says "Not for me".
+/// Hero rows show the reason a pick was made under the cover; time-budget rows wear the reading time on the cover.
 struct SearchCarouselCover: View {
     let book: Book
     let shelf: Shelf?
     /// Why this book is here ("Because you finished ..."), when it was picked for the reader.
     var reason: String?
+    var size: BookCover.Size = .m
+    /// A short label on the cover, such as the reading time at the reader's pace.
+    var badge: String?
+    /// Print the reason under the title, not only in the menu.
+    var showsReason = false
     let onAdd: (Shelf, Bool) -> Void
     let onDismiss: () -> Void
+
+    @Environment(AppRouter.self) private var router
 
     var body: some View {
         NavigationLink(value: BookRoute(book: book)) {
             VStack(alignment: .leading, spacing: Space.s) {
-                BookCover(book: book, size: .m)
+                BookCover(book: book, size: size)
+                    .overlay(alignment: .bottomLeading) {
+                        if let badge {
+                            Text(badge)
+                                .font(.caption2.weight(.semibold).monospacedDigit())
+                                .foregroundStyle(Color.ink)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 3)
+                                .background(Color.paper.opacity(0.92), in: .capsule)
+                                .padding(6)
+                        }
+                    }
                 Text(book.title)
                     .leafStyle(.caption, color: .ink)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
-                    .frame(width: BookCover.Size.m.width, alignment: .topLeading)
+                    .frame(width: size.width, alignment: .topLeading)
+                if showsReason, let reason {
+                    Text(reason)
+                        .leafStyle(.caption, color: .inkTertiary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                        .frame(width: size.width, alignment: .topLeading)
+                }
             }
             .contentShape(.rect)
         }
@@ -232,13 +217,34 @@ struct SearchCarouselCover: View {
             if let reason { Section(reason) { menuActions } } else { menuActions }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(reason.map { "\(book.title), by \(book.author). \($0)" } ?? "\(book.title), by \(book.author)")
+        .accessibilityLabel(spokenLabel)
         .accessibilityHint("Opens the book")
+        .accessibilityAction(named: "More like this") { moreLikeThis() }
+        .accessibilityActions {
+            if shelf == nil {
+                Button("Not for me", action: onDismiss)
+            }
+        }
+    }
+
+    private var spokenLabel: String {
+        var parts = ["\(book.title), by \(book.author)"]
+        if let reason { parts.append(reason) }
+        if let badge { parts.append("\(badge) at your pace") }
+        return parts.joined(separator: ". ")
+    }
+
+    private func moreLikeThis() {
+        Haptics.shared.tap()
+        router.searchPath.append(SimilarRoute(book: book))
     }
 
     @ViewBuilder
     private var menuActions: some View {
         SearchAddActions(shelf: shelf, onAdd: onAdd)
+        Button(action: moreLikeThis) {
+            Label("More like this", systemImage: "sparkles")
+        }
         if shelf == nil {
             Button(role: .destructive, action: onDismiss) {
                 Label("Not for me", systemImage: "hand.thumbsdown")

@@ -16,6 +16,10 @@ struct BookDetailView: View {
     @State private var showsPagesEditor = false
     @State private var confirmsRemoval = false
     @State private var showsAllSessions = false
+    /// Sittings or the journal, under the actions.
+    @State private var lowerTab: LowerTab = .sittings
+
+    private enum LowerTab: Hashable { case sittings, journal }
 
     init(book: Book) {
         self.book = book
@@ -40,23 +44,35 @@ struct BookDetailView: View {
     // MARK: Body
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                stage
-                VStack(spacing: Space.xl) {
-                    header
-                    facts
-                    status
-                    actions
-                    sessions
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(spacing: 0) {
+                    stage
+                    VStack(spacing: Space.xl) {
+                        header
+                        facts
+                        if let item, item.shelf != .finished {
+                            BookEditionPicker(item: item)
+                                .id("edition")
+                        }
+                        status
+                        actions
+                        lower
+                            .id("lower")
+                        BookMoreLikeThis(book: shown)
+                            .id("more")
+                    }
+                    .leafMargins()
+                    .padding(.top, Space.xl)
+                    .padding(.bottom, Space.xxxl)
                 }
-                .leafMargins()
-                .padding(.top, Space.xl)
-                .padding(.bottom, Space.xxxl)
+            }
+            .scrollIndicators(.hidden)
+            .scrollEdgeEffectStyle(.soft, for: .top)
+            .task {
+                await applyStage(proxy)
             }
         }
-        .scrollIndicators(.hidden)
-        .scrollEdgeEffectStyle(.soft, for: .top)
         .paperBackground()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -205,7 +221,7 @@ struct BookDetailView: View {
                 Text(pageCaption(item))
                     .leafStyle(.caption)
                 Spacer(minLength: Space.m)
-                TextButton("Where are you?") {
+                PageChip(item: item, needsPosition: !item.positionConfirmed && item.currentPage == 0) {
                     Haptics.shared.tap()
                     router.askPosition(for: item.id)
                 }
@@ -240,6 +256,9 @@ struct BookDetailView: View {
             VStack(spacing: Space.xs) {
                 Eyebrow("Your rating")
                 ratingRow(current: item.rating)
+            }
+            SecondaryGlassButton("Read it again", systemImage: "arrow.counterclockwise", compact: true) {
+                LibraryShelfActions.move(item.id, to: .reading, store: store)
             }
         }
     }
@@ -276,6 +295,12 @@ struct BookDetailView: View {
     // MARK: Sentences
 
     private func pageCaption(_ item: LibraryItem) -> String {
+        // E-readers count in percent: say it the way the reader does, with the page beside it.
+        if item.progressMode == .percent, item.book.pages > 0 {
+            guard item.currentPage > 0 else { return "Not begun" }
+            let percent = Int((Double(item.currentPage) / Double(item.book.pages) * 100).rounded())
+            return "\(percent)% read · about p. \(LeafFormat.number(item.currentPage))"
+        }
         if item.currentPage > 0 {
             return "p. \(LeafFormat.number(item.currentPage)) of \(LeafFormat.number(item.book.pages))"
         }
@@ -496,6 +521,15 @@ struct BookDetailView: View {
         }
     }
 
+    /// Screenshots: open on the journal, the editions line, or "More like this".
+    private func applyStage(_ proxy: ScrollViewProxy) async {
+        guard let stage = router.bookStage else { return }
+        router.bookStage = nil
+        if stage == "journal" { lowerTab = .journal }
+        try? await Task.sleep(for: .milliseconds(stage == "more" ? 1_200 : 600))
+        proxy.scrollTo(stage == "journal" ? "lower" : stage, anchor: .top)
+    }
+
     /// "Start reading": adds the book to Reading if needed, then opens the timer.
     private func startReadingNow() {
         if !isSessionLive, item == nil {
@@ -538,13 +572,45 @@ struct BookDetailView: View {
 
     private static let collapsedSessionCount = 6
 
+    /// Sittings and the journal, as two tabs, for a book in the library.
+    @ViewBuilder
+    private var lower: some View {
+        if let item {
+            VStack(alignment: .leading, spacing: Space.m) {
+                Picker("Show", selection: $lowerTab) {
+                    Text("Sittings").tag(LowerTab.sittings)
+                    Text(journalTitle).tag(LowerTab.journal)
+                }
+                .pickerStyle(.segmented)
+                switch lowerTab {
+                case .sittings:
+                    if store.sessions(for: book.id).isEmpty {
+                        Text("No sittings yet. They appear here as you read.")
+                            .leafStyle(.body, color: .inkSecondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    } else {
+                        sessions
+                    }
+                case .journal:
+                    BookJournalList(book: item.book, currentPage: item.currentPage)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var journalTitle: String {
+        let count = store.journal(for: book.id).count
+        return count == 0 ? "Journal" : "Journal · \(count)"
+    }
+
     @ViewBuilder
     private var sessions: some View {
         let all = store.sessions(for: book.id)
         if !all.isEmpty {
             let visible = showsAllSessions ? all : Array(all.prefix(Self.collapsedSessionCount))
             VStack(alignment: .leading, spacing: 0) {
-                SectionHeader("Sessions", topSpacing: Space.s)
+                SectionHeader("Sittings", topSpacing: 0)
                 ForEach(visible) { session in
                     Text(sessionLine(session))
                         .leafStyle(.data)

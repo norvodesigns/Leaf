@@ -13,15 +13,22 @@ struct LibraryView: View {
 
     init() {}
 
+    private var pausedCount: Int { store.data.items(on: .paused).count }
+
     private var counts: [Shelf: Int] {
-        [.reading: store.reading.count, .toRead: store.toRead.count, .finished: store.finished.count]
+        [.reading: store.reading.count, .toRead: store.toRead.count, .finished: store.finished.count, .paused: pausedCount]
+    }
+
+    /// Paused shows up once something is set aside (or while it is the shelf on screen).
+    private var shelves: [Shelf] {
+        pausedCount > 0 || router.libraryShelf == .paused ? Shelf.main + [.paused] : Shelf.main
     }
 
     var body: some View {
         @Bindable var router = router
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                ShelfSwitcher(selection: $router.libraryShelf, counts: counts)
+                ShelfSwitcher(selection: $router.libraryShelf, counts: counts, shelves: shelves)
                     .padding(.top, Space.s)
                     .padding(.bottom, Space.m)
                 shelf
@@ -67,8 +74,11 @@ struct LibraryView: View {
     @ViewBuilder
     private var shelf: some View {
         switch router.libraryShelf {
-        case .reading, .paused:
+        case .reading:
             LibraryReadingShelf(onRemove: requestRemoval)
+                .transition(.opacity)
+        case .paused:
+            LibraryPausedShelf(onRemove: requestRemoval)
                 .transition(.opacity)
         case .toRead:
             LibraryQueueShelf(onRemove: requestRemoval)

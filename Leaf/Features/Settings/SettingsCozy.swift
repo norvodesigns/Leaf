@@ -1,0 +1,362 @@
+import SwiftUI
+
+// Settings sections added in UI-5: tea and sound, the plan's kinder options, greetings and the Lock Screen, and
+// iCloud. Each is a `Section` for SettingsView's `Form`.
+
+private func settingsHeader(_ title: String) -> some View {
+    Text(title).leafStyle(.eyebrow)
+}
+
+private func settingsFooter(_ text: String) -> some View {
+    Text(text).leafStyle(.caption)
+}
+
+// MARK: - Tea and sound
+
+/// Favourite tea and how strong, the length of a cup, the ambience and its level, and sound cues. Sound is opt-in:
+/// silence and no cues until the reader chooses otherwise.
+struct SettingsTeaSection: View {
+    @Environment(LibraryStore.self) private var store
+    @State private var strength = CozySettings.teaStrength
+    @State private var cues = CozySettings.soundCues
+    @State private var volume = CozySettings.ambienceVolume ?? 0.5
+
+    private static let cupChoices = [15, 20, 25, 30, 40, 45, 50, 60]
+
+    var body: some View {
+        Section {
+            Picker(selection: teaBinding) {
+                Text("Suggest one").tag(String?.none)
+                ForEach(TeaCatalog.all) { tea in
+                    Text(tea.name).tag(Optional(tea.id))
+                }
+            } label: {
+                Text("Favourite tea").leafStyle(.uiBody)
+            }
+            .pickerStyle(.menu)
+
+            Picker(selection: $strength) {
+                ForEach(TeaStrength.allCases, id: \.self) { Text($0.title).tag($0) }
+            } label: {
+                Text("Strength").leafStyle(.uiBody)
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: strength) { _, value in
+                Haptics.shared.selection()
+                CozySettings.teaStrength = value
+            }
+            .accessibilityLabel("Tea strength")
+
+            Picker(selection: cupBinding) {
+                ForEach(Self.cupChoices, id: \.self) { Text("\($0) min").tag($0) }
+            } label: {
+                Text("A cup of reading").leafStyle(.uiBody)
+            }
+            .pickerStyle(.menu)
+        } header: {
+            settingsHeader("Tea")
+        } footer: {
+            settingsFooter("A cup is \(store.preferences.cupMinutes) minutes of reading. Strength sets how long the tea steeps before it starts.")
+        }
+        .settingsRows()
+
+        Section {
+            Picker(selection: ambienceBinding) {
+                ForEach(AmbienceCatalog.all) { ambience in
+                    Text(ambience.name).tag(ambience.id == AmbienceCatalog.silenceID ? String?.none : Optional(ambience.id))
+                }
+            } label: {
+                Text("Ambience").leafStyle(.uiBody)
+            }
+            .pickerStyle(.menu)
+
+            if store.preferences.ambienceID != nil {
+                VStack(alignment: .leading, spacing: Space.xs) {
+                    Text("Starting volume").leafStyle(.uiBody)
+                    Slider(value: $volume, in: 0...1) {
+                        Text("Starting volume")
+                    } minimumValueLabel: {
+                        Image(systemName: "speaker.fill").foregroundStyle(Color.inkTertiary)
+                    } maximumValueLabel: {
+                        Image(systemName: "speaker.wave.3.fill").foregroundStyle(Color.inkTertiary)
+                    }
+                    .onChange(of: volume) { _, level in
+                        CozySettings.ambienceVolume = level
+                        if AmbiencePlayer.shared.isPlaying { AmbiencePlayer.shared.setVolume(Float(level)) }
+                    }
+                }
+                .padding(.vertical, Space.xs)
+            }
+
+            Toggle(isOn: $cues) {
+                Text("Sound cues").leafStyle(.uiBody)
+            }
+            .onChange(of: cues) { _, isOn in
+                Haptics.shared.selection()
+                CozySettings.soundCues = isOn
+            }
+        } header: {
+            settingsHeader("Sound")
+        } footer: {
+            settingsFooter("Leaf is silent unless you choose a sound. The ambience only plays while you read, and cues (the kettle, the pour) follow the silent switch.")
+        }
+        .settingsRows()
+    }
+
+    private var teaBinding: Binding<String?> {
+        Binding(
+            get: { store.preferences.favoriteTeaID },
+            set: { id in
+                Haptics.shared.selection()
+                store.updatePreferences { $0.favoriteTeaID = id }
+            }
+        )
+    }
+
+    private var cupBinding: Binding<Int> {
+        Binding(
+            get: { Self.cupChoices.contains(store.preferences.cupMinutes) ? store.preferences.cupMinutes : 25 },
+            set: { minutes in
+                Haptics.shared.selection()
+                store.updatePreferences { $0.cupMinutes = minutes }
+            }
+        )
+    }
+
+    /// Choosing an ambience here only remembers it; nothing plays until a session does.
+    private var ambienceBinding: Binding<String?> {
+        Binding(
+            get: { store.preferences.ambienceID },
+            set: { id in
+                Haptics.shared.selection()
+                store.updatePreferences { $0.ambienceID = id }
+                if id == nil { AmbiencePlayer.shared.stop() }
+            }
+        )
+    }
+}
+
+// MARK: - Plan extras
+
+/// When days are missed, the year's goal, and the Sunday letter.
+struct SettingsPlanSection: View {
+    @Environment(LibraryStore.self) private var store
+
+    var body: some View {
+        Section {
+            Picker(selection: catchUpBinding) {
+                Text("Forgive").tag(CatchUpMode.forgive)
+                Text("Shift the dates").tag(CatchUpMode.shift)
+                Text("Catch up gently").tag(CatchUpMode.compress)
+            } label: {
+                Text("Missed days").leafStyle(.uiBody)
+            }
+            .pickerStyle(.menu)
+
+            Stepper(value: goalBinding, in: 0...200) {
+                HStack {
+                    Text("Books this year").leafStyle(.uiBody)
+                    Spacer()
+                    Text(goalText).leafStyle(.data)
+                }
+            }
+            .accessibilityValue(store.preferences.yearlyGoal.map { "\($0) books" } ?? "No goal")
+
+            Toggle(isOn: letterBinding) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Weekly letter").leafStyle(.uiBody)
+                    Text("A short note on Sunday evenings").leafStyle(.caption)
+                }
+            }
+        } header: {
+            settingsHeader("Plan")
+        } footer: {
+            settingsFooter(catchUpFooter)
+        }
+        .settingsRows()
+    }
+
+    private var goalText: String {
+        store.preferences.yearlyGoal.map { "\($0)" } ?? "No goal"
+    }
+
+    private var catchUpFooter: String {
+        switch store.preferences.catchUp {
+        case .forgive: "Missed a day? Leaf moves on. Nothing to make up, and no guilt."
+        case .shift: "Missed a day? Leaf tells you how far your finish dates moved."
+        case .compress: "Missed a day? Leaf suggests a few extra minutes a day until you’re back on track."
+        }
+    }
+
+    private var catchUpBinding: Binding<CatchUpMode> {
+        Binding(
+            get: { store.preferences.catchUp },
+            set: { mode in
+                Haptics.shared.selection()
+                store.updatePreferences { $0.catchUp = mode }
+            }
+        )
+    }
+
+    /// 0 means no goal.
+    private var goalBinding: Binding<Int> {
+        Binding(
+            get: { store.preferences.yearlyGoal ?? 0 },
+            set: { value in
+                Haptics.shared.selection()
+                store.updatePreferences { $0.yearlyGoal = value > 0 ? value : nil }
+            }
+        )
+    }
+
+    private var letterBinding: Binding<Bool> {
+        Binding(
+            get: { store.preferences.weeklyLetter },
+            set: { isOn in
+                Haptics.shared.selection()
+                store.updatePreferences { $0.weeklyLetter = isOn }
+                if isOn { Task { _ = await Reminders.shared.requestAuthorization() } }
+            }
+        )
+    }
+}
+
+// MARK: - Greetings and the Lock Screen
+
+/// Apple Intelligence greetings (only where the device has it) and the reading Live Activity.
+struct SettingsExtrasSection: View {
+    @Environment(LibraryStore.self) private var store
+
+    var body: some View {
+        Section {
+            Toggle(isOn: aiBinding) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Apple Intelligence greetings").leafStyle(.uiBody)
+                    Text(AILibrarian.isAvailable ? "Written on this iPhone, never sent anywhere" : "Needs a device with Apple Intelligence turned on")
+                        .leafStyle(.caption)
+                }
+            }
+            .disabled(!AILibrarian.isAvailable)
+
+            Toggle(isOn: liveBinding) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Live Activity while reading").leafStyle(.uiBody)
+                    Text("The timer on the Lock Screen and in the Dynamic Island").leafStyle(.caption)
+                }
+            }
+        } header: {
+            settingsHeader("Greetings and Lock Screen")
+        } footer: {
+            settingsFooter("Greetings fall back to Leaf’s own when Apple Intelligence is off.")
+        }
+        .settingsRows()
+    }
+
+    private var aiBinding: Binding<Bool> {
+        Binding(
+            get: { store.preferences.aiGreetings && AILibrarian.isAvailable },
+            set: { isOn in
+                Haptics.shared.selection()
+                store.updatePreferences { $0.aiGreetings = isOn }
+            }
+        )
+    }
+
+    private var liveBinding: Binding<Bool> {
+        Binding(
+            get: { store.preferences.liveActivities },
+            set: { isOn in
+                Haptics.shared.selection()
+                store.updatePreferences { $0.liveActivities = isOn }
+                LiveActivityController.shared.sync()
+            }
+        )
+    }
+}
+
+// MARK: - iCloud
+
+/// Where sync stands, how much is waiting to go up, and a way to sync now.
+struct SettingsCloudSection: View {
+    @Environment(LibraryStore.self) private var store
+
+    var body: some View {
+        Section {
+            HStack(spacing: Space.m) {
+                Image(systemName: symbol)
+                    .foregroundStyle(tint)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(statusTitle).leafStyle(.uiBody)
+                    if let detail = statusDetail {
+                        Text(detail)
+                            .leafStyle(.caption)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+            .accessibilityElement(children: .combine)
+            if let sync = store.sync, sync.status.isRunning {
+                Button {
+                    Haptics.shared.tap()
+                    sync.forceFullSync()
+                } label: {
+                    Text("Sync now")
+                        .leafFont(.uiBody)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(.rect)
+                }
+                .disabled(sync.status == .syncing)
+            }
+        } header: {
+            settingsHeader("iCloud")
+        } footer: {
+            settingsFooter("Your library is kept in your own iCloud, so it survives a new phone and stays the same on your iPad. No account, nothing anywhere else.")
+        }
+        .settingsRows()
+    }
+
+    private var status: SyncStatus { store.sync?.status ?? .off }
+
+    private var statusTitle: String {
+        switch status {
+        case .off: "Not syncing"
+        case .noAccount: "Not signed in to iCloud"
+        case .idle(let last): last == nil ? "Getting ready" : "Up to date"
+        case .syncing: "Syncing…"
+        case .error: "Needs a look"
+        }
+    }
+
+    private var statusDetail: String? {
+        let pending = store.sync?.pendingChanges ?? 0
+        switch status {
+        case .off: return CloudSync.isAvailable ? "Sync starts when iCloud is available." : "This build doesn’t include iCloud."
+        case .noAccount: return "Sign in to iCloud in the Settings app to keep a copy there."
+        case .idle(let last):
+            var parts: [String] = []
+            if let last { parts.append("Last synced \(last.formatted(.relative(presentation: .named)))") }
+            if pending > 0 { parts.append("\(pending) \(pending == 1 ? "change" : "changes") waiting") }
+            return parts.isEmpty ? nil : parts.joined(separator: " · ")
+        case .syncing: return pending > 0 ? "\(pending) \(pending == 1 ? "change" : "changes") to send" : nil
+        case .error(let message): return message
+        }
+    }
+
+    private var symbol: String {
+        switch status {
+        case .off, .noAccount: "icloud.slash"
+        case .idle: "checkmark.icloud"
+        case .syncing: "arrow.triangle.2.circlepath.icloud"
+        case .error: "exclamationmark.icloud"
+        }
+    }
+
+    private var tint: Color {
+        switch status {
+        case .idle: .accent
+        case .error: .ribbon
+        default: .inkTertiary
+        }
+    }
+}

@@ -348,6 +348,29 @@ Sheets: `router.planSheet` (`.finishLine(bookID:)`, `.smartOrder`, `.yearInBooks
   `plan.insights` (`.time`, `.mix`, `.personality`), `plan.year`, `plan.letter`, `plan.challenges`, `plan.stamps`;
   `-LeafScenario year` adds a year of reading.
 
+## Search, Library, Settings (UI-5)
+
+- **Search shop** — `SearchShelves.swift`. `SearchShelfKind(collection)` reads a row's style and jump-bar category
+  from its id: `.hero` ("Picked for you": L covers with the reason printed), `.series` (`SpineShelf`: spines on a
+  shelf, as tall as the book is long), `.author` (`AuthorShelfHeader` monogram), `.time` (reading time on each cover),
+  `.seasonal` (tinted panel), `.standard`. `SearchShelfRow` draws any of them with a "See all" link
+  (`CollectionGridView`). `SearchCarouselCover(… size:badge:showsReason:)` menus: add, "More like this"
+  (`SimilarRoute` → `SimilarBooksView`), "Not for me" (with `UndoToast`). `SearchJumpBar` is pinned over the rows.
+  `SearchFrontTableNote` for a reader with no personal rows; `TasteView` (`TasteRoute`) from `TasteProfile`;
+  `OpenLibraryCredit` at the foot. Search's path is a `NavigationPath`.
+- **Catalog helpers** — `BookCatalog.similar(to:context:limit:)` and `tasteProfile(context:)`, both off the main actor.
+- **Book detail** — `BookDetailExtras.swift`: `BookEditionPicker` (from `Book.pageCounts`), `BookJournalList`
+  (Sittings | Journal tabs), `BookMoreLikeThis`. The page line honours `ProgressMode`; the page chip is `PageChip`.
+- **Library** — `LibraryPausedShelf`; `ShelfSwitcher(… shelves:)` adds Paused when something is set aside.
+- **Settings** — `SettingsCozy.swift`: `SettingsPlanSection` (missed days, yearly goal, weekly letter),
+  `SettingsTeaSection` (favourite tea, strength, cup, ambience and its starting volume, sound cues),
+  `SettingsExtrasSection` (Apple Intelligence greetings, Live Activity), `SettingsCloudSection` (status, waiting
+  changes, Sync now). `CozySettings` keeps the device-local choices (cues, strength, volume); all quiet by default.
+- **Onboarding** — the reminder step is now `OnboardingTimesView` (first reading time on the `TimeDrum`, an optional
+  second time); the last step notes iCloud where it is available.
+- **Staging** — `search.series|author|time|seasonal|seeall|undo|similar|taste`, `library.paused`,
+  `book.journal|more|edition`, `settings.plan|tea|cloud`.
+
 ## Rules of thumb (from DESIGN.md)
 
 - Paper is content, glass is chrome: glass only on tab bar, toolbars, accessory, buttons, session

@@ -94,6 +94,22 @@ final class BookCatalog {
         }.value
     }
 
+    /// Books like this one, by shared genres, themes and series, for "More like this". Off the main thread.
+    func similar(to book: Book, context: RecommendationContext, limit: Int = 24) async -> [Recommendation] {
+        let books = books, stats = stats
+        return await Task.detached(priority: .userInitiated) {
+            Recommender(stats: stats, context: context).similar(to: book, in: books, limit: limit)
+        }.value
+    }
+
+    /// What the reader's shelves say they like, for the "Your taste" page. Off the main thread.
+    func tasteProfile(context: RecommendationContext) async -> TasteProfile {
+        let stats = stats
+        return await Task.detached(priority: .userInitiated) {
+            TasteProfileBuilder(stats: stats, context: context).build()
+        }.value
+    }
+
     /// A short, varied table of popular books for someone who has not read anything yet.
     func starterBooks(wpm: Double, excluding ids: Set<String>, count: Int = 12) -> [Book] {
         CollectionBuilder(books: books, stats: stats, wpm: wpm, dailyMinutes: 20, now: Date(), excluding: ids).starterBooks(count: count)

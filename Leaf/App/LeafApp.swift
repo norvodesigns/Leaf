@@ -50,6 +50,7 @@ struct LeafApp: App {
         }
         Haptics.shared.level = store.preferences.hapticsLevel
         Haptics.shared.prepare()
+        CozySettings.apply()
         LeafAppearance.configure()
     }
 

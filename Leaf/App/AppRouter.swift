@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import Observation
 
 enum AppTab: Hashable {
@@ -77,7 +78,8 @@ final class AppRouter {
     var todayPath: [BookRoute] = []
     var libraryPath: [BookRoute] = []
     var planPath: [BookRoute] = []
-    var searchPath: [BookRoute] = []
+    /// Search pushes books, whole rows ("See all"), "More like this" and "Your taste", so its path is untyped.
+    var searchPath = NavigationPath()
 
     var showSettings = false
     /// The full-screen reading session.
@@ -107,6 +109,12 @@ final class AppRouter {
     var planSheet: PlanSheet?
     /// A what-if or scroll position to stage on the Plan tab (screenshots): "whatif", "care", "mix", "stamps"…
     var planStage: String?
+    /// Search staging once its rows exist (screenshots): "series", "author", "time", "seasonal", "seeall", "undo".
+    var searchStage: String?
+    /// Book detail staging (screenshots): "journal", "more", "edition".
+    var bookStage: String?
+    /// Settings staging (screenshots): the section to scroll to, "plan", "tea", "cloud".
+    var settingsStage: String?
 
     /// Opens the full-screen session, zooming from `source`.
     func presentSession(from source: String) {
@@ -133,7 +141,7 @@ final class AppRouter {
         todayPath.removeAll()
         libraryPath.removeAll()
         planPath.removeAll()
-        searchPath.removeAll()
+        searchPath = NavigationPath()
     }
 
     /// The Sunday letter, from its notification.

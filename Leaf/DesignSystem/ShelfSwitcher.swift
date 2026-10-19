@@ -6,13 +6,16 @@ import SwiftUI
 struct ShelfSwitcher: View {
     @Binding var selection: Shelf
     var counts: [Shelf: Int]
+    /// The shelves to offer; Paused joins the three main ones when something is set aside.
+    var shelves: [Shelf] = Shelf.main
 
     @Namespace private var underline
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    init(selection: Binding<Shelf>, counts: [Shelf: Int]) {
+    init(selection: Binding<Shelf>, counts: [Shelf: Int], shelves: [Shelf] = Shelf.main) {
         self._selection = selection
         self.counts = counts
+        self.shelves = shelves
     }
 
     /// "Reading", "To read", "Finished".
@@ -28,7 +31,7 @@ struct ShelfSwitcher: View {
     var body: some View {
         ScrollView(.horizontal) {
             HStack(alignment: .top, spacing: Space.xl) {
-                ForEach(Shelf.main, id: \.self) { shelf in
+                ForEach(shelves, id: \.self) { shelf in
                     tab(shelf)
                 }
             }

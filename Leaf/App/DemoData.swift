@@ -2,11 +2,11 @@ import Foundation
 
 /// A lived-in library for screenshots and previews.
 enum DemoData {
-    static func book(_ id: String, _ title: String, _ author: String, _ year: Int, pages: Int, words: Int? = nil, cover: Int? = nil, genres: [String] = ["fiction"]) -> Book {
-        Book(id: id, title: title, author: author, year: year, pages: pages, words: words, coverID: cover, genres: genres, popularity: 1000)
+    static func book(_ id: String, _ title: String, _ author: String, _ year: Int, pages: Int, words: Int? = nil, cover: Int? = nil, genres: [String] = ["fiction"], editions: [Int]? = nil) -> Book {
+        Book(id: id, title: title, author: author, year: year, pages: pages, words: words, coverID: cover, genres: genres, popularity: 1000, pageCounts: editions)
     }
 
-    static let hobbit = book("OL27482W", "The Hobbit", "J. R. R. Tolkien", 1937, pages: 310, words: 95_000, cover: 14627509, genres: ["fantasy", "classics"])
+    static let hobbit = book("OL27482W", "The Hobbit", "J. R. R. Tolkien", 1937, pages: 310, words: 95_000, cover: 14627509, genres: ["fantasy", "classics"], editions: [310, 300, 366, 287])
     static let circe = book("OL18012166W", "Circe", "Madeline Miller", 2018, pages: 404, words: 109_080, cover: 8739376, genres: ["fantasy", "historical"])
     static let hailMary = book("OL21745884W", "Project Hail Mary", "Andy Weir", 2021, pages: 496, words: 133_920, cover: 11200092, genres: ["science-fiction"])
     static let piranesi = book("OL20893680W", "Piranesi", "Susanna Clarke", 2020, pages: 272, words: 73_440, cover: 10226290, genres: ["fantasy"])

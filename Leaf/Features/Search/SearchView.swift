@@ -21,6 +21,8 @@ struct SearchView: View {
     @State private var showsManualAdd = false
     /// The error haptic plays once per stretch offline, not on every keystroke.
     @State private var hasBuzzedOffline = false
+    /// The book just marked "Not for me", while it can still be taken back.
+    @State private var undoBook: Book?
 
     /// Where the Open Library half of a search stands.
     private enum RemotePhase {
@@ -49,17 +51,56 @@ struct SearchView: View {
     // MARK: Body
 
     var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
-                if trimmedQuery.isEmpty {
-                    browse
-                } else {
-                    results
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+                    if trimmedQuery.isEmpty {
+                        browse(proxy)
+                    } else {
+                        results
+                    }
+                }
+                .leafMargins()
+                .padding(.top, Space.s)
+                .padding(.bottom, Space.xxl)
+            }
+            .task(id: collectionsBuilt) {
+                await applyStage(proxy)
+            }
+        }
+        .safeAreaInset(edge: .bottom) {
+            if let book = undoBook {
+                UndoToast(message: "“\(book.title)” won’t be suggested.") {
+                    withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
+                        store.undismiss(book.id)
+                        undoBook = nil
+                    }
+                }
+                .padding(.bottom, Space.s)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .task(id: book.id) {
+                    try? await Task.sleep(for: .seconds(5))
+                    guard !Task.isCancelled, undoBook?.id == book.id else { return }
+                    withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) { undoBook = nil }
                 }
             }
-            .leafMargins()
-            .padding(.top, Space.s)
-            .padding(.bottom, Space.xxl)
+        }
+        .navigationDestination(for: BookCollection.self) { collection in
+            CollectionGridView(collection: collection)
+        }
+        .navigationDestination(for: SimilarRoute.self) { route in
+            SimilarBooksView(book: route.book)
+        }
+        .navigationDestination(for: TasteRoute.self) { _ in
+            TasteView()
+        }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                NavigationLink(value: TasteRoute()) {
+                    Image(systemName: "heart.text.square")
+                }
+                .accessibilityLabel("Your taste")
+            }
         }
         .scrollIndicators(.hidden)
         .scrollDismissesKeyboard(.interactively)
@@ -87,7 +128,7 @@ struct SearchView: View {
     // MARK: Browse
 
     @ViewBuilder
-    private var browse: some View {
+    private func browse(_ proxy: ScrollViewProxy) -> some View {
         if !catalog.isLoaded {
             searching("Opening the catalog…")
         } else if !collectionsBuilt {
@@ -99,22 +140,48 @@ struct SearchView: View {
                 message: "Type a title or an author to see how long it takes at your pace."
             )
         } else {
+            if !collections.contains(where: { $0.kind == .personal }) {
+                SearchFrontTableNote {
+                    router.searchPath.append(TasteRoute())
+                }
+                .padding(.top, Space.s)
+            }
             DeckBanner(covers: Array(collections.first?.books.prefix(3) ?? [])) {
                 router.showDeck = true
             }
             .padding(.top, Space.s)
-            .padding(.bottom, Space.xxl)
-            ForEach(Array(collections.enumerated()), id: \.element.id) { index, collection in
-                SearchCollectionRow(
-                    collection: collection,
-                    isFirst: index == 0,
-                    shelfOf: { store.shelf(of: $0) },
-                    onAdd: { book, shelf, front in add(book, to: shelf, atFront: front) },
-                    onDismiss: { dismiss($0) }
-                )
+            .padding(.bottom, Space.l)
+            Section {
+                ForEach(Array(collections.enumerated()), id: \.element.id) { index, collection in
+                    SearchShelfRow(
+                        collection: collection,
+                        kind: SearchShelfKind(collection),
+                        isFirst: index == 0,
+                        wpm: store.wpm,
+                        shelfOf: { store.shelf(of: $0) },
+                        onAdd: { book, shelf, front in add(book, to: shelf, atFront: front) },
+                        onDismiss: { dismiss($0) }
+                    )
+                    .id(collection.id)
+                }
+                OpenLibraryCredit()
+                manualAddLink
+            } header: {
+                SearchJumpBar(categories: jumpCategories) { category in
+                    guard let target = collections.first(where: { SearchShelfKind($0).category == category }) else { return }
+                    withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
+                        proxy.scrollTo(target.id, anchor: .top)
+                    }
+                }
+                .padding(.bottom, Space.l)
             }
-            manualAddLink
         }
+    }
+
+    /// The jump bar offers only the kinds of row there are today.
+    private var jumpCategories: [SearchShelfKind.Category] {
+        let present = Set(collections.map { SearchShelfKind($0).category })
+        return SearchShelfKind.Category.allCases.filter { present.contains($0) }
     }
 
     private var collectionsKey: CollectionsKey {
@@ -312,11 +379,30 @@ struct SearchView: View {
         Haptics.shared.success()
     }
 
-    /// "Not for me": the book leaves every row and the next suggestions lean away from it.
+    /// "Not for me": the book leaves every row and the next suggestions lean away from it. Undo for a few seconds.
     private func dismiss(_ book: Book) {
         Haptics.shared.tap()
         withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
             store.dismiss(book.id)
+            undoBook = book
+        }
+    }
+
+    /// Screenshots: once the rows exist, scroll to a kind of row, open a whole row, or show the Undo toast.
+    private func applyStage(_ proxy: ScrollViewProxy) async {
+        guard collectionsBuilt, let stage = router.searchStage else { return }
+        router.searchStage = nil
+        try? await Task.sleep(for: .milliseconds(500))
+        let styles: [String: SearchShelfKind.Style] = ["series": .series, "author": .author, "time": .time, "seasonal": .seasonal]
+        switch stage {
+        case "seeall":
+            if let first = collections.first { router.searchPath.append(first) }
+        case "undo":
+            if let book = collections.first?.books.first { dismiss(book) }
+        default:
+            if let style = styles[stage], let row = collections.first(where: { SearchShelfKind($0).style == style }) {
+                proxy.scrollTo(row.id, anchor: .top)
+            }
         }
     }
 

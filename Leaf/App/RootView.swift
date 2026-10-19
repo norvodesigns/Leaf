@@ -103,6 +103,9 @@ struct RootView: View {
         case "library.finished":
             router.tab = .library
             router.libraryShelf = .finished
+        case "library.paused":
+            router.tab = .library
+            router.libraryShelf = .paused
         case "plan":
             router.tab = .plan
         case "plan.whatif", "plan.care", "plan.order", "plan.reading":
@@ -133,8 +136,24 @@ struct RootView: View {
         case "search.query":
             router.tab = .search
             router.searchQuery = "dune"
+        case "search.series", "search.author", "search.time", "search.seasonal", "search.seeall", "search.undo":
+            router.tab = .search
+            router.searchStage = String(key.dropFirst("search.".count))
+        case "search.similar":
+            router.tab = .search
+            router.searchPath.append(SimilarRoute(book: DemoData.circe))
+        case "search.taste":
+            router.tab = .search
+            router.searchPath.append(TasteRoute())
         case "settings":
             router.showSettings = true
+        case "settings.plan", "settings.tea", "settings.cloud":
+            router.settingsStage = String(key.dropFirst("settings.".count))
+            router.showSettings = true
+        case "book.journal", "book.more", "book.edition":
+            router.bookStage = String(key.dropFirst("book.".count))
+            router.tab = .library
+            router.libraryPath = [BookRoute(book: store.item(DemoData.hobbit.id)?.book ?? DemoData.hobbit)]
         case "session":
             store.startSession(bookID: DemoData.hobbit.id, startedAt: Date().addingTimeInterval(-(9 * 60 + 41)))
             router.showSession = true

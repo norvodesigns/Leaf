@@ -110,6 +110,22 @@ for appearance in light dark; do
     shot 85-insights-new 6 -LeafDemo YES -LeafScreen plan.insights -LeafScenario new
     shot 86-plan-large-type 8 -LeafDemo YES -LeafScreen plan -UIPreferredContentSizeCategoryName UICTContentSizeCategoryAccessibilityL
     shot 87-share-posters 8 -LeafDemo YES -LeafScreen gallery.posters -LeafScenario year
+    # Search browsing, Library, Settings (UI-5). Rows are built off the main thread after the catalog opens.
+    shot 91-search-series 10 -LeafDemo YES -LeafScreen search.series
+    shot 92-search-author 10 -LeafDemo YES -LeafScreen search.author
+    shot 93-search-time 10 -LeafDemo YES -LeafScreen search.time
+    shot 94-search-seasonal 10 -LeafDemo YES -LeafScreen search.seasonal
+    shot 95-search-seeall 10 -LeafDemo YES -LeafScreen search.seeall
+    shot 96-search-similar 9 -LeafDemo YES -LeafScreen search.similar
+    shot 97-search-taste 8 -LeafDemo YES -LeafScreen search.taste -LeafScenario year
+    shot 98-search-first-use 10 -LeafDemo YES -LeafScreen search -LeafScenario new
+    shot 99-search-undo 10 -LeafDemo YES -LeafScreen search.undo
+    shot 101-book-journal 7 -LeafDemo YES -LeafScreen book.journal
+    shot 102-book-more 9 -LeafDemo YES -LeafScreen book.more
+    shot 103-book-edition 7 -LeafDemo YES -LeafScreen book.edition
+    shot 104-settings-plan 6 -LeafDemo YES -LeafScreen settings.plan
+    shot 105-settings-tea 6 -LeafDemo YES -LeafScreen settings.tea
+    shot 106-settings-cloud 6 -LeafDemo YES -LeafScreen settings.cloud
     shot 88-insights-large-type 9 -LeafDemo YES -LeafScreen plan.insights -LeafScenario year -UIPreferredContentSizeCategoryName UICTContentSizeCategoryAccessibilityL
   fi
   shot "10-today$suffix" 5 -LeafDemo YES -LeafScreen today -LeafTime 20:30
@@ -131,6 +147,8 @@ for appearance in light dark; do
   shot "76-insights$suffix" 9 -LeafDemo YES -LeafScreen plan.insights -LeafScenario year
   shot "80-year-in-books$suffix" 9 -LeafDemo YES -LeafScreen plan.year -LeafScenario year
   shot "82-challenges$suffix" 8 -LeafDemo YES -LeafScreen plan.challenges -LeafScenario year
+  shot "90-search-browse$suffix" 10 -LeafDemo YES -LeafScreen search
+  shot "100-library-paused$suffix" 5 -LeafDemo YES -LeafScreen library.paused
 done
 xcrun simctl ui "$IOS_SIM" appearance light
 

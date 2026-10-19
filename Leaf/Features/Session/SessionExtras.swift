@@ -104,7 +104,7 @@ struct AmbienceSheet: View {
     private func choose(_ ambience: Ambience?) {
         Haptics.shared.selection()
         if let ambience {
-            let level = player.currentID == nil ? ambience.defaultVolume : volume
+            let level = player.currentID == nil ? (CozySettings.ambienceVolume ?? ambience.defaultVolume) : volume
             volume = level
             player.play(ambience.id, volume: Float(level))
         } else {
