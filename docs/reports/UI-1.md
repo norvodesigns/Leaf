@@ -1,5 +1,9 @@
 # UI-1 report: Today, Where are you, reading times, swipe deck
 
+Update: once the repo went public, CI ran. UI-1 compiled with no errors and no warnings (runs 39203022380 and
+39205934111, green), and every UI-1 screenshot was captured. They have not been reviewed yet: this session's network
+policy blocks the host GitHub serves logs and artifacts from.
+
 ```
 === REPORT FOR LEAD ===
 Package: UI-1 (Today, Where are you, reading times, swipe deck)
