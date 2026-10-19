@@ -51,15 +51,18 @@ struct FinishByScrub: View {
     @Binding var offset: Int
     var magnetOffsets: [Int] = []
 
+    static let pointsPerDay = 6.0
+
     var body: some View {
         ScrubNumber(
             value: Binding(get: { Double(offset) }, set: { offset = Int($0.rounded()) }),
-            configuration: scrub.scrubConfiguration(magnetOffsets: magnetOffsets, pointsPerDay: 6),
+            configuration: scrub.scrubConfiguration(magnetOffsets: magnetOffsets, pointsPerDay: Self.pointsPerDay),
             caption: "Finish by",
             numeral: .masthead,
             labels: { value in
+                // A label a week when there is room for one, else a fortnight.
                 let day = Int(value.rounded())
-                guard day % 7 == 0 else { return nil }
+                guard day % (Self.pointsPerDay * 7 >= 64 ? 7 : 14) == 0 else { return nil }
                 return LeafFormat.format(scrub.date(forOffset: day), template: "MMMd", calendar: scrub.calendar)
             },
             accessibilityLabel: "Finish by",

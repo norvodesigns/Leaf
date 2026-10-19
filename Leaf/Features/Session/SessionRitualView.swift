@@ -162,7 +162,7 @@ struct SessionRitualView: View {
     /// Soft while the tea steeps, sharp when it's ready. Never blurred under Reduce Motion or Reduce Transparency.
     private func focusBlur(progress: Double) -> CGFloat {
         guard !reduceMotion, !reduceTransparency, !isReady else { return 0 }
-        return CGFloat(4.5 * max(0, min(1, 1 - progress)))
+        return CGFloat(2.2 * max(0, min(1, 1 - progress)))
     }
 
     private func steepCaption(_ pot: TeaSteepState) -> String {

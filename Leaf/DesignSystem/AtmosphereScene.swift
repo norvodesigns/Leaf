@@ -129,18 +129,39 @@ struct AtmosphereScene: View {
                     let head = CGFloat(streak.y) * size.height
                     let length = CGFloat(streak.length) * size.height
                     let width = max(0.8, CGFloat(streak.width) * size.width)
-                    var path = Path()
-                    path.move(to: CGPoint(x: x, y: head - length))
-                    path.addLine(to: CGPoint(x: x, y: head))
-                    context.stroke(path, with: .color(Color.steam.opacity(streak.opacity * 0.9)), style: StrokeStyle(lineWidth: width, lineCap: .round))
+                    // The trail: a thin wet line that fades out behind the drop.
+                    let trailWidth = width * (layer == 2 ? 0.5 : 0.75)
+                    var trail = Path()
+                    trail.move(to: CGPoint(x: x - trailWidth / 2, y: head - width * 0.4))
+                    trail.addLine(to: CGPoint(x: x + trailWidth / 2, y: head - width * 0.4))
+                    trail.addLine(to: CGPoint(x: x + trailWidth * 0.15, y: head - length))
+                    trail.addLine(to: CGPoint(x: x - trailWidth * 0.15, y: head - length))
+                    trail.closeSubpath()
+                    context.fill(
+                        trail,
+                        with: .linearGradient(
+                            Gradient(colors: [Color.steam.opacity(0), Color.steam.opacity(streak.opacity * 0.75)]),
+                            startPoint: CGPoint(x: x, y: head - length),
+                            endPoint: CGPoint(x: x, y: head)
+                        )
+                    )
+                    guard layer > 0 else { continue }
+                    // The drop: a lens that is lit on one side, rimmed on the other, with a glint.
+                    let radius = width * (layer == 2 ? 1.25 : 0.85)
+                    let drop = Path(ellipseIn: CGRect(x: x - radius, y: head - radius * 1.3, width: radius * 2, height: radius * 2.3))
+                    context.fill(
+                        drop,
+                        with: .radialGradient(
+                            Gradient(colors: [Color.white.opacity(streak.opacity * 0.45), Color.steam.opacity(streak.opacity * 0.2)]),
+                            center: CGPoint(x: x - radius * 0.3, y: head - radius * 0.6),
+                            startRadius: 0,
+                            endRadius: radius * 1.6
+                        )
+                    )
+                    context.stroke(drop, with: .color(Color.black.opacity(streak.opacity * 0.2)), lineWidth: max(0.4, radius * 0.16))
                     if layer == 2 {
-                        // The bead at the head of a near streak catches the light.
-                        let bead = CGRect(x: x - width, y: head - width * 1.6, width: width * 2, height: width * 2.2)
-                        context.fill(Path(ellipseIn: bead), with: .color(Color.white.opacity(streak.opacity * 0.55)))
-                        var edge = Path()
-                        edge.move(to: CGPoint(x: x - width * 0.3, y: head - length * 0.9))
-                        edge.addLine(to: CGPoint(x: x - width * 0.3, y: head - width))
-                        context.stroke(edge, with: .color(Color.white.opacity(streak.opacity * 0.35)), lineWidth: max(0.5, width * 0.3))
+                        let glint = CGRect(x: x - radius * 0.55, y: head - radius * 0.9, width: radius * 0.45, height: radius * 0.6)
+                        context.fill(Path(ellipseIn: glint), with: .color(Color.white.opacity(streak.opacity * 0.85)))
                     }
                 }
             }

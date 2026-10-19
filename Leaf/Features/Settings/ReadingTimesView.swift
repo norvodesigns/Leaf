@@ -243,10 +243,9 @@ struct ReadingSlotEditor: View {
     var body: some View {
         Form {
             Section {
-                DatePicker("Time", selection: time, displayedComponents: .hourAndMinute)
-                    .datePickerStyle(.wheel)
-                    .labelsHidden()
+                TimeDrum(hour: $draft.hour, minute: $draft.minute)
                     .frame(maxWidth: .infinity)
+                    .padding(.vertical, Space.s)
             } header: {
                 header("When")
             } footer: {
@@ -371,19 +370,6 @@ struct ReadingSlotEditor: View {
             .leafStyle(.eyebrow)
     }
 
-    private var time: Binding<Date> {
-        Binding(
-            get: {
-                Calendar.current.date(from: DateComponents(hour: draft.hour, minute: draft.minute)) ?? Date()
-            },
-            set: { date in
-                let parts = Calendar.current.dateComponents([.hour, .minute], from: date)
-                draft.hour = parts.hour ?? draft.hour
-                draft.minute = parts.minute ?? draft.minute
-            }
-        )
-    }
-
     private var label: Binding<String> {
         Binding(
             get: { draft.label ?? "" },
@@ -436,7 +422,7 @@ struct ReadingTimesSheet: View {
                         .leafStyle(.body, color: .inkSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                         .listRowBackground(Color.clear)
-                        .listRowInsets(EdgeInsets(top: Space.s, leading: 0, bottom: Space.s, trailing: 0))
+                        .listRowInsets(EdgeInsets(top: Space.s, leading: Space.xl, bottom: Space.s, trailing: Space.xl))
                 }
                 ReadingTimesSection()
             }

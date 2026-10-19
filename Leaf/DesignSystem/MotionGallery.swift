@@ -110,7 +110,7 @@ struct MotionGallery: View {
                 .focusPull(isFocused: false)
             SectionHeader("Numbers")
             HStack(alignment: .firstTextBaseline, spacing: Space.xl) {
-                Text("\(number)").leafStyle(.heroNumeral).numericBlur(value: Double(number), velocityBlur: 3)
+                Text("\(number)").leafStyle(.heroNumeral).numericBlur(value: Double(number))
                 PerDigitBlurText(text: "12:04", value: Double(number)).leafStyle(.statNumeral)
             }
             SecondaryGlassButton("Change", compact: true) {

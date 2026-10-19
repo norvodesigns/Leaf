@@ -210,6 +210,8 @@ struct ReadingActivityButtons: View {
         Label(title, systemImage: systemImage)
             .labelStyle(.titleAndIcon)
             .font(.system(compact ? .caption2 : .caption, weight: .semibold))
+            .lineLimit(1)
+            .fixedSize()
             .foregroundStyle(ReadingActivityPalette.ink)
             .padding(.horizontal, compact ? 10 : 12)
             .padding(.vertical, compact ? 6 : 7)
