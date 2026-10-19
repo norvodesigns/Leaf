@@ -95,6 +95,7 @@ for appearance in light dark; do
     shot 63-gallery-scenes 5 -LeafDemo YES -LeafScreen gallery.scenes
     shot 66-gallery-drum 4 -LeafDemo YES -LeafScreen gallery.drum
     # Plan: forecast, insights and challenges (UI-4). The engines run off the main actor, so give them a moment.
+    shot 69-plan-reading 8 -LeafDemo YES -LeafScreen plan.reading
     shot 71-plan-whatif 8 -LeafDemo YES -LeafScreen plan.whatif
     shot 72-plan-care 8 -LeafDemo YES -LeafScreen plan.care -LeafScenario returning
     shot 73-plan-order 8 -LeafDemo YES -LeafScreen plan.order
@@ -108,6 +109,8 @@ for appearance in light dark; do
     shot 84-plan-new 6 -LeafDemo YES -LeafScreen plan -LeafScenario new
     shot 85-insights-new 6 -LeafDemo YES -LeafScreen plan.insights -LeafScenario new
     shot 86-plan-large-type 8 -LeafDemo YES -LeafScreen plan -UIPreferredContentSizeCategoryName UICTContentSizeCategoryAccessibilityL
+    shot 87-share-posters 8 -LeafDemo YES -LeafScreen gallery.posters -LeafScenario year
+    shot 88-insights-large-type 9 -LeafDemo YES -LeafScreen plan.insights -LeafScenario year -UIPreferredContentSizeCategoryName UICTContentSizeCategoryAccessibilityL
   fi
   shot "10-today$suffix" 5 -LeafDemo YES -LeafScreen today -LeafTime 20:30
   shot "21-today-late$suffix" 6 -LeafDemo YES -LeafScreen today -LeafTime 23:30

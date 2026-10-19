@@ -51,7 +51,9 @@ struct RootView: View {
     @ViewBuilder
     private func gallery(_ key: String) -> some View {
 #if DEBUG
-        if let section = MotionGallery.Section(rawValue: String(key.dropFirst("gallery.".count))) {
+        if key == "gallery.posters" {
+            SharePosterStage()
+        } else if let section = MotionGallery.Section(rawValue: String(key.dropFirst("gallery.".count))) {
             NavigationStack { MotionGallery(section: section) }
         } else {
             DesignSystemGallery()
@@ -103,7 +105,7 @@ struct RootView: View {
             router.libraryShelf = .finished
         case "plan":
             router.tab = .plan
-        case "plan.whatif", "plan.care", "plan.order":
+        case "plan.whatif", "plan.care", "plan.order", "plan.reading":
             router.tab = .plan
             router.planStage = String(key.dropFirst("plan.".count))
         case "plan.finishline":

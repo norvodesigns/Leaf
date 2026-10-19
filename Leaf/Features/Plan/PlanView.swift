@@ -101,7 +101,8 @@ struct PlanView: View {
     }
 }
 
-/// "Forecast · Insights · Challenges" as underlined serif words, like the Library's shelves.
+/// "Forecast · Insights · Challenges" as underlined serif words, like the Library's shelves. Scrolls sideways when
+/// large text makes the three too wide.
 struct PlanSectionSwitcher: View {
     @Binding var selection: PlanSection
 
@@ -109,38 +110,47 @@ struct PlanSectionSwitcher: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        HStack(alignment: .top, spacing: Space.xl) {
-            ForEach(PlanSection.allCases) { section in
-                let isActive = section == selection
-                Button {
-                    guard !isActive else { return }
-                    Haptics.shared.selection()
-                    withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
-                        selection = section
-                    }
-                } label: {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(section.title)
-                            .font(LeafType.title)
-                            .foregroundStyle(isActive ? Color.ink : Color.inkTertiary)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-                        ZStack {
-                            if isActive {
-                                Capsule()
-                                    .fill(Color.ribbon)
-                                    .matchedGeometryEffect(id: "underline", in: underline)
-                            }
-                        }
-                        .frame(height: 2)
-                    }
-                    .frame(minHeight: Space.hitTarget, alignment: .top)
-                    .contentShape(.rect)
+        ScrollView(.horizontal) {
+            HStack(alignment: .top, spacing: Space.xl) {
+                ForEach(PlanSection.allCases) { section in
+                    tab(section)
                 }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(isActive ? .isSelected : [])
             }
         }
+        .scrollIndicators(.hidden)
+        .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+        .scrollClipDisabled()
+    }
+
+    private func tab(_ section: PlanSection) -> some View {
+        let isActive = section == selection
+        return Button {
+            guard !isActive else { return }
+            Haptics.shared.selection()
+            withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
+                selection = section
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(section.title)
+                    .font(LeafType.title)
+                    .foregroundStyle(isActive ? Color.ink : Color.inkTertiary)
+                    .lineLimit(1)
+                    .fixedSize()
+                ZStack {
+                    if isActive {
+                        Capsule()
+                            .fill(Color.ribbon)
+                            .matchedGeometryEffect(id: "underline", in: underline)
+                    }
+                }
+                .frame(height: 2)
+            }
+            .frame(minHeight: Space.hitTarget, alignment: .top)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isActive ? .isSelected : [])
     }
 }
 

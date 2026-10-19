@@ -180,9 +180,12 @@ struct FinishLineSheet: View {
                         Text(narrator.tonightSentence(tonight))
                             .leafStyle(.caption)
                     }
-                    if minutes != store.preferences.dailyMinutes {
-                        PrimaryGlassButton("Make it \(minutes) min a day") {
-                            let clamped = min(max(minutes, MinutesDial.range.lowerBound), MinutesDial.range.upperBound)
+                    // Offer a new daily time only when the date needs more than the reader gives now; the comfortable
+                    // margin is the honest number to offer.
+                    let offer = max(minutes, answer.likelyMinutesPerDay ?? minutes)
+                    if answer.feasibility != .onTrack, offer > store.preferences.dailyMinutes {
+                        PrimaryGlassButton("Make it \(offer) min a day") {
+                            let clamped = min(max(offer, MinutesDial.range.lowerBound), MinutesDial.range.upperBound)
                             store.updatePreferences { $0.dailyMinutes = clamped }
                             dismiss()
                         }

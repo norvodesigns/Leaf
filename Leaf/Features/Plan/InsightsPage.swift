@@ -45,11 +45,11 @@ struct InsightsPage: View {
             HStack(alignment: .firstTextBaseline, spacing: Space.s) {
                 Text("\(read.count)")
                     .leafStyle(.statNumeral)
-                Text("days read · \(LeafFormat.duration(minutes: minutes))")
+                Text(read.isEmpty ? "days read so far" : "days read · \(LeafFormat.duration(minutes: minutes))")
                     .leafStyle(.caption)
             }
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("You read on \(read.count) days this year, \(LeafFormat.duration(minutes: minutes)) in all.")
+            .accessibilityLabel(read.isEmpty ? "No reading logged this year yet." : "You read on \(read.count) \(read.count == 1 ? "day" : "days") this year, \(LeafFormat.duration(minutes: minutes)) in all.")
             TeaRingHeatmap(cells: insights.heatmap, calendar: store.calendar)
             Text("Each ring is a day; the bigger the ring, the longer the read. A gold drop marks a finished book.")
                 .leafStyle(.caption, color: .inkTertiary)
@@ -69,11 +69,16 @@ struct TeaRingHeatmap: View {
 
     private let cell: CGFloat = 16
 
-    private var columns: Int { (cells.map(\.column).max() ?? 0) + 1 }
+    /// The week with today in it; later weeks aren't drawn, so the map ends where the reader is.
+    private var lastColumn: Int {
+        cells.first(where: \.isToday)?.column ?? (cells.filter { !$0.isFuture }.map(\.column).max() ?? 0)
+    }
+
+    private var columns: Int { lastColumn + 1 }
 
     /// Where each month starts, for the labels above.
     private var monthStarts: [(column: Int, name: String)] {
-        cells.filter { calendar.component(.day, from: $0.date) == 1 }
+        cells.filter { calendar.component(.day, from: $0.date) == 1 && $0.column <= lastColumn }
             .sorted { $0.date < $1.date }
             .map { ($0.column, LeafFormat.format($0.date, template: "MMM", calendar: calendar)) }
     }
@@ -91,7 +96,7 @@ struct TeaRingHeatmap: View {
                 }
                 .frame(width: CGFloat(columns) * cell, height: 12, alignment: .topLeading)
                 Canvas { context, _ in
-                    for day in cells {
+                    for day in cells where day.column <= lastColumn {
                         draw(day, in: &context)
                     }
                 }
@@ -163,7 +168,7 @@ struct BestTimeCard: View {
                 Text(best.reason)
                     .leafStyle(.pullQuote)
                     .fixedSize(horizontal: false, vertical: true)
-                let parts = best.dayparts.filter { $0.minutes > 0 }
+                let parts = best.dayparts.filter { $0.minuteShare >= 0.01 }
                 let top = parts.map(\.minuteShare).max() ?? 1
                 VStack(spacing: Space.xs) {
                     ForEach(parts, id: \.daypart) { part in
@@ -266,10 +271,10 @@ struct MixCard: View {
                 .clipShape(Capsule())
                 .accessibilityHidden(true)
                 FlowLegend(items: top.enumerated().map { index, genre in
-                    (palette[index % palette.count], "\(genre.name) \(genre.books)")
+                    (palette[index % palette.count], "\(Self.display(genre.name)) \(genre.books)")
                 })
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel(top.map { "\($0.name), \($0.books) \($0.books == 1 ? "book" : "books")" }.joined(separator: "; "))
+                .accessibilityLabel(top.map { "\(Self.display($0.name)), \($0.books) \($0.books == 1 ? "book" : "books")" }.joined(separator: "; "))
             }
             if lengths.contains(where: { $0.books > 0 }) {
                 Hairline()
@@ -292,6 +297,11 @@ struct MixCard: View {
         }
     }
 
+    /// "science fiction" → "Science fiction".
+    static func display(_ name: String) -> String {
+        name.prefix(1).uppercased() + name.dropFirst()
+    }
+
     private func genreSentence(_ top: [InsightsEngine.GenreShare]) -> String {
         guard let first = top.first else { return "" }
         let percent = Int((first.share * 100).rounded())
@@ -300,12 +310,12 @@ struct MixCard: View {
     }
 }
 
-/// A row of colour keys that wraps.
+/// A row of colour keys that wraps, from the leading edge.
 private struct FlowLegend: View {
     let items: [(Color, String)]
 
     var body: some View {
-        BookChipFlow(spacing: Space.s) {
+        LeadingFlow(spacing: Space.m, lineSpacing: Space.xs) {
             ForEach(Array(items.enumerated()), id: \.offset) { _, item in
                 HStack(spacing: 4) {
                     Circle().fill(item.0).frame(width: 8, height: 8)
@@ -313,6 +323,56 @@ private struct FlowLegend: View {
                 }
             }
         }
+    }
+}
+
+/// Lays its children out in rows from the leading edge, wrapping when a row is full.
+private struct LeadingFlow: Layout {
+    var spacing: CGFloat
+    var lineSpacing: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let rows = arrange(width: proposal.width ?? .infinity, subviews: subviews)
+        let width = rows.map { $0.width }.max() ?? 0
+        let height = rows.reduce(0) { $0 + $1.height } + lineSpacing * CGFloat(max(0, rows.count - 1))
+        return CGSize(width: proposal.width ?? width, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var y = bounds.minY
+        for row in arrange(width: bounds.width, subviews: subviews) {
+            var x = bounds.minX
+            for index in row.indices {
+                let size = subviews[index].sizeThatFits(.unspecified)
+                subviews[index].place(at: CGPoint(x: x, y: y + (row.height - size.height) / 2), proposal: ProposedViewSize(size))
+                x += size.width + spacing
+            }
+            y += row.height + lineSpacing
+        }
+    }
+
+    private struct Row {
+        var indices: [Int] = []
+        var width: CGFloat = 0
+        var height: CGFloat = 0
+    }
+
+    private func arrange(width: CGFloat, subviews: Subviews) -> [Row] {
+        var rows: [Row] = []
+        var row = Row()
+        for index in subviews.indices {
+            let size = subviews[index].sizeThatFits(.unspecified)
+            let needed = row.indices.isEmpty ? size.width : row.width + spacing + size.width
+            if !row.indices.isEmpty, needed > width {
+                rows.append(row)
+                row = Row()
+            }
+            row.width = row.indices.isEmpty ? size.width : row.width + spacing + size.width
+            row.height = max(row.height, size.height)
+            row.indices.append(index)
+        }
+        if !row.indices.isEmpty { rows.append(row) }
+        return rows
     }
 }
 
@@ -345,7 +405,19 @@ struct YearInBooksCard: View {
     let open: () -> Void
 
     var body: some View {
-        TodayCard("\(String(summary.year)) in books", actionTitle: "Open", action: open) {
+        TodayCard("\(String(summary.year)) in books", actionTitle: summary.isEmpty ? nil : "Open", action: summary.isEmpty ? nil : open) {
+            if summary.isEmpty {
+                Text("Your year in books fills in as you read: the books, the pages, the cups, and the months as rings.")
+                    .leafStyle(.body, color: .inkSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                filled
+            }
+        }
+    }
+
+    private var filled: some View {
+        Group {
             HStack(alignment: .center, spacing: Space.l) {
                 MonthRingCollage(months: summary.months, ringSize: 22)
                     .frame(width: 112)

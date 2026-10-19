@@ -153,7 +153,8 @@ struct BookFanChart: View {
 // MARK: - Year chart
 
 /// The year in books: the books finished so far as a rising step, then a fan from today to the 31st of December
-/// between the low and high ends of the forecast, the median as a dashed line, and the goal as a quiet rule.
+/// between the low and high ends of the forecast, the median as a dashed line, and the goal as a faint line climbing
+/// at a steady pace from January to its number, so the gap between the two reads at a glance.
 struct YearForecastChart: View {
     let year: YearForecast
     /// When each book finished this year, oldest first.
@@ -217,11 +218,17 @@ struct YearForecastChart: View {
                             .foregroundStyle(Color.accent)
                     }
             }
-            if let goal = year.goal {
-                RuleMark(y: .value("Goal", goal))
+            if let goal = year.goal, goal > 0 {
+                LineMark(x: .value("Date", yearStart), y: .value("Books", 0), series: .value("Line", "goal"))
                     .foregroundStyle(Color.inkTertiary)
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [2, 3]))
-                    .annotation(position: .top, alignment: .leading, spacing: 2) {
+                LineMark(x: .value("Date", yearEnd), y: .value("Books", goal), series: .value("Line", "goal"))
+                    .foregroundStyle(Color.inkTertiary)
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [2, 3]))
+                PointMark(x: .value("Date", yearEnd), y: .value("Books", goal))
+                    .foregroundStyle(Color.inkTertiary)
+                    .symbolSize(14)
+                    .annotation(position: .leading, spacing: 4) {
                         Text("Goal \(goal)").font(.system(size: 10, weight: .medium)).foregroundStyle(Color.inkTertiary)
                     }
             }
@@ -277,8 +284,8 @@ struct SpeedTrendChart: View {
             }
         }
         .chartXAxis {
-            AxisMarks(values: .automatic(desiredCount: 3)) { _ in
-                AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+            AxisMarks(values: .automatic(desiredCount: 4)) { _ in
+                AxisValueLabel(format: .dateTime.month(.abbreviated))
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(Color.inkTertiary)
             }

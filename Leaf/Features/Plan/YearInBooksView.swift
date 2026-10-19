@@ -264,6 +264,40 @@ struct YearInBooksPoster: View {
     }
 }
 
+#if DEBUG
+/// The two share images side by side at half size, drawn from the library on screen, for screenshots
+/// (`-LeafScreen gallery.posters`). Debug builds only.
+struct SharePosterStage: View {
+    @Environment(LibraryStore.self) private var store
+
+    private let scale: CGFloat = 0.52
+
+    var body: some View {
+        let engine = InsightsEngine(data: store.data, now: store.now, calendar: store.calendar)
+        VStack(alignment: .leading, spacing: Space.l) {
+            Eyebrow("Share images")
+            HStack(alignment: .top, spacing: Space.m) {
+                poster(YearInBooksPoster(summary: engine.yearInBooks(year: engine.currentYear), calendar: store.calendar), size: YearInBooksPoster.size)
+                poster(PersonalityPoster(personality: engine.personality()), size: SharePoster.size)
+            }
+        }
+        .padding(.horizontal, Space.l)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .padding(.top, Space.section)
+        .background(Color.paperSunken)
+    }
+
+    private func poster<Content: View>(_ content: Content, size: CGSize) -> some View {
+        content
+            .environment(\.colorScheme, .light)
+            .scaleEffect(scale, anchor: .topLeading)
+            .frame(width: size.width * scale, height: size.height * scale, alignment: .topLeading)
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
+    }
+}
+#endif
+
 // MARK: - Weekly letter
 
 /// The Sunday letter (opened from its notification): a few warm sentences from `WeeklyLetterText` about the week, then
@@ -302,12 +336,16 @@ struct WeeklyLetterView: View {
                     Text(copy.title)
                         .leafStyle(.masthead)
                         .fixedSize(horizontal: false, vertical: true)
+                    // The opening line on its own, then the rest as one paragraph, as a letter would be.
                     VStack(alignment: .leading, spacing: Space.m) {
-                        ForEach(Array(copy.sentences.enumerated()), id: \.offset) { _, sentence in
-                            Text(sentence)
-                                .leafStyle(.passage)
+                        if let opening = copy.sentences.first {
+                            Text(opening)
+                                .leafStyle(.pullQuote)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
+                        Text(copy.sentences.dropFirst().joined(separator: " "))
+                            .leafStyle(.passage)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     Text("From your nook")
                         .leafStyle(.pullQuote, color: .inkSecondary)

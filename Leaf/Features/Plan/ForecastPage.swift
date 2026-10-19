@@ -180,6 +180,7 @@ struct ForecastPage: View {
         let reading = Array(store.reading.prefix(3))
         if !reading.isEmpty, let result = shownResult {
             SectionHeader("Now reading")
+                .id("reading")
             VStack(spacing: Space.m) {
                 ForEach(reading, id: \.id) { item in
                     if let forecast = result.book(item.id) {
@@ -593,8 +594,10 @@ struct BookForecastCard: View {
 
     private var confidenceLine: String {
         let sittings = forecast.sessions == 1 ? "1 sitting" : "\(forecast.sessions) sittings"
+        if forecast.positionUncertain { return "A rough guess until you confirm your page." }
+        if forecast.sessions == 0 { return "From your pace overall; no sittings with this book yet." }
         switch forecast.confidence {
-        case .low: return forecast.positionUncertain ? "A rough guess until you confirm your page." : "A rough guess from \(sittings) with this book."
+        case .low: return "A rough guess from \(sittings) with this book."
         case .medium: return "Getting clearer, from \(sittings) with this book."
         case .high: return "A confident range, from \(sittings) with this book."
         }
