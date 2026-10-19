@@ -250,7 +250,7 @@ enum DemoData {
             ChallengeEnrollment(id: "yearly-goal", joinedAt: daysAgo(41), year: calendar.component(.year, from: now)),
             ChallengeEnrollment(id: "spooky-season", joinedAt: daysAgo(10), year: calendar.component(.year, from: now)),
         ]
-        data.speedTests = [SpeedTestResult(date: daysAgo(30), passageID: "bindery", words: 302, seconds: 69, correct: 3, total: 3)]
+        data.speedTests = [SpeedTestResult(date: daysAgo(30), passageID: "scandal", words: 302, seconds: 69, correct: 3, total: 3)]
         return data
     }
 }
