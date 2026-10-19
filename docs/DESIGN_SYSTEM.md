@@ -222,6 +222,41 @@ Constants: `inkInStagger 0.05`, `inkInRise 8`, `inkInMaxItems 6`, `countUpDurati
   `ribbon` today rule. Use as `.background { TimelineGrid(…) }` behind the band column, same insets.
 - `TimelineMonthLabels(scale: TimelineScale)` — "NOV", "DEC" eyebrows positioned on the axis.
 
+## Cozy (NEXT.md §6) — `CozyColor.swift`, `TeaCup.swift`, `TeaRingStamp.swift`, `NookAtmosphere.swift`
+
+Warm tints for atmosphere only; ink and the one green accent still do the work, and none of these carries text.
+
+- `CozyColor.teaPaper`, `.chai`, `.matcha`, `.rooibos`, `.steam` (a warm grey on light paper, near white at night),
+  `.amber` (lamp), `.rose`, `.teaRing` — dynamic light/dark `Color`s.
+  `CozyColor.color(for: CozyPalette.chai)` maps the data layer's tokens; `CozyColor.liquor(for: Tea)` is the tea in
+  the cup (fixed colours, like covers).
+- `TeaCup(fill: Double, liquor: Color, steams: Bool = false, width: CGFloat = 96)` — an inked cup that fills 0…1 with
+  today's minutes; steam (from `AtmosphereField.steam`, 15 fps) when full or while a pot steeps. Hidden from
+  VoiceOver: always put the real minutes beside it. `TeaCup.height(for:)`, `TeaCup.steamHeight(for:)`.
+- `TeaRingStamp(mark: .read(share) | .rest | .missed | .upcoming, seed: Int, diameter: CGFloat = 38)` — a day as a
+  tea ring on the paper; the ring grows with the share of the goal and leaves a drip at 1. No red, ever.
+- `TeaRingWeek(days: [DayStat], goalMinutes: Int, streak: Int = 0, cupMinutes: Int = 25)` — the week as rings with
+  letters, a `ribbon` underline on today, and the real numbers under it ("2 h 41 min this week · 6 cups").
+- `NookAtmosphere(daypart: Daypart)` — the light behind Today's header: window panes in the morning, a warm wash in
+  the afternoon, the lamp and a few soft bokeh lights from dusk, a small pool of lamplight late. Fades into paper at
+  the bottom. Reduce Transparency → flat tint; Reduce Motion / Low Power / inactive → still.
+  `NookAtmosphere.light(for:dark:)` returns the recipe.
+
+## Today, position, reading times, deck (feature components)
+
+- `TodayCard(_ eyebrow:, actionTitle:, action:) { … }` — Today's paper card (`paperRaised`, hairline, `Radius.card`).
+- `PageChip(item:, needsPosition:, action:)` — "p. 142 ✎" (or "46%", or a `ribbon` "Where are you?").
+- `WhereAreYouSheet(request: PositionRequest, item:, now:)` — presented by `MainTabs` for `router.positionRequest`;
+  ask with `router.askPosition(for:then:)`. `ReadingSessionLauncher.start` asks automatically before a book's first
+  session (`needsPosition`).
+- `ReadingTimesSection()` (a `Form` section), `ReadingSlotEditor(slot:isNew:onSaved:)`, `ReadingTimesSheet()`
+  (`router.showReadingTimes`, `router.readingSlotToEdit`).
+- `SwipeDeckModel` + `SwipeDeckView(model:style:wpm:height:onBrowse:)` (`.full` drags any way; `.compact` sits in a
+  scroll view and only moves sideways), `DeckCommit.connect(model, store:)`, `SwipeDeckScreen()`
+  (`router.showDeck`), `TodayDeckCard`, `DeckBanner`.
+- Haptics: `.teaReady`, `.deckKeep` (the heavier keeper), `.deckStart`; a pass is `soft(0.45)`, crossing into a
+  choice while dragging is `selection()`.
+
 ## Rules of thumb (from DESIGN.md)
 
 - Paper is content, glass is chrome: glass only on tab bar, toolbars, accessory, buttons, session
