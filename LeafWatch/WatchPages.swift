@@ -279,12 +279,12 @@ struct AddPage: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
-                TextFieldLink(prompt: Text("Title or author"), onSubmit: { text in
-                    store.addBook(query: text)
-                    confirm("Sent to your iPhone to find.")
-                }) {
+                TextFieldLink(prompt: Text("Title or author")) {
                     Label("A book to read", systemImage: "plus")
                         .frame(maxWidth: .infinity, alignment: .leading)
+                } onSubmit: { text in
+                    store.addBook(query: text)
+                    confirm("Sent to your iPhone to find.")
                 }
                 if let book = store.suggestedBook {
                     Text(book.title)
@@ -292,19 +292,19 @@ struct AddPage: View {
                         .foregroundStyle(WatchTheme.inkSecondary)
                         .lineLimit(1)
                         .padding(.top, 4)
-                    TextFieldLink(prompt: Text("A thought"), onSubmit: { text in
-                        store.addJournal(bookID: book.id, kind: .thought, text: text)
-                        confirm("Kept with p. \(book.currentPage).")
-                    }) {
+                    TextFieldLink(prompt: Text("A thought")) {
                         Label("A thought", systemImage: "text.bubble")
                             .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    TextFieldLink(prompt: Text("A line you loved"), onSubmit: { text in
-                        store.addJournal(bookID: book.id, kind: .quote, text: text)
+                    } onSubmit: { text in
+                        store.addJournal(bookID: book.id, kind: .thought, text: text)
                         confirm("Kept with p. \(book.currentPage).")
-                    }) {
+                    }
+                    TextFieldLink(prompt: Text("A line you loved")) {
                         Label("A quote", systemImage: "quote.opening")
                             .frame(maxWidth: .infinity, alignment: .leading)
+                    } onSubmit: { text in
+                        store.addJournal(bookID: book.id, kind: .quote, text: text)
+                        confirm("Kept with p. \(book.currentPage).")
                     }
                 }
                 if let sent {

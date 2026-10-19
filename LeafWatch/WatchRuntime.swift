@@ -76,12 +76,12 @@ final class ReadingRuntime: NSObject, WKExtendedRuntimeSessionDelegate {
 final class WatchNotifications: NSObject, UNUserNotificationCenterDelegate {
     static let shared = WatchNotifications()
 
-    static let category = "leaf.reading"
-    static let startAction = "leaf.start"
-    static let snoozeAction = "leaf.snooze"
-    static let skipAction = "leaf.skip"
-    static let bookKey = "bookID"
-    static let snoozeMinutes = 30
+    nonisolated static let category = "leaf.reading"
+    nonisolated static let startAction = "leaf.start"
+    nonisolated static let snoozeAction = "leaf.snooze"
+    nonisolated static let skipAction = "leaf.skip"
+    nonisolated static let bookKey = "bookID"
+    nonisolated static let snoozeMinutes = 30
 
     private weak var store: WatchStore?
 
