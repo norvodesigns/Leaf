@@ -9,7 +9,8 @@ plans in [`NEXT.md`](NEXT.md) (sections 11 and 16), and the upload steps in [`TE
 | Target | Product | Bundle id | Folders it compiles | Entitlements |
 | --- | --- | --- | --- | --- |
 | `Leaf` | `Leaf.app` (iPhone, iOS 26) | `com.norvodesigns.leaf` | `Shared/`, `Leaf/`, `LiveActivityShared/` | `Leaf/Leaf.entitlements` |
-| `LeafWatch` | `LeafWatch.app` (watchOS 26), embedded in `Leaf` | `com.norvodesigns.leaf.watchkitapp` | `Shared/`, `LeafWatch/` | none |
+| `LeafWatch` | `LeafWatch.app` (watchOS 26), embedded in `Leaf` | `com.norvodesigns.leaf.watchkitapp` | `Shared/`, `LeafWatch/`, `WatchComplicationShared/` | `Config/LeafWatch.entitlements` |
+| `LeafWatchWidgets` | `LeafWatchWidgets.appex` (watch complications, watchOS 26), embedded in `LeafWatch` | `com.norvodesigns.leaf.watchkitapp.widgets` | `LeafWatchWidgets/`, `WatchComplicationShared/` | `Config/LeafWatchWidgets.entitlements` |
 | `LeafWidgets` | `LeafWidgets.appex` (widget extension, iOS 26), embedded in `Leaf` | `com.norvodesigns.leaf.widgets` | `LeafWidgets/`, `LiveActivityShared/` | `LeafWidgets/LeafWidgets.entitlements` |
 | `LeafTests` | `LeafTests.xctest`, hosted by `Leaf` | `com.norvodesigns.leafTests` | `LeafTests/` | none |
 
@@ -19,7 +20,7 @@ build number). The extension's bundle id must start with the app's bundle id, wh
 unrelated.
 
 `DEVELOPMENT_TEAM` is empty in the project on purpose, like it was before the extension existed. Pick your team once in
-Xcode (Signing & Capabilities, for each of `Leaf`, `LeafWatch`, `LeafWidgets`), or let `scripts/testflight.sh` pass
+Xcode (Signing & Capabilities, for each of `Leaf`, `LeafWatch`, `LeafWidgets`, `LeafWatchWidgets`), or let `scripts/testflight.sh` pass
 `DEVELOPMENT_TEAM=$TEAM_ID` on the command line.
 
 ## Folders and what goes where
@@ -31,7 +32,13 @@ folder, with no project edit.
   extension.
 - `Leaf/`: the iPhone app. `Leaf/Leaf.entitlements` lives here but is excluded from the target's membership, so it is
   used for signing and never copied into the app as a resource.
-- `LeafWatch/`: the watch app.
+- `LeafWatch/`: the watch app. Its Info.plist (`Config/LeafWatch-Info.plist`) adds `WKBackgroundModes = [mindfulness]`
+  for the reading session's `WKExtendedRuntimeSession` (`LeafWatch/WatchRuntime.swift`).
+- `LeafWatchWidgets/`: the watch complications and Smart Stack card (a watchOS widget extension), with its privacy
+  manifest.
+- `WatchComplicationShared/`: compiled into the watch app and its complications: `ComplicationSnapshot`, the few
+  numbers a face shows, which the watch app writes to the App Group container after each change, and the complication
+  views (so the app can draw them in a DEBUG gallery). Foundation, SwiftUI and WidgetKit only; no `Shared/`.
 - `LeafWidgets/`: sources only the widget extension compiles (the widget bundle, the Live Activity views, later the
   Home Screen widgets and controls), its entitlements and privacy manifest.
 - `LiveActivityShared/`: compiled into both the app and the extension, and nothing else. This is for types both sides
@@ -40,8 +47,9 @@ folder, with no project edit.
   to Foundation, ActivityKit, AppIntents and WidgetKit. It cannot use anything from `Shared/`, because the extension
   does not compile `Shared/`. If the extension ever needs `Shared/` (for `LeafFormat`, say), add the `Shared` folder to
   the `LeafWidgets` target's synchronized folders in the project file and re-run the checker.
-- `Config/`: `Info.plist` (merged with the generated Info.plist keys) for the app and `LeafWidgets-Info.plist` for the
-  extension. These sit outside any synchronized folder so they can never be bundled as resources by accident.
+- `Config/`: `Info.plist` (merged with the generated Info.plist keys) for the app, `LeafWidgets-Info.plist` for the
+  extension, `LeafWatch-Info.plist` for the watch app, and the watch app's and watch extension's Info.plist and
+  entitlements (the App Group, the watch's own copy of it). These sit outside any synchronized folder so they can never be bundled as resources by accident.
 - `LeafTests/`: unit tests. They reach the app and the shared Live Activity types with `@testable import Leaf`.
 
 A Swift file name can only appear once per target, even across folders (Swift reports "filename used twice"). The

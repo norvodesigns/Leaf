@@ -371,6 +371,29 @@ Sheets: `router.planSheet` (`.finishLine(bookID:)`, `.smartOrder`, `.yearInBooks
 - **Staging** — `search.series|author|time|seasonal|seeall|undo|similar|taste`, `library.paused`,
   `book.journal|more|edition`, `settings.plan|tea|cloud`.
 
+## Apple Watch (UI-6, NEXT.md §12)
+
+- **Palette** — `WatchTheme`: paper at night (`paper`, `inkSecondary`), the leaf accent and `accentDeep`, `ribbon` for
+  "next", `tea` (chai) for anything steeped, `warm` for raised rows. Each page sets its own
+  `containerBackground(…, for: .tabView)`.
+- **Pages** (vertical `TabView`, top to bottom): `TodayPage` (greeting, cup ring, Steep and read, reading times; the
+  steep timer `SteepTimerView` replaces it while a pot steeps), `LogPage`, `ForecastPage`, `WeekPage`
+  (`WatchTeaRing` per day), `ShelfPage`, `AddPage` (`TextFieldLink` dictation). Anything that turns the crown is a
+  pushed screen (`WatchRoute`: `QuickLogView`, `WhereWasIView`, `ShelfBookActions`), so the crown never pages by
+  accident.
+- **Session** — the focus-pull countdown in `SessionView`: big serif minutes to go, sharp for most of each minute,
+  softening up to the change and landing sharp (`.blur` animated per second; none with Reduce Motion), elapsed
+  `mm:ss` underneath for an exact read. `WatchAtmosphere` draws `AtmosphereField.bokeh` behind it (12 fps, still when
+  paused). Always-On (`isLuminanceReduced`) keeps only the minutes, dimmed, updated once a minute. Pause/resume carries
+  `handGestureShortcut(.primaryAction)` (Double Tap).
+- **Runtime and taps** — `ReadingRuntime` (a mindfulness `WKExtendedRuntimeSession`) for sessions the watch times;
+  it taps at the goal, and the in-app celebration stays quiet while it runs, so the wrist is tapped once.
+  `WatchNotifications` registers Start / In 30 minutes / Skip today. Demo mode starts neither.
+- **Complications** — `WatchComplicationShared`: `ComplicationSnapshot` (+ `ComplicationStore` in the App Group) and
+  `ComplicationCircular|Corner|Rectangular|Inline`. `widgetAccentable` marks what the face tints.
+- **Staging** — `-LeafScreen today|steep|steepready|session|session.cup|aod|pages|log|quicklog|where|forecast|week|`
+  `shelf|shelf.actions|add|add.sent|complications`.
+
 ## Rules of thumb (from DESIGN.md)
 
 - Paper is content, glass is chrome: glass only on tab bar, toolbars, accessory, buttons, session
