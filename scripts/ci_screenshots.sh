@@ -104,3 +104,4 @@ for f in "$OUT"/*.png; do
   base64 -b 120 -i "$OUT/jpg/$n.jpg"
   echo "=====END $n====="
 done
+
