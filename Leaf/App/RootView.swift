@@ -44,8 +44,35 @@ struct RootView: View {
         didApplyLaunchRoute = true
         if key.hasPrefix("onboarding.") { return }
         switch key {
-        case "today":
+        case "today", "today.steep":
             router.tab = .today
+        case "position", "position.page", "position.percent", "position.read":
+            router.tab = .today
+            let opensOn: PositionChoice?
+            switch key {
+            case "position.page": opensOn = .page
+            case "position.percent": opensOn = .percent
+            case "position.read": opensOn = .alreadyRead
+            default: opensOn = nil
+            }
+            let book = store.reading.first { !$0.positionConfirmed } ?? store.reading.first
+            if let book {
+                router.positionRequest = PositionRequest(
+                    bookID: book.id,
+                    then: .startSession(source: ReadingSessionLauncher.heroSource, teaID: nil, goalSeconds: nil),
+                    opensOn: opensOn
+                )
+            }
+        case "readingtimes":
+            router.tab = .today
+            router.showReadingTimes = true
+        case "readingtimes.edit":
+            router.tab = .today
+            router.readingSlotToEdit = store.preferences.effectiveReadingSlots.first?.id
+            router.showReadingTimes = true
+        case "deck":
+            router.tab = .search
+            router.showDeck = true
         case "library":
             router.tab = .library
         case "library.finished":

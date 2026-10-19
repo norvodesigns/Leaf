@@ -130,7 +130,13 @@ struct OnboardingBooksView: View {
             }
         } else {
             VStack(alignment: .leading, spacing: 0) {
-                SectionHeader("Popular first reads", topSpacing: 0)
+                let fromDeck = picks.filter { pick in !popular.contains { $0.id == pick.id } }
+                if !fromDeck.isEmpty {
+                    SectionHeader("Your stack", topSpacing: 0)
+                    grid(fromDeck)
+                        .padding(.top, Space.s)
+                }
+                SectionHeader("Popular first reads", topSpacing: fromDeck.isEmpty ? 0 : Space.xxxl)
                 grid(popular)
                     .padding(.top, Space.s)
             }

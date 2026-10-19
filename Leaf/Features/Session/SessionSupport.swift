@@ -77,16 +77,30 @@ enum ReadingSessionLauncher {
 
     /// Starts a session for `bookID` (or the book the reader is most likely to pick up) and opens the
     /// full-screen timer, zooming from `source`. If a session is already running, it just opens it.
+    /// A book that has never been started and has no position yet asks "Where are you?" first, then
+    /// starts from the answer. `teaID` and `goalSeconds` carry a tea ritual's cup into the session.
     /// Returns false when there's nothing to read.
     @discardableResult
-    static func start(bookID: String? = nil, store: LibraryStore, router: AppRouter, from source: String) -> Bool {
+    static func start(
+        bookID: String? = nil,
+        store: LibraryStore,
+        router: AppRouter,
+        from source: String,
+        teaID: String? = nil,
+        goalSeconds: Double? = nil,
+        asksPosition: Bool = true
+    ) -> Bool {
         if store.activeSession != nil {
             router.presentSession(from: source)
             return true
         }
         let requested = bookID.flatMap { store.item($0) }
-        guard let id = requested?.id ?? store.nextBook?.id,
-              store.startSession(bookID: id) != nil else { return false }
+        guard let id = requested?.id ?? store.nextBook?.id else { return false }
+        if asksPosition, let item = store.item(id), needsPosition(item, store: store) {
+            router.askPosition(for: id, then: .startSession(source: source, teaID: teaID, goalSeconds: goalSeconds))
+            return true
+        }
+        guard store.startSession(bookID: id, teaID: teaID, goalSeconds: goalSeconds) != nil else { return false }
         router.presentSession(from: source)
         // `sessionStart` lands as the zoom settles.
         Task { @MainActor in
@@ -94,6 +108,11 @@ enum ReadingSessionLauncher {
             Haptics.shared.play(.sessionStart)
         }
         return true
+    }
+
+    /// A book that has never been read here and hasn't been told where the reader is: starting it should ask first.
+    static func needsPosition(_ item: LibraryItem, store: LibraryStore) -> Bool {
+        !item.positionConfirmed && item.shelf != .finished && store.sessionCount(for: item.id) == 0
     }
 
     /// "Start reading" on a reminder: clear anything on screen, then start on Today.

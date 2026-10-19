@@ -99,6 +99,11 @@ struct SearchView: View {
                 message: "Type a title or an author to see how long it takes at your pace."
             )
         } else {
+            DeckBanner(covers: Array(collections.first?.books.prefix(3) ?? [])) {
+                router.showDeck = true
+            }
+            .padding(.top, Space.s)
+            .padding(.bottom, Space.xxl)
             ForEach(Array(collections.enumerated()), id: \.element.id) { index, collection in
                 SearchCollectionRow(
                     collection: collection,

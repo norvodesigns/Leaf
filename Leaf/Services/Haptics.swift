@@ -5,6 +5,12 @@ import UIKit
 /// (DESIGN.md §8).
 enum HapticMoment {
     case pageTurn, bookFinished, countdownBeat, sessionStart, sessionEnd, dialDetent, goalReached, reorderLift, reorderDrop
+    /// The pot is ready: two soft clinks, cup on saucer.
+    case teaReady
+    /// A card kept in the swipe deck: heavier than the tick of a pass, with a short settle.
+    case deckKeep
+    /// "Start now" from the swipe deck: a rising double tap.
+    case deckStart
 }
 
 @MainActor
@@ -122,7 +128,9 @@ final class Haptics {
         case .bookFinished, .goalReached: success()
         case .dialDetent: selection()
         case .reorderLift, .sessionStart: press()
-        case .reorderDrop, .countdownBeat, .sessionEnd, .pageTurn: soft()
+        case .reorderDrop, .countdownBeat, .sessionEnd, .pageTurn, .teaReady: soft()
+        case .deckKeep: rigid(0.7)
+        case .deckStart: press()
         }
     }
 
@@ -176,6 +184,12 @@ final class Haptics {
             return [transient(0, intensity: 0.35 + 0.3 * h, sharpness: 0.5), continuous(0.02, duration: 0.12, intensity: 0.2, sharpness: 0.1)]
         case .reorderDrop:
             return [transient(0, intensity: 0.45 + 0.4 * h, sharpness: 0.3), transient(0.06, intensity: 0.25, sharpness: 0.2)]
+        case .teaReady:
+            return [transient(0, intensity: 0.5, sharpness: 0.55), transient(0.16, intensity: 0.32, sharpness: 0.45)]
+        case .deckKeep:
+            return [transient(0, intensity: 0.7, sharpness: 0.45), continuous(0.03, duration: 0.12, intensity: 0.25, sharpness: 0.1)]
+        case .deckStart:
+            return [transient(0, intensity: 0.55, sharpness: 0.5), transient(0.1, intensity: 0.85, sharpness: 0.6)]
         }
     }
 
@@ -184,6 +198,7 @@ final class Haptics {
         case .pageTurn: return [curve([(0, 0.2), (0.08, 1), (0.16, 0.1)])]
         case .bookFinished: return [curve([(0.30, 0.2), (0.55, 1), (0.75, 0.15)])]
         case .reorderLift: return [curve([(0.02, 1), (0.14, 0)])]
+        case .deckKeep: return [curve([(0.03, 1), (0.15, 0)])]
         default: return []
         }
     }

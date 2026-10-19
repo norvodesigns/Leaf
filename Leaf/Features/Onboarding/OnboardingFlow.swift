@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum OnboardingStep: String, CaseIterable {
-    case welcome, speedtest, quiz, result, minutes, days, reminder, books
+    case welcome, speedtest, quiz, result, minutes, days, reminder, deck, books
 }
 
 /// First-run onboarding (DESIGN.md §6): welcome, a reading-speed test, the daily minutes, the
@@ -137,6 +137,8 @@ private struct OnboardingFlowBody: View {
             OnboardingDaysView(days: $days, minutes: minutes)
         case .reminder:
             OnboardingReminderView(time: $reminderTime, message: reminderPreview)
+        case .deck:
+            OnboardingDeckView(picks: $picks)
         case .books:
             OnboardingBooksView(
                 picks: $picks,
@@ -191,9 +193,11 @@ private struct OnboardingFlowBody: View {
             return OnboardingAction("Continue", isEnabled: !days.isEmpty) { saveDays() }
         case .reminder:
             if reminderDeclined {
-                return OnboardingAction("Continue") { step = .books }
+                return OnboardingAction("Continue") { step = .deck }
             }
             return OnboardingAction("Allow notifications", isLoading: isRequestingPermission) { allowNotifications() }
+        case .deck:
+            return OnboardingAction(picks.isEmpty ? "Continue" : "Continue with \(picks.count)") { step = .books }
         case .books:
             return OnboardingAction("Make my plan", isEnabled: !picks.isEmpty) { makePlan() }
         }
@@ -205,6 +209,8 @@ private struct OnboardingFlowBody: View {
             return testActions.secondary
         case .reminder:
             return reminderDeclined ? nil : OnboardingAction("Not now") { skipReminder() }
+        case .deck:
+            return picks.isEmpty ? OnboardingAction("Skip") { step = .books } : nil
         case .books:
             return OnboardingAction("Skip for now") { onFinish() }
         default:
@@ -233,8 +239,10 @@ private struct OnboardingFlowBody: View {
         case .reminder:
             reminderDeclined = false
             step = .days
-        case .books:
+        case .deck:
             step = .reminder
+        case .books:
+            step = .deck
         }
     }
 
@@ -277,7 +285,7 @@ private struct OnboardingFlowBody: View {
             saveReminder(enabled: granted)
             if granted {
                 Haptics.shared.success()
-                step = .books
+                step = .deck
             } else {
                 reminderDeclined = true
             }
@@ -286,7 +294,7 @@ private struct OnboardingFlowBody: View {
 
     private func skipReminder() {
         saveReminder(enabled: false)
-        step = .books
+        step = .deck
     }
 
     private func saveReminder(enabled: Bool) {
@@ -400,6 +408,13 @@ private func onboardingPreviewStore(demo: Bool) -> LibraryStore {
 #Preview("Reminder") {
     OnboardingFlow(startAt: .reminder) {}
         .environment(onboardingPreviewStore(demo: true))
+        .environment(AppRouter())
+        .environment(BookCatalog.shared)
+}
+
+#Preview("Deck") {
+    OnboardingFlow(startAt: .deck) {}
+        .environment(onboardingPreviewStore(demo: false))
         .environment(AppRouter())
         .environment(BookCatalog.shared)
 }

@@ -9,9 +9,18 @@ struct LeafApp: App {
 
     init() {
         let options = LaunchOptions.current
-        let store = LibraryStore(persistence: options.isScripted ? .ephemeral() : .shared)
-        if options.demo { store.replaceAll(with: DemoData.make()) }
+        let now = options.now()
+        let store = LibraryStore(persistence: options.isScripted ? .ephemeral() : .shared, now: now)
+        if options.demo {
+            let scenario = options.scenario.flatMap(DemoData.Scenario.init(rawValue:)) ?? .standard
+            store.replaceAll(with: DemoData.make(now: now, scenario: scenario))
+        }
         _store = State(initialValue: store)
+        if options.isScripted {
+            // Screenshot runs start with no pot on the stove, except the one that shows it steeping.
+            let steeping = TeaSteepState(teaID: TeaCatalog.earlGrey.id, steepSeconds: 240, startedAt: Date().addingTimeInterval(-75), bookID: DemoData.hobbit.id)
+            TeaSteepState.save(options.screen == "today.steep" ? steeping : nil)
+        }
 
         if !options.isScripted, CloudSync.isAvailable {
             let sync = CloudSync()
@@ -52,7 +61,7 @@ struct LeafApp: App {
                 .onChange(of: scenePhase) { _, phase in
                     switch phase {
                     case .active:
-                        store.refreshDay()
+                        store.refreshDay(LaunchOptions.current.now())
                         Haptics.shared.prepare()
                     case .background:
                         store.flush()
@@ -61,7 +70,7 @@ struct LeafApp: App {
                     }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
-                    store.refreshDay()
+                    store.refreshDay(LaunchOptions.current.now())
                 }
         }
     }

@@ -227,9 +227,9 @@ struct BookDetailView: View {
                 Text(pageCaption(item))
                     .leafStyle(.caption)
                 Spacer(minLength: Space.m)
-                TextButton("Update page") {
+                TextButton("Where are you?") {
                     Haptics.shared.tap()
-                    showsPageSheet = true
+                    router.askPosition(for: item.id)
                 }
             }
             if let finish = planned?.finish {
@@ -494,6 +494,13 @@ struct BookDetailView: View {
                 LibraryShelfActions.move(book.id, to: .toRead, store: store)
             } label: {
                 Label("Move to To read", systemImage: "bookmark")
+            }
+        }
+        if let shelf, shelf != .finished {
+            Button {
+                router.askPosition(for: book.id)
+            } label: {
+                Label("Where are you?", systemImage: "bookmark.circle")
             }
         }
         if shelf != nil {

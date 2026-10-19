@@ -1,119 +1,169 @@
 import SwiftUI
 
-/// Today (DESIGN.md §6): a dateline, a greeting, and today's reading set like the front page of a
-/// small paper. Lives inside `MainTabs`' navigation stack; its only toolbar item opens Settings.
+/// Today (NEXT.md section 4): the launchpad for the next ten minutes of reading. The Reading Nook on top (the day's
+/// light, the greeting, the book beside a cup that fills as you read, and "Steep and read"), then a stack of cards
+/// for anyone who wants more: where you left off, today's reading times, the forecast, the week as tea rings, the
+/// year, a pick, challenges, a line from the journal, and gentle nudges.
+///
+/// Everything comes from `store.todayBrief(catalog:forecast:weather:)`, worked out when the library changes rather
+/// than on every render. The greeting is pinned for the day (and mode) so it never flickers.
 struct TodayView: View {
     @Environment(LibraryStore.self) private var store
     @Environment(AppRouter.self) private var router
+    @Environment(BookCatalog.self) private var catalog
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    @State private var strikeDrawn = false
+    @State private var forecast = ForecastService()
+    @State private var brief: TodayBrief?
+    @State private var pinned: PinnedGreeting?
+    @State private var steep: TeaSteepState? = TeaSteepState.load()
+    @State private var steepReady = false
+    @State private var chosenTeaID: String?
+    /// The deck stays on Today while the reader is swiping, even once a kept book means they're no longer between books.
+    @State private var keepsDeckOpen = false
+    @State private var didStageScroll = false
 
-    private enum Mode {
-        case empty
-        case goalMet
-        case plan([TodayEntry])
-        case rest
+    /// Today's cards, in the order a mode wants them. The raw values are the `-LeafScroll` names.
+    enum CardKind: String, Hashable, CaseIterable {
+        case nudges, deck, leftOff = "leftoff", desk, times, forecast, week, year, pick, challenges, quote
     }
 
-    // MARK: State
-
-    private var isLibraryEmpty: Bool { store.reading.isEmpty && store.toRead.isEmpty }
-
-    private var goalMet: Bool { store.goalMetToday && !isLibraryEmpty }
-
-    private var isLive: Bool { store.activeSession != nil }
-
-    private var mode: Mode {
-        if isLibraryEmpty { return .empty }
-        if store.goalMetToday { return .goalMet }
-        let entries = store.todayAssignments.map { TodayEntry(item: $0.item, assignment: $0.assignment) }
-        return entries.isEmpty ? .rest : .plan(entries)
+    private struct PinnedGreeting {
+        var day: String
+        var mode: TodayMode
+        var greeting: Greeting
     }
 
-    /// Books already shown in the hero, so the lists below don't repeat them.
-    private var featuredIDs: Set<String> {
-        switch mode {
-        case .plan(let entries):
-            return Set(entries.map { $0.id })
-        case .goalMet:
-            if let id = store.nextBook?.id { return [id] }
-            return []
-        case .empty, .rest:
-            return []
-        }
+    private struct ItemKey: Hashable {
+        var id: String
+        var shelf: Shelf
+        var page: Int
+        var confirmed: Bool
+        var mode: ProgressMode
     }
 
-    /// "On your desk": the other books open in Reading (focus mode, when there is more than one).
-    private var deskItems: [LibraryItem] {
-        guard store.reading.count > 1 else { return [] }
-        let featured = featuredIDs
-        return store.reading.filter { !featured.contains($0.id) }
+    /// What the brief and the forecast are worked out from. When any of it changes they are worked out again.
+    private struct DataKey: Hashable {
+        var now: Date
+        var items: [ItemKey]
+        var sessions: Int
+        var journal: Int
+        var challenges: Int
+        var dismissed: Int
+        var preferences: ReadingPreferences
     }
 
-    private var upNextItem: LibraryItem? {
-        let featured = featuredIDs
-        return store.toRead.first { !featured.contains($0.id) }
+    private struct BriefKey: Hashable {
+        var data: DataKey
+        var live: UUID?
+        var catalogReady: Bool
+        var forecastReady: Bool
+        var forecastWorking: Bool
+    }
+
+    private var dataKey: DataKey {
+        DataKey(
+            now: store.now,
+            items: store.data.items.map { ItemKey(id: $0.id, shelf: $0.shelf, page: $0.currentPage, confirmed: $0.positionConfirmed, mode: $0.progressMode) },
+            sessions: store.data.sessions.count,
+            journal: store.data.journal.count,
+            challenges: store.data.challenges.count,
+            dismissed: store.data.dismissed.count,
+            preferences: store.preferences
+        )
+    }
+
+    private var briefKey: BriefKey {
+        BriefKey(
+            data: dataKey,
+            live: store.activeSession?.id,
+            catalogReady: catalog.isLoaded,
+            forecastReady: forecast.result != nil,
+            forecastWorking: forecast.isWorking
+        )
     }
 
     // MARK: Body
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                dateline
-                    .inkIn(0)
-                Text(greeting)
-                    .leafStyle(.masthead)
-                    .accessibilityAddTraits(.isHeader)
-                    .padding(.top, Space.xl)
-                    .inkIn(1)
-                issue
-            }
-            .leafMargins()
-            .padding(.top, Space.s)
-            .padding(.bottom, Space.xxl)
-        }
-        .scrollIndicators(.hidden)
-        .scrollEdgeEffectStyle(.soft, for: .top)
-        .paperBackground()
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    Haptics.shared.tap()
-                    router.showSettings = true
-                } label: {
-                    Image(systemName: "gearshape")
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    if let brief {
+                        nook(brief)
+                        cards(brief)
+                            .leafMargins()
+                            .padding(.top, Space.l)
+                    } else {
+                        Color.clear
+                            .frame(height: 480)
+                    }
                 }
-                .accessibilityLabel("Settings")
+                .padding(.bottom, Space.xxl)
             }
-        }
-        .onAppear {
-            if goalMet { drawStrike(after: .milliseconds(450), playsHaptic: false) }
-        }
-        .onChange(of: goalMet) { old, new in
-            if new {
-                drawStrike(after: .milliseconds(900), playsHaptic: !old)
-            } else {
-                strikeDrawn = false
+            .scrollIndicators(.hidden)
+            .scrollEdgeEffectStyle(.soft, for: .top)
+            .paperBackground()
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        Haptics.shared.tap()
+                        router.showSettings = true
+                    } label: {
+                        Image(systemName: "gearshape")
+                    }
+                    .accessibilityLabel("Settings")
+                }
+            }
+            .task(id: briefKey) {
+                refreshBrief()
+            }
+            .task(id: dataKey) {
+                forecast.refresh(from: store)
+            }
+            .task(id: steep?.startedAt) {
+                await waitForTea()
+            }
+            .task(id: brief == nil) {
+                await stageScroll(proxy)
+            }
+            .onChange(of: brief?.mode) { old, new in
+                guard new == .goalMet, old == .reading, router.lastOutcome == nil, !router.showSession else { return }
+                Haptics.shared.play(.goalReached)
             }
         }
     }
 
-    // MARK: Dateline and greeting
+    // MARK: Nook
 
-    private var dateline: some View {
-        VStack(spacing: Space.s) {
-            HStack(alignment: .firstTextBaseline, spacing: Space.m) {
-                Text(LeafFormat.format(store.now, template: "EEEEdMMMM", calendar: store.calendar))
-                    .leafStyle(.eyebrow)
-                Spacer(minLength: Space.m)
-                Text("No. \(store.issueNumber)")
-                    .leafStyle(.eyebrow)
-                    .accessibilityLabel(issueSpoken)
-            }
-            DoubleRule()
-        }
+    private func nook(_ brief: TodayBrief) -> some View {
+        TodayNook(
+            brief: brief,
+            daypart: Daypart.of(store.now, calendar: store.calendar),
+            dateline: LeafFormat.format(store.now, template: "EEEEdMMMM", calendar: store.calendar),
+            issueNumber: store.issueNumber,
+            issueSpoken: issueSpoken,
+            tea: chosenTea(brief),
+            steepSeconds: TeaSuggester.steepSeconds(for: chosenTea(brief)),
+            teaChoices: teaChoices(brief),
+            action: nookAction(brief),
+            readingBooks: store.reading,
+            actions: NookActions(
+                steep: { beginSteep() },
+                start: { startFromNook() },
+                startWithoutTea: { start(bookID: self.brief?.current?.item.id) },
+                startBook: { start(bookID: $0) },
+                pourOut: { pourOut() },
+                chooseTea: { tea in
+                    Haptics.shared.selection()
+                    chosenTeaID = tea.id
+                },
+                findBook: { router.tab = .search },
+                openBook: { router.open($0) },
+                readingTimes: { router.showReadingTimes = true }
+            )
+        )
     }
 
     private var issueSpoken: String {
@@ -124,195 +174,315 @@ struct TodayView: View {
         return "Issue \(number), your \(ordinal) day with Leaf"
     }
 
-    private var greeting: String {
-        switch store.calendar.component(.hour, from: store.now) {
-        case 5...11: return "Good morning."
-        case 12...16: return "Good afternoon."
-        case 17...21: return "Good evening."
-        default: return "Still up?"
+    private func nookAction(_ brief: TodayBrief) -> NookAction {
+        if store.activeSession != nil { return .live }
+        if let steep {
+            return steepReady || steep.isReady(at: Date()) ? .ready(steep) : .steeping(steep)
+        }
+        switch brief.mode {
+        case .brandNew: return .findBook(firstEver: true)
+        case .betweenBooks: return .findBook(firstEver: false)
+        case .goalMet: return .readMore
+        case .restDay: return .restDay
+        case .reading: return .steep
         }
     }
 
-    // MARK: The issue
+    // MARK: Tea
 
-    @ViewBuilder
-    private var issue: some View {
-        switch mode {
-        case .empty:
-            EmptyState(
-                title: "An empty issue.",
-                message: "Add a book and Leaf will plan the pages.",
-                actionTitle: "Find a book",
-                prominent: true
-            ) {
-                router.tab = .search
+    private func chosenTea(_ brief: TodayBrief) -> Tea {
+        if let id = chosenTeaID, let tea = TeaCatalog.tea(id: id) { return tea }
+        return brief.tea
+    }
+
+    private func teaChoices(_ brief: TodayBrief) -> [Tea] {
+        let now = store.now
+        let calendar = store.calendar
+        var teas = TeaSuggester.ranked(
+            daypart: Daypart.of(now, calendar: calendar),
+            season: Season.of(now, calendar: calendar),
+            favoriteTeaID: store.preferences.favoriteTeaID,
+            seed: SeededGenerator.daySeed(now, calendar: calendar),
+            limit: 6
+        )
+        if !teas.contains(where: { $0.id == brief.tea.id }) { teas.insert(brief.tea, at: 0) }
+        return teas
+    }
+
+    private func beginSteep() {
+        guard let brief, let bookID = brief.current?.item.id else { return }
+        let tea = chosenTea(brief)
+        let ritual = TeaRitual.plan(tea: tea, cupMinutes: store.preferences.cupMinutes)
+        let state = TeaSteepState(teaID: tea.id, steepSeconds: ritual.steepSeconds, startedAt: Date(), bookID: bookID)
+        Haptics.shared.soft(0.6)
+        withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
+            steepReady = false
+            steep = state
+        }
+        TeaSteepState.save(state)
+    }
+
+    /// The tea is poured: read one cup of the book it was poured for.
+    private func startFromNook() {
+        guard let steep else {
+            start(bookID: brief?.current?.item.id)
+            return
+        }
+        let ritual = TeaRitual.plan(tea: steep.tea, cupMinutes: store.preferences.cupMinutes)
+        let bookID = steep.bookID ?? brief?.current?.item.id
+        pourOut(animated: false)
+        start(bookID: bookID, teaID: ritual.teaID, goalSeconds: ritual.goalSeconds)
+    }
+
+    private func pourOut(animated: Bool = true) {
+        let change = {
+            steep = nil
+            steepReady = false
+        }
+        if animated {
+            withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion), change)
+        } else {
+            change()
+        }
+        TeaSteepState.save(nil)
+    }
+
+    /// Waits out the steep, then says so with `teaReady`. Nothing plays a sound.
+    private func waitForTea() async {
+        guard let pot = steep else {
+            steepReady = false
+            return
+        }
+        let wait = pot.readyAt.timeIntervalSinceNow
+        guard wait > 0 else {
+            steepReady = true
+            return
+        }
+        steepReady = false
+        try? await Task.sleep(for: .seconds(wait))
+        guard !Task.isCancelled, steep == pot else { return }
+        withAnimation(Motion.resolved(Motion.board, reduceMotion: reduceMotion)) {
+            steepReady = true
+        }
+        Haptics.shared.play(.teaReady)
+    }
+
+    private func start(bookID: String?, teaID: String? = nil, goalSeconds: Double? = nil) {
+        ReadingSessionLauncher.start(
+            bookID: bookID, store: store, router: router, from: ReadingSessionLauncher.heroSource,
+            teaID: teaID, goalSeconds: goalSeconds
+        )
+    }
+
+    // MARK: Cards
+
+    private func cards(_ brief: TodayBrief) -> some View {
+        VStack(alignment: .leading, spacing: Space.m) {
+            ForEach(Array(cardOrder(brief).enumerated()), id: \.element) { index, kind in
+                card(kind, brief: brief)
+                    .id(kind)
+                    .inkIn(min(index + 4, 6))
             }
-            .inkIn(2)
+        }
+    }
+
+    private func cardOrder(_ brief: TodayBrief) -> [CardKind] {
+        var order: [CardKind]
+        switch brief.mode {
+        case .reading:
+            order = [.nudges, .leftOff, .times, .forecast, .desk, .week, .year, .pick, .challenges, .quote]
         case .goalMet:
-            if let item = store.nextBook {
-                TodayHero(
-                    item: item,
-                    numeral: store.preferences.dailyMinutes,
-                    eyebrow: "Done for today",
-                    spokenMinutes: "Done for today. Your \(store.preferences.dailyMinutes) minutes are read.",
-                    isDone: true,
-                    strikeDrawn: strikeDrawn,
-                    assignment: nil,
-                    finish: store.plan.book(item.id)?.finish,
-                    isLive: isLive,
-                    onStart: { start(bookID: item.id) },
-                    onOpen: { router.open(item.book) }
-                )
-                .inkIn(2)
-            }
-            followUps
-        case .plan(let entries):
-            planHero(entries)
-                .inkIn(2)
-            followUps
-        case .rest:
-            restBlock
-                .inkIn(2)
-            followUps
+            order = [.leftOff, .week, .forecast, .times, .desk, .year, .pick, .challenges, .quote, .nudges]
+        case .restDay:
+            order = [.week, .leftOff, .quote, .desk, .pick, .year, .challenges, .times, .nudges]
+        case .betweenBooks:
+            order = [.deck, .week, .year, .challenges, .quote, .nudges, .times]
+        case .brandNew:
+            order = [.deck, .times]
         }
+        if keepsDeckOpen, !order.contains(.deck) { order.insert(.deck, at: 0) }
+        return order.filter { hasContent($0, brief: brief) }
+    }
+
+    private func hasContent(_ kind: CardKind, brief: TodayBrief) -> Bool {
+        switch kind {
+        case .nudges: return !brief.nudges.isEmpty
+        case .deck: return catalog.isLoaded
+        case .leftOff: return brief.current != nil
+        case .desk: return !otherReading(brief).isEmpty
+        case .times: return true
+        case .forecast: return brief.forecastSentence != nil
+        case .week: return brief.mode != .brandNew
+        case .year: return brief.yearGoal != nil
+        case .pick: return !brief.picks.isEmpty && [TodayMode.reading, .goalMet, .restDay].contains(brief.mode)
+        case .challenges: return !brief.challenges.isEmpty
+        case .quote: return brief.quote != nil
+        }
+    }
+
+    private func otherReading(_ brief: TodayBrief) -> [LibraryItem] {
+        store.reading.filter { $0.id != brief.current?.item.id }
     }
 
     @ViewBuilder
-    private func planHero(_ entries: [TodayEntry]) -> some View {
-        let sum: Double = entries.reduce(0.0) { $0 + $1.assignment.minutes }
-        let total = max(1, Int(sum.rounded()))
-        let hasStarted = store.minutesReadToday >= 1
-        let eyebrow = hasStarted ? "Min left" : "Min"
-        let goal = store.preferences.dailyMinutes
-        let spoken = hasStarted
-            ? "\(total) minutes left. \(Int(store.minutesReadToday.rounded())) of \(goal) minutes read today."
-            : "\(total) minutes"
-        let progress: Double? = hasStarted ? store.goalProgress : nil
-        if entries.count > 1 {
-            TodayIssue(
-                entries: entries,
-                totalMinutes: total,
-                eyebrow: eyebrow,
-                spokenMinutes: spoken,
-                isLive: isLive,
-                goalProgress: progress,
-                onStart: { start(bookID: entries.first?.id) },
-                onStartBook: { start(bookID: $0) },
-                onOpen: { router.open($0) }
-            )
-        } else if let entry = entries.first {
-            TodayHero(
-                item: entry.item,
-                numeral: total,
-                eyebrow: eyebrow,
-                spokenMinutes: spoken,
-                isDone: false,
-                strikeDrawn: false,
-                assignment: entry.assignment,
-                finish: store.plan.book(entry.item.id)?.finish,
-                isLive: isLive,
-                goalProgress: progress,
-                onStart: { start(bookID: entry.item.id) },
-                onOpen: { router.open(entry.item.book) }
-            )
-        }
-    }
-
-    private var restBlock: some View {
-        VStack(alignment: .leading, spacing: Space.l) {
-            Text("A rest day.")
-                .leafStyle(.masthead)
-                .accessibilityAddTraits(.isHeader)
-            Text("Nothing’s scheduled. Read anyway if you like.")
-                .leafStyle(.pullQuote)
-                .fixedSize(horizontal: false, vertical: true)
-            SecondaryGlassButton(isLive ? "Return to session" : "Read anyway") {
-                start(bookID: nil)
-            }
-            .sessionZoomSource(ReadingSessionLauncher.heroSource)
-        }
-        .padding(.top, Space.l)
-    }
-
-    // MARK: Below the hero
-
-    @ViewBuilder
-    private var followUps: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            SectionHeader("This week")
-            WeekStrip(days: store.week, streak: store.streak)
-        }
-        .inkIn(3)
-
-        let desk = deskItems
-        if !desk.isEmpty {
-            VStack(alignment: .leading, spacing: 0) {
-                SectionHeader("On your desk")
-                ForEach(desk) { item in
-                    TodayBookLine(
-                        item: item,
-                        caption: "p. \(item.currentPage) of \(item.book.pages)",
-                        showsProgress: true,
-                        onOpen: { router.open(item.book) }
-                    )
+    private func card(_ kind: CardKind, brief: TodayBrief) -> some View {
+        switch kind {
+        case .nudges:
+            VStack(spacing: Space.s) {
+                ForEach(brief.nudges) { nudge in
+                    NudgeCard(nudge: nudge, actions: nudgeActions(nudge))
                 }
             }
-            .inkIn(4)
-        }
-
-        if let next = upNextItem {
-            VStack(alignment: .leading, spacing: 0) {
-                SectionHeader("Up next")
-                TodayBookLine(
-                    item: next,
-                    caption: beginsCaption(for: next),
-                    onOpen: { router.open(next.book) }
+        case .deck:
+            TodayDeckCard(
+                isFirstShelf: brief.mode == .brandNew,
+                onSwiped: { keepsDeckOpen = true },
+                onDone: {
+                    withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) { keepsDeckOpen = false }
+                }
+            )
+        case .leftOff:
+            if let current = brief.current {
+                LeftOffCard(
+                    today: current,
+                    mode: brief.mode,
+                    minutesToGoal: brief.minutesToGoal,
+                    minutesReadToday: brief.minutesReadToday,
+                    finish: store.plan.book(current.item.id)?.finish,
+                    calendar: store.calendar,
+                    onPosition: { router.askPosition(for: current.item.id) },
+                    onOpen: { router.open(current.item.book) }
                 )
             }
-            .inkIn(5)
-        }
-    }
-
-    /// "begins Mon 27 Oct", or "begins tomorrow".
-    private func beginsCaption(for item: LibraryItem) -> String {
-        guard let start = store.plan.book(item.id)?.start else { return "Next in your queue" }
-        let calendar = store.calendar
-        let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: store.now), to: calendar.startOfDay(for: start)).day ?? 0
-        switch days {
-        case ...0: return "begins today"
-        case 1: return "begins tomorrow"
-        default: return "begins \(LeafFormat.format(start, template: "EEEdMMM", calendar: calendar))"
-        }
-    }
-
-    // MARK: Actions
-
-    private func start(bookID: String?) {
-        ReadingSessionLauncher.start(bookID: bookID, store: store, router: router, from: ReadingSessionLauncher.heroSource)
-    }
-
-    /// The ribbon strike draws once the day is done. `goalReached` plays only when nothing else is on
-    /// screen (a session or its wrap-up sheet already has its own moment).
-    private func drawStrike(after delay: Duration, playsHaptic: Bool) {
-        guard !strikeDrawn else { return }
-        Task { @MainActor in
-            try? await Task.sleep(for: delay)
-            guard goalMet, !strikeDrawn else { return }
-            withAnimation(Motion.strike) { strikeDrawn = true }
-            if playsHaptic && router.lastOutcome == nil && !router.showSession {
-                Haptics.shared.play(.goalReached)
+        case .desk:
+            DeskCard(
+                items: otherReading(brief),
+                onPosition: { router.askPosition(for: $0.id) },
+                onOpen: { router.open($0.book) }
+            )
+        case .times:
+            ReadingTimesCard(
+                plans: store.isReadingDay ? brief.slots : [],
+                quietSlots: quietSlots(brief),
+                hasAnySlots: !store.preferences.effectiveReadingSlots.isEmpty,
+                nextSlotID: brief.nextSlot?.id,
+                now: store.now,
+                calendar: store.calendar,
+                title: { store.item($0)?.book.title },
+                onEdit: { router.showReadingTimes = true },
+                onStart: { start(bookID: $0) }
+            )
+        case .forecast:
+            if let sentence = brief.forecastSentence {
+                ForecastCard(sentence: sentence) { router.tab = .plan }
+            }
+        case .week:
+            WeekCard(days: brief.week, goalMinutes: brief.goalMinutes, streak: brief.streak, cupMinutes: brief.cupMinutes)
+        case .year:
+            if let pacing = brief.yearGoal {
+                YearGoalCard(pacing: pacing, forecastSentence: yearForecastSentence)
+            }
+        case .pick:
+            if let pick = brief.picks.first {
+                PickCard(
+                    pick: pick,
+                    wpm: store.wpm,
+                    onKeep: {
+                        Haptics.shared.success()
+                        Motion.animate(Motion.paper) { store.add(pick.book, to: .toRead) }
+                    },
+                    onPass: {
+                        Haptics.shared.soft(0.4)
+                        Motion.animate(Motion.paper) { store.dismiss(pick.book.id) }
+                    },
+                    onOpen: { router.open(pick.book) }
+                )
+            }
+        case .challenges:
+            VStack(spacing: Space.m) {
+                ForEach(brief.challenges, id: \.challengeID) { progress in
+                    ChallengeCard(progress: progress)
+                }
+            }
+        case .quote:
+            if let quote = brief.quote {
+                QuoteCard(entry: quote)
             }
         }
+    }
+
+    /// Today's reading times that have nothing planned in them (the plan is done, or nothing is open).
+    private func quietSlots(_ brief: TodayBrief) -> [ReadingSlot] {
+        guard store.isReadingDay else { return [] }
+        let planned = Set(brief.slots.map(\.slot.id))
+        let weekday = store.calendar.component(.weekday, from: store.now)
+        return store.preferences.effectiveReadingSlots
+            .filter { $0.isEnabled && $0.applies(onWeekday: weekday) && !planned.contains($0.id) }
+            .sorted { $0.minuteOfDay < $1.minuteOfDay }
+    }
+
+    private var yearForecastSentence: String? {
+        guard let year = forecast.result?.year else { return nil }
+        return ForecastNarrator(now: store.now, calendar: store.calendar).yearSentence(year)
+    }
+
+    private func nudgeActions(_ nudge: TodayNudge) -> [NudgeCard.Action] {
+        switch nudge.kind {
+        case .confirmPosition(let bookID):
+            return [NudgeCard.Action(title: "Set my page") { router.askPosition(for: bookID) }]
+        case .stalledBook(let bookID, _):
+            return [
+                NudgeCard.Action(title: "Pick it up") { start(bookID: bookID) },
+                NudgeCard.Action(title: "Set it aside", isQuiet: true) {
+                    Motion.animate(Motion.paper) { store.pause(bookID) }
+                },
+            ]
+        case .pausedBookWaiting(let bookID, _):
+            return [NudgeCard.Action(title: "Pick it back up") {
+                Motion.animate(Motion.paper) { store.startReading(bookID) }
+            }]
+        case .challengeEnding:
+            return []
+        case .yearGoalBehind:
+            return [NudgeCard.Action(title: "Find a short book") { router.tab = .search }]
+        }
+    }
+
+    // MARK: Brief
+
+    private func refreshBrief() {
+        var fresh = store.todayBrief(catalog: catalog, forecast: forecast.result)
+        let day = GreetingMemoryStore.dayKey(store.now, calendar: store.calendar)
+        if let pinned, pinned.day == day, pinned.mode == fresh.mode {
+            fresh.greeting = pinned.greeting
+        } else {
+            pinned = PinnedGreeting(day: day, mode: fresh.mode, greeting: fresh.greeting)
+            store.markGreetingShown(fresh)
+        }
+        if brief == nil {
+            brief = fresh
+        } else {
+            withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
+                brief = fresh
+            }
+        }
+    }
+
+    /// Screenshot runs can ask for a card (`-LeafScroll week`).
+    private func stageScroll(_ proxy: ScrollViewProxy) async {
+        guard brief != nil, !didStageScroll, let target = LaunchOptions.current.scroll, let kind = CardKind(rawValue: target) else { return }
+        didStageScroll = true
+        try? await Task.sleep(for: .milliseconds(700))
+        proxy.scrollTo(kind, anchor: .top)
     }
 }
 
 // MARK: - Previews
 
 @MainActor
-private func todayPreviewStore(_ configure: (LibraryStore) -> Void = { _ in }) -> LibraryStore {
+private func todayPreviewStore(_ scenario: DemoData.Scenario = .standard) -> LibraryStore {
     let store = LibraryStore(persistence: .ephemeral())
-    store.replaceAll(with: DemoData.make())
-    configure(store)
+    store.replaceAll(with: DemoData.make(scenario: scenario))
     return store
 }
 
@@ -331,44 +501,24 @@ private struct TodayPreviewHost: View {
         .environment(BookCatalog.shared)
 }
 
-#Preview("Today · goal met") {
+#Preview("Today · goal met, dark") {
     TodayPreviewHost()
-        .environment(todayPreviewStore { store in
-            let session = ReadingSession(
-                bookID: DemoData.hobbit.id,
-                startedAt: Date().addingTimeInterval(-60),
-                seconds: 14 * 60,
-                fromPage: 142,
-                toPage: 158
-            )
-            store.log(session)
-        })
+        .environment(todayPreviewStore(.goalMet))
+        .environment(AppRouter())
+        .environment(BookCatalog.shared)
+        .preferredColorScheme(.dark)
+}
+
+#Preview("Today · between books") {
+    TodayPreviewHost()
+        .environment(todayPreviewStore(.between))
         .environment(AppRouter())
         .environment(BookCatalog.shared)
 }
 
-#Preview("Today · side by side") {
+#Preview("Today · brand new") {
     TodayPreviewHost()
-        .environment(todayPreviewStore { store in
-            store.updatePreferences { $0.planMode = .sideBySide }
-        })
-        .environment(AppRouter())
-        .environment(BookCatalog.shared)
-}
-
-#Preview("Today · rest day") {
-    TodayPreviewHost()
-        .environment(todayPreviewStore { store in
-            let weekday = Calendar.current.component(.weekday, from: Date())
-            store.updatePreferences { $0.readingDays.remove(weekday) }
-        })
-        .environment(AppRouter())
-        .environment(BookCatalog.shared)
-}
-
-#Preview("Today · empty") {
-    TodayPreviewHost()
-        .environment(LibraryStore(persistence: .ephemeral()))
+        .environment(todayPreviewStore(.brandNew))
         .environment(AppRouter())
         .environment(BookCatalog.shared)
 }

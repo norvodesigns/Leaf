@@ -10,6 +10,23 @@ struct BookRoute: Hashable {
     let book: Book
 }
 
+/// "Where are you?" for one book, and what happens once it's answered.
+struct PositionRequest: Identifiable, Hashable {
+    enum Then: Hashable {
+        /// Just record the answer.
+        case save
+        /// Begin reading from the answer, zooming from `source`, with the tea and cup-length goal if there is one.
+        case startSession(source: String, teaID: String?, goalSeconds: Double?)
+    }
+
+    let bookID: String
+    var then: Then = .save
+    /// The answer the sheet opens on (screenshots); nil lets the sheet choose from the book's state.
+    var opensOn: PositionChoice?
+
+    var id: String { bookID }
+}
+
 /// App-wide navigation state.
 @MainActor
 @Observable
@@ -33,11 +50,24 @@ final class AppRouter {
     var searchQuery: String?
     /// Which control the session zooms out of ("hero" on Today, or "accessory").
     var sessionSource = "hero"
+    /// The "Where are you?" sheet, for whichever book asked.
+    var positionRequest: PositionRequest?
+    /// The reading-times editor as a sheet (from Today).
+    var showReadingTimes = false
+    /// A reading time to open straight into when the editor appears (screenshots).
+    var readingSlotToEdit: UUID?
+    /// The swipe deck as a full sheet (from Search and Today).
+    var showDeck = false
 
     /// Opens the full-screen session, zooming from `source`.
     func presentSession(from source: String) {
         sessionSource = source
         showSession = true
+    }
+
+    /// Asks "Where are you?" for a book.
+    func askPosition(for bookID: String, then: PositionRequest.Then = .save) {
+        positionRequest = PositionRequest(bookID: bookID, then: then)
     }
 
     func open(_ book: Book) {

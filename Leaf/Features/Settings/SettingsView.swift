@@ -12,9 +12,6 @@ struct SettingsView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
-    /// The reader tried to turn reminders on and iOS said no.
-    @State private var reminderBlocked = false
     @State private var confirmsErase = false
     @State private var watch = WatchStatus.current()
 
@@ -23,7 +20,7 @@ struct SettingsView: View {
             Form {
                 paceSection
                 scheduleSection
-                remindersSection
+                ReadingTimesSection()
                 feelSection
                 appearanceSection
                 if watch.isSupported {
@@ -58,16 +55,12 @@ struct SettingsView: View {
             }
         }
         .presentationBackground(Color.paper)
-        .task {
-            await refreshNotificationStatus()
-        }
         .onAppear {
             watch = WatchStatus.current()
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 watch = WatchStatus.current()
-                Task { await refreshNotificationStatus() }
             }
         }
     }
@@ -172,107 +165,6 @@ struct SettingsView: View {
         case 1: return "1 day"
         default: return "\(count) days"
         }
-    }
-
-    // MARK: Reminders
-
-    private var remindersSection: some View {
-        Section {
-            Toggle(isOn: reminderToggle) {
-                Text("Daily reminder")
-                    .leafStyle(.uiBody)
-            }
-            if store.preferences.reminderEnabled {
-                DatePicker(selection: reminderTime, displayedComponents: .hourAndMinute) {
-                    Text("Time")
-                        .leafStyle(.uiBody)
-                }
-            }
-            if showsDeniedNote {
-                VStack(alignment: .leading, spacing: Space.xs) {
-                    Text("Notifications are turned off for Leaf in iOS Settings, so there’s nothing to remind you with.")
-                        .leafStyle(.caption)
-                        .fixedSize(horizontal: false, vertical: true)
-                    TextButton("Open Settings") {
-                        openSystemSettings()
-                    }
-                }
-            }
-        } header: {
-            header("Reminders")
-        } footer: {
-            Text("Each reminder names that day’s book and pages. Leaf skips today’s once you’ve read.")
-                .leafStyle(.caption)
-        }
-        .settingsRows()
-    }
-
-    private var showsDeniedNote: Bool {
-        notificationStatus == .denied && (store.preferences.reminderEnabled || reminderBlocked)
-    }
-
-    private var reminderToggle: Binding<Bool> {
-        Binding(
-            get: { store.preferences.reminderEnabled },
-            set: { newValue in
-                if newValue {
-                    Task { await enableReminders() }
-                } else {
-                    withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
-                        reminderBlocked = false
-                        store.updatePreferences { $0.reminderEnabled = false }
-                    }
-                }
-            }
-        )
-    }
-
-    private var reminderTime: Binding<Date> {
-        Binding(
-            get: {
-                let calendar = Calendar.current
-                let components = DateComponents(hour: store.preferences.reminderHour, minute: store.preferences.reminderMinute)
-                return calendar.date(from: components) ?? Date()
-            },
-            set: { date in
-                let parts = Calendar.current.dateComponents([.hour, .minute], from: date)
-                store.updatePreferences {
-                    $0.reminderHour = parts.hour ?? $0.reminderHour
-                    $0.reminderMinute = parts.minute ?? $0.reminderMinute
-                }
-            }
-        )
-    }
-
-    /// Asks for permission the first time, and only switches reminders on once iOS has said yes.
-    private func enableReminders() async {
-        var status = await Reminders.shared.authorizationStatus()
-        if status == .notDetermined {
-            _ = await Reminders.shared.requestAuthorization()
-            status = await Reminders.shared.authorizationStatus()
-        }
-        notificationStatus = status
-        switch status {
-        case .authorized, .provisional, .ephemeral:
-            reminderBlocked = false
-            withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
-                store.updatePreferences { $0.reminderEnabled = true }
-            }
-        default:
-            withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
-                reminderBlocked = true
-            }
-        }
-    }
-
-    private func refreshNotificationStatus() async {
-        notificationStatus = await Reminders.shared.authorizationStatus()
-        if notificationStatus != .denied { reminderBlocked = false }
-    }
-
-    private func openSystemSettings() {
-        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
-        openURL(url)
     }
 
     // MARK: Feel and appearance

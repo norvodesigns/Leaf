@@ -46,8 +46,31 @@ for appearance in light dark; do
     shot 17-settings 4 -LeafDemo YES -LeafScreen settings
     shot 18-finished 5 -LeafDemo YES -LeafScreen library.finished
     shot 19-outcome 5 -LeafDemo YES -LeafScreen session.outcome
+    # Today, one state per shot (DemoData.Scenario + a staged clock).
+    shot 20-today-morning 6 -LeafDemo YES -LeafScreen today -LeafTime 07:40
+    shot 22-today-rest 6 -LeafDemo YES -LeafScreen today -LeafScenario rest -LeafTime 10:15
+    shot 23-today-goalmet 6 -LeafDemo YES -LeafScreen today -LeafScenario goalmet -LeafTime 21:10
+    shot 25-today-new 7 -LeafDemo YES -LeafScreen today -LeafScenario new -LeafTime 18:00
+    shot 26-today-returning 6 -LeafDemo YES -LeafScreen today -LeafScenario returning -LeafTime 17:20
+    shot 27-today-finishing 6 -LeafDemo YES -LeafScreen today -LeafScenario finishing -LeafTime 20:45
+    shot 28-today-steep 6 -LeafDemo YES -LeafScreen today.steep
+    shot 29-today-newbook 6 -LeafDemo YES -LeafScreen today -LeafScenario newbook -LeafTime 20:00
+    shot 31-today-week 7 -LeafDemo YES -LeafScreen today -LeafTime 20:30 -LeafScroll week
+    shot 32-today-pick 7 -LeafDemo YES -LeafScreen today -LeafTime 20:30 -LeafScroll pick
+    shot 33-today-sidebyside 6 -LeafDemo YES -LeafScreen today -LeafScenario sidebyside -LeafTime 07:10
+    shot 35-position-page 5 -LeafDemo YES -LeafScreen position.page
+    shot 36-position-percent 5 -LeafDemo YES -LeafScreen position.percent
+    shot 37-position-read 5 -LeafDemo YES -LeafScreen position.read
+    shot 39-readingtimes-edit 5 -LeafDemo YES -LeafScreen readingtimes.edit
+    shot 41-onboarding-deck 8 -LeafScreen onboarding.deck
   fi
-  shot "10-today$suffix" 5 -LeafDemo YES -LeafScreen today
+  shot "10-today$suffix" 5 -LeafDemo YES -LeafScreen today -LeafTime 20:30
+  shot "21-today-late$suffix" 6 -LeafDemo YES -LeafScreen today -LeafTime 23:30
+  shot "24-today-between$suffix" 8 -LeafDemo YES -LeafScreen today -LeafScenario between -LeafTime 19:30
+  shot "30-today-times$suffix" 7 -LeafDemo YES -LeafScreen today -LeafTime 20:30 -LeafScroll leftoff
+  shot "34-position$suffix" 5 -LeafDemo YES -LeafScreen position -LeafScenario newbook
+  shot "38-readingtimes$suffix" 5 -LeafDemo YES -LeafScreen readingtimes
+  shot "40-deck$suffix" 8 -LeafDemo YES -LeafScreen deck
   shot "11-library$suffix" 5 -LeafDemo YES -LeafScreen library
   shot "12-plan$suffix" 5 -LeafDemo YES -LeafScreen plan
   shot "15-book$suffix" 5 -LeafDemo YES -LeafScreen book:OL27482W

@@ -18,6 +18,82 @@ enum DemoData {
     static let dune = book("OL893415W", "Dune", "Frank Herbert", 1965, pages: 612, words: 187_000, cover: 12360023, genres: ["science-fiction", "classics"])
     static let nightCircus = book("OL16086747W", "The Night Circus", "Erin Morgenstern", 2011, pages: 512, words: 138_240, cover: 8773134, genres: ["fantasy"])
 
+    /// Variants of the demo library, one per Today state worth a screenshot (`-LeafScenario <name>`).
+    enum Scenario: String, CaseIterable {
+        /// The lived-in library: two books open, a short session this morning.
+        case standard
+        /// Today's minutes are already read.
+        case goalMet = "goalmet"
+        /// Today isn't a reading day.
+        case rest
+        /// Nothing in Reading or To read: time to pick.
+        case between
+        /// Onboarded, but no books and no history yet.
+        case brandNew = "new"
+        /// The last session was two weeks ago.
+        case returning
+        /// Fourteen pages from the end of *The Hobbit*: the plan finishes it tonight.
+        case finishing
+        /// *Piranesi* just went on the desk and Leaf doesn't know the page yet.
+        case newBook = "newbook"
+        /// Side by side, with the morning time kept for *Circe*.
+        case sideBySide = "sidebyside"
+    }
+
+    static func make(now: Date = Date(), calendar: Calendar = .current, scenario: Scenario) -> LeafData {
+        var data = make(now: now, calendar: calendar)
+        let day = TimeInterval(86_400)
+        switch scenario {
+        case .standard:
+            break
+        case .goalMet:
+            let start = calendar.date(bySettingHour: 19, minute: 40, second: 0, of: now) ?? now
+            if start < now {
+                data.sessions.append(ReadingSession(bookID: hobbit.id, startedAt: start, seconds: 16 * 60, fromPage: 142, toPage: 156, teaID: "rooibos"))
+                if let index = data.items.firstIndex(where: { $0.id == hobbit.id }) { data.items[index].currentPage = 156 }
+            }
+        case .rest:
+            data.preferences.readingDays.remove(calendar.component(.weekday, from: now))
+        case .between:
+            data.items.removeAll { $0.shelf == .toRead || $0.id == circe.id }
+            if let index = data.items.firstIndex(where: { $0.id == hobbit.id }) {
+                data.items[index].shelf = .finished
+                data.items[index].currentPage = hobbit.pages
+                data.items[index].finishedAt = now.addingTimeInterval(-day)
+                data.items[index].rating = 5
+            }
+            data.journal.removeAll { $0.bookID == circe.id }
+        case .brandNew:
+            var fresh = LeafData()
+            fresh.preferences.wpm = 262
+            fresh.preferences.dailyMinutes = 25
+            fresh.preferences.hasOnboarded = true
+            fresh.preferences.onboardedAt = now
+            return fresh
+        case .returning:
+            let today = calendar.startOfDay(for: now)
+            data.sessions = data.sessions
+                .filter { $0.startedAt < today }
+                .map { session in
+                    var moved = session
+                    moved.startedAt = session.startedAt.addingTimeInterval(-14 * day)
+                    return moved
+                }
+            if let index = data.items.firstIndex(where: { $0.id == hobbit.id }) { data.items[index].currentPage = 133 }
+        case .finishing:
+            let today = calendar.startOfDay(for: now)
+            data.sessions.removeAll { $0.startedAt >= today }
+            if let index = data.items.firstIndex(where: { $0.id == hobbit.id }) { data.items[index].currentPage = 296 }
+        case .newBook:
+            data.items.removeAll { $0.id == piranesi.id }
+            data.items.append(LibraryItem(book: piranesi, shelf: .reading, order: -1, addedAt: now.addingTimeInterval(-3600)))
+        case .sideBySide:
+            data.preferences.planMode = .sideBySide
+            if !data.preferences.readingSlots.isEmpty { data.preferences.readingSlots[0].bookID = circe.id }
+        }
+        return data
+    }
+
     static func make(now: Date = Date(), calendar: Calendar = .current) -> LeafData {
         func daysAgo(_ days: Int, hour: Int = 21) -> Date {
             let day = calendar.date(byAdding: .day, value: -days, to: calendar.startOfDay(for: now)) ?? now
@@ -36,6 +112,10 @@ enum DemoData {
         data.preferences.favoriteTeaID = "earl-grey"
         data.preferences.ambienceID = "rain"
         data.preferences.weeklyLetter = true
+        data.preferences.readingSlots = [
+            ReadingSlot(hour: 7, minute: 30, weekdays: [2, 3, 4, 5, 6], label: "Morning tea"),
+            ReadingSlot(hour: 21, minute: 0, label: "Before bed"),
+        ]
 
         data.items = [
             LibraryItem(book: hobbit, shelf: .reading, currentPage: 142, order: 0, addedAt: daysAgo(30), startedAt: daysAgo(12)),
@@ -61,7 +141,11 @@ enum DemoData {
             data.sessions.append(ReadingSession(bookID: hobbit.id, startedAt: daysAgo(days), seconds: length * 60, fromPage: page, toPage: page + pages, teaID: tea, ambienceID: tea == nil ? nil : "rain"))
             page += pages
         }
-        data.sessions.append(ReadingSession(bookID: hobbit.id, startedAt: daysAgo(0, hour: 8), seconds: 12 * 60, fromPage: 133, toPage: 142))
+        // This morning's short session, once the morning has happened (screenshots can stage an earlier hour).
+        let thisMorning = daysAgo(0, hour: 8)
+        if thisMorning.addingTimeInterval(12 * 60) <= now {
+            data.sessions.append(ReadingSession(bookID: hobbit.id, startedAt: thisMorning, seconds: 12 * 60, fromPage: 133, toPage: 142))
+        }
         data.journal = [
             JournalEntry(bookID: hobbit.id, bookTitle: hobbit.title, bookAuthor: hobbit.author, kind: .thought, text: "Bilbo is exactly as stubborn about comfort as I am about tea.", page: 61, isFavorite: true, createdAt: daysAgo(6)),
             JournalEntry(bookID: circe.id, bookTitle: circe.title, bookAuthor: circe.author, kind: .quote, text: "I thought: this is what it is to be alive.", page: 74, createdAt: daysAgo(9)),

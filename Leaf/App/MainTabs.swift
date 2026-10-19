@@ -65,6 +65,17 @@ struct MainTabs: View {
         .sheet(item: $router.lastOutcome) { outcome in
             SessionOutcomeView(outcome: outcome)
         }
+        .sheet(item: $router.positionRequest) { request in
+            if let item = store.item(request.bookID) {
+                WhereAreYouSheet(request: request, item: item, now: store.now)
+            }
+        }
+        .sheet(isPresented: $router.showReadingTimes) {
+            ReadingTimesSheet()
+        }
+        .sheet(isPresented: $router.showDeck) {
+            SwipeDeckScreen()
+        }
         .sheet(isPresented: $router.showSettings) {
             SettingsView()
                 .fullScreenCover(isPresented: speedTestOverSettings) {
