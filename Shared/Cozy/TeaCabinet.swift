@@ -293,6 +293,20 @@ enum TeaShelf {
         return teas
     }
 
+    /// Whether the reader can make this tea at all: a tea of theirs that hasn't run out, or (while they keep no teas
+    /// in stock) any of Leaf's.
+    static func isAvailable(_ id: String, cabinet: [CabinetTea]) -> Bool {
+        if let own = tin(id: id, cabinet: cabinet) { return !own.isOutOf }
+        return inStock(cabinet).isEmpty && TeaCatalog.tea(id: id) != nil
+    }
+
+    /// The tea with this id if it can be offered now: available, and within the hour's caffeine rule. Used for the
+    /// reader's own choices (a pinned pairing, a tea picked on Today), which are judged by the rule, not by rank.
+    static func offerable(_ id: String?, cabinet: [CabinetTea], daypart: Daypart) -> Tea? {
+        guard let id, isAvailable(id, cabinet: cabinet), let tea = tea(id: id, cabinet: cabinet) else { return nil }
+        return tea.caffeine <= TeaSuggester.caffeineCap(for: daypart) ? tea : nil
+    }
+
     /// What the ritual offers, best first, and whether it came from the reader's own cabinet.
     struct Choices: Hashable, Sendable {
         var teas: [Tea]
@@ -303,7 +317,8 @@ enum TeaShelf {
     }
 
     /// The ritual's teas: what the reader has, ranked for the hour (caffeine rules included); the catalog when the
-    /// cabinet has nothing in stock or nothing that suits the hour.
+    /// cabinet has nothing in stock or nothing that suits the hour. A book's pinned tea leads whenever it can be
+    /// offered, however it ranks.
     static func ritualChoices(
         cabinet: [CabinetTea],
         daypart: Daypart,
@@ -311,7 +326,29 @@ enum TeaShelf {
         favoriteTeaID: String? = nil,
         lastTeaID: String? = nil,
         seed: UInt64 = 0,
-        limit: Int = 8
+        limit: Int = 8,
+        pinnedTeaID: String? = nil
+    ) -> Choices {
+        var choices = rankedChoices(
+            cabinet: cabinet, daypart: daypart, season: season, favoriteTeaID: favoriteTeaID, lastTeaID: lastTeaID,
+            seed: seed, limit: limit
+        )
+        if let pinned = offerable(pinnedTeaID, cabinet: cabinet, daypart: daypart) {
+            choices.teas.removeAll { $0.id == pinned.id }
+            choices.teas.insert(pinned, at: 0)
+            if choices.teas.count > max(1, limit) { choices.teas.removeLast(choices.teas.count - max(1, limit)) }
+        }
+        return choices
+    }
+
+    private static func rankedChoices(
+        cabinet: [CabinetTea],
+        daypart: Daypart,
+        season: Season,
+        favoriteTeaID: String?,
+        lastTeaID: String?,
+        seed: UInt64,
+        limit: Int
     ) -> Choices {
         let stock = inStock(cabinet)
         if !stock.isEmpty {

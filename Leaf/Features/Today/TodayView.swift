@@ -200,15 +200,16 @@ struct TodayView: View {
     /// The reader's pick, else the book's pinned pairing when it suits the hour, else the cabinet's best for the
     /// hour, else today's tea.
     private func chosenTea(_ brief: TodayBrief) -> Tea {
-        if let id = chosenTeaID, let tea = store.tea(id: id) { return tea }
+        // A pick made earlier stands only while it can still be made (not run out, not too strong for the hour).
+        if let tea = store.offerableTea(chosenTeaID) { return tea }
+        if let tea = store.offerableTea(brief.current?.item.pairedTeaID) { return tea }
         let offer = store.teaChoices(limit: 6)
-        if let pinned = brief.current?.item.pairedTeaID, let tea = offer.teas.first(where: { $0.id == pinned }) { return tea }
         if offer.fromCabinet, let first = offer.teas.first { return first }
         return brief.tea
     }
 
     private func teaChoices(_ brief: TodayBrief) -> [Tea] {
-        var teas = store.teaChoices(limit: 6).teas
+        var teas = store.teaChoices(limit: 6, for: brief.current?.item.id).teas
         let chosen = chosenTea(brief)
         if !teas.contains(where: { $0.id == chosen.id }) { teas.insert(chosen, at: 0) }
         return teas
@@ -395,7 +396,7 @@ struct TodayView: View {
                     onSteep: {
                         // The week's tea when it suits the hour; otherwise the ritual opens on the book's best
                         // pairing among the teas it can offer now (no strong black tea at midnight).
-                        let suits = store.teaChoices().teas.contains { $0.id == pick.tea.id }
+                        let suits = store.offerableTea(pick.tea.id) != nil
                         _ = ReadingSessionLauncher.beginRitual(
                             bookID: pick.bookID, teaID: suits ? pick.tea.id : nil, store: store, router: router,
                             from: ReadingSessionLauncher.heroSource

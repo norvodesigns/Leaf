@@ -6,6 +6,12 @@ struct TeaHistoryView: View {
     @Environment(LibraryStore.self) private var store
     @Environment(AppRouter.self) private var router
 
+    @State private var showsAllBooks = false
+    @State private var showsAllNotes = false
+
+    private static let collapsedBooks = 12
+    private static let collapsedNotes = 30
+
     private var history: TeaHistory { TeaHistory.build(data: store.data) }
 
     var body: some View {
@@ -43,7 +49,7 @@ struct TeaHistoryView: View {
         VStack(alignment: .leading, spacing: Space.m) {
             Text("Nothing steeped yet")
                 .leafStyle(.title)
-            Text("Pour a pot before you read and Leaf keeps the history here: the teas you read with most, the books they went with, and a few words about each cup if you want to write them.")
+            Text("Pour a pot before you read and Leaf keeps the history here: the teas you read with most, the books they went with, and how each cup came out, whenever you note it after reading.")
                 .leafStyle(.body, color: .inkSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -132,7 +138,7 @@ struct TeaHistoryView: View {
     private func books(_ lines: [TeaHistory.BookLine]) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             SectionHeader("Teas per book", topSpacing: 0)
-            ForEach(lines.prefix(12)) { line in
+            ForEach(showsAllBooks ? lines : Array(lines.prefix(Self.collapsedBooks))) { line in
                 VStack(alignment: .leading, spacing: Space.xs) {
                     Text(line.title)
                         .leafStyle(.headline)
@@ -146,6 +152,12 @@ struct TeaHistoryView: View {
                 .padding(.vertical, Space.s)
                 .accessibilityElement(children: .combine)
             }
+            if !showsAllBooks && lines.count > Self.collapsedBooks {
+                TextButton("Show all \(lines.count) books", style: .caption, color: .accent) {
+                    Haptics.shared.tap()
+                    showsAllBooks = true
+                }
+            }
         }
     }
 
@@ -154,7 +166,7 @@ struct TeaHistoryView: View {
     private func tastings(_ notes: [TastingNote]) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             SectionHeader("Tasting notes", topSpacing: 0)
-            ForEach(notes.prefix(30)) { note in
+            ForEach(showsAllNotes ? notes : Array(notes.prefix(Self.collapsedNotes))) { note in
                 VStack(alignment: .leading, spacing: Space.xxs) {
                     HStack(alignment: .firstTextBaseline, spacing: Space.s) {
                         Text(note.teaName.isEmpty ? "A tea" : note.teaName)
@@ -190,6 +202,15 @@ struct TeaHistoryView: View {
                     }
                 }
                 .accessibilityElement(children: .combine)
+                .accessibilityAction(named: "Delete note") {
+                    store.deleteTasting(note.id)
+                }
+            }
+            if !showsAllNotes && notes.count > Self.collapsedNotes {
+                TextButton("Show all \(notes.count) notes", style: .caption, color: .accent) {
+                    Haptics.shared.tap()
+                    showsAllNotes = true
+                }
             }
         }
     }

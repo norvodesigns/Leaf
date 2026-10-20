@@ -75,6 +75,15 @@ struct TeaPairingTests {
         #expect(picks.allSatisfy { $0.tea.family == .green || $0.tea.family == .white })
     }
 
+    @Test func anOldBookPairsWithAnOldFashionedBlackTea() throws {
+        let best = try #require(TeaPairing.best(for: teaBook("old", pages: 300, year: 1850)))
+        #expect(best.tea.family == .black)
+        #expect(best.reason.contains("old book"))
+        // The era rule only speaks for books written before 1900.
+        let modern = try #require(TeaPairing.best(for: teaBook("new", pages: 300, year: 1950)))
+        #expect(!modern.reason.contains("old book"))
+    }
+
     @Test func aBookNoRuleKnowsStillGetsAPairing() throws {
         let book = teaBook("plain")
         let picks = TeaPairing.picks(for: book, limit: 3)
@@ -261,6 +270,35 @@ struct TeaCabinetTests {
         }
     }
 
+    /// A pinned tea leads the ritual whenever the hour allows it, however low it ranks.
+    @Test func aPinnedTeaLeadsTheRitualWhenTheHourAllowsIt() {
+        // Hibiscus has no morning and no autumn in the catalog, so it never ranks into the first eight then.
+        let morning = TeaShelf.ritualChoices(cabinet: [], daypart: .morning, season: .autumn, limit: 8, pinnedTeaID: "hibiscus")
+        #expect(morning.teas.first?.id == "hibiscus")
+        #expect(morning.teas.count == 8)
+        #expect(TeaShelf.ritualChoices(cabinet: [], daypart: .morning, season: .autumn, limit: 8).teas.contains { $0.id == "hibiscus" } == false)
+        // Too strong for the hour: left out.
+        let late = TeaShelf.ritualChoices(cabinet: [], daypart: .late, season: .autumn, pinnedTeaID: "english-breakfast")
+        #expect(!late.teas.contains { $0.id == "english-breakfast" })
+    }
+
+    @Test func aPinnedTeaTheReaderDoesNotHaveIsNotOffered() {
+        let sencha = CabinetTea(id: teaUUID(1), catalogID: "sencha", name: "Sencha", family: .green, steepSeconds: 90)
+        var earl = CabinetTea(id: teaUUID(2), catalogID: "earl-grey", name: "Earl Grey", family: .black, steepSeconds: 200)
+        earl.isOutOf = true
+        // Not in the cabinet, while the cabinet has teas in stock.
+        #expect(TeaShelf.offerable("hojicha", cabinet: [sencha], daypart: .morning) == nil)
+        // Run out.
+        #expect(TeaShelf.offerable("earl-grey", cabinet: [sencha, earl], daypart: .morning) == nil)
+        #expect(TeaShelf.offerable("sencha", cabinet: [sencha, earl], daypart: .morning)?.steepSeconds == 90)
+        // No cabinet in use: any of Leaf's teas the hour allows.
+        #expect(TeaShelf.offerable("hojicha", cabinet: [], daypart: .morning) != nil)
+        #expect(TeaShelf.offerable("matcha", cabinet: [], daypart: .late) == nil)
+        #expect(TeaShelf.offerable(nil, cabinet: [], daypart: .morning) == nil)
+        let choices = TeaShelf.ritualChoices(cabinet: [sencha, earl], daypart: .morning, season: .autumn, pinnedTeaID: "earl-grey")
+        #expect(choices.teas.map(\.id) == ["sencha"])
+    }
+
     @Test func ratingsStayBetweenOneAndFive() {
         #expect(CabinetTea(name: "A", family: .green, steepSeconds: 60, rating: 9).rating == 5)
         #expect(CabinetTea(name: "A", family: .green, steepSeconds: 60, rating: 0).rating == 1)
@@ -400,8 +438,13 @@ struct TeaHistoryTests {
         #expect(pinned.isPinned)
         #expect(pinned.line.hasPrefix("Next up"))
 
-        data.items[0].pairedTeaID = nil
+        // Pinned, but the cabinet holds only Earl Grey: the week's tea is one the reader has.
         data.cabinet = [CabinetTea(id: teaUUID(4), catalogID: "earl-grey", name: "Earl Grey", family: .black, steepSeconds: 200)]
+        let notOwned = try #require(TeaOfTheWeek.pick(data: data, forecast: nil, now: teaNow, calendar: teaCalendar))
+        #expect(notOwned.tea.id == "earl-grey")
+        #expect(!notOwned.isPinned)
+
+        data.items[0].pairedTeaID = nil
         let fromCabinet = try #require(TeaOfTheWeek.pick(data: data, forecast: nil, now: teaNow, calendar: teaCalendar))
         #expect(fromCabinet.tea.id == "earl-grey")
         #expect(fromCabinet.tea.steepSeconds == 200)
@@ -445,6 +488,28 @@ struct TastingNotebookTests {
         #expect(ChallengeCatalog.all.contains { $0.id == challenge.id })
         #expect(challenge.stamps.contains { $0.unlock == .completion })
         #expect(challenge.rule == .tastingNotes)
+    }
+}
+
+// MARK: - Tea Tasting with the reader's own teas
+
+struct TeaTastingChallengeTests {
+    @Test func aTeaOfYourOwnCountsAndAMadeUpOneDoesNot() {
+        let own = CabinetTea(id: teaUUID(9), name: "Autumn spice", family: .chai, steepSeconds: 300)
+        var data = LeafData()
+        data.cabinet = [own]
+        data.sessions = [
+            teaSession("a", day: 2, minutes: 20, tea: "sencha"),
+            teaSession("a", day: 3, minutes: 20, tea: own.teaID),
+            teaSession("a", day: 4, minutes: 20, tea: "custom.not-a-uuid"),
+            teaSession("a", day: 5, minutes: 20, tea: "not-a-tea"),
+        ]
+        let enrollment = ChallengeEnrollment(id: "tea-tasting", joinedAt: teaDate(10, 1), year: nil)
+        let progress = ChallengeEvaluator.progress(for: enrollment, data: data, now: teaNow, calendar: teaCalendar)
+        #expect(progress.completedTaskIDs == ["tea-1", "tea-2"])
+        #expect(progress.tasks.first { $0.id == "tea-2" }?.evidence == own.teaID)
+        #expect(ChallengeEvaluator.isRealTea(own.teaID))
+        #expect(!ChallengeEvaluator.isRealTea("custom.not-a-uuid"))
     }
 }
 

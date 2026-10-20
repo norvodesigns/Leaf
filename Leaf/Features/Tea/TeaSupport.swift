@@ -8,16 +8,23 @@ enum TeaPage: String, Identifiable, Hashable {
 }
 
 extension LibraryStore {
-    /// What the ritual and the nook offer now: the cabinet's teas in stock, ranked for the hour, or the catalog's.
-    func teaChoices(limit: Int = 8) -> TeaShelf.Choices {
+    /// What the ritual and the nook offer now: the cabinet's teas in stock, ranked for the hour, or the catalog's,
+    /// with the book's pinned tea first whenever the hour and the cabinet allow it.
+    func teaChoices(limit: Int = 8, for bookID: String? = nil) -> TeaShelf.Choices {
         TeaShelf.ritualChoices(
             cabinet: data.cabinet,
             daypart: Daypart.of(now, calendar: calendar),
             season: Season.of(now, calendar: calendar),
             favoriteTeaID: preferences.favoriteTeaID,
             seed: SeededGenerator.daySeed(now, calendar: calendar),
-            limit: limit
+            limit: limit,
+            pinnedTeaID: bookID.flatMap { item($0)?.pairedTeaID }
         )
+    }
+
+    /// A tea the reader picked (or pinned), if it can still be offered at this hour from what they have.
+    func offerableTea(_ id: String?) -> Tea? {
+        TeaShelf.offerable(id, cabinet: data.cabinet, daypart: Daypart.of(now, calendar: calendar))
     }
 
     /// Every tea a book can pair with: the catalog (the reader's tins in place of the catalog's own) and their own
@@ -136,7 +143,7 @@ struct TeaFlowLayout: Layout {
         for row in arrange(subviews, width: bounds.width) {
             var x = bounds.minX
             for index in row.indices {
-                let size = subviews[index].sizeThatFits(.unspecified)
+                let size = measure(subviews[index], width: bounds.width)
                 subviews[index].place(at: CGPoint(x: x, y: y + (row.height - size.height) / 2), proposal: ProposedViewSize(size))
                 x += size.width + spacing
             }
@@ -150,11 +157,18 @@ struct TeaFlowLayout: Layout {
         var height: CGFloat = 0
     }
 
+    /// A child's natural size, never wider than the row.
+    private func measure(_ subview: LayoutSubview, width: CGFloat) -> CGSize {
+        let natural = subview.sizeThatFits(.unspecified)
+        guard natural.width > width, width.isFinite else { return natural }
+        return subview.sizeThatFits(ProposedViewSize(width: width, height: nil))
+    }
+
     private func arrange(_ subviews: Subviews, width: CGFloat) -> [Row] {
         var rows: [Row] = []
         var current = Row()
         for index in subviews.indices {
-            let size = subviews[index].sizeThatFits(.unspecified)
+            let size = measure(subviews[index], width: width)
             let needed = current.indices.isEmpty ? size.width : current.width + spacing + size.width
             if needed > width, !current.indices.isEmpty {
                 rows.append(current)

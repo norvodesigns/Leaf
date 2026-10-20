@@ -6,6 +6,8 @@ struct TeaCabinetView: View {
     @Environment(LibraryStore.self) private var store
     @Environment(AppRouter.self) private var router
 
+    @Environment(\.dynamicTypeSize) private var typeSize
+
     @State private var editing: CabinetTea?
     @State private var addsOwn = false
     @State private var browsesCatalog = false
@@ -129,9 +131,12 @@ struct TeaCabinetView: View {
                         .leafStyle(.uiBody, color: cabinetTea.isOutOf ? .inkSecondary : nil)
                     Text(rowDetail(cabinetTea))
                         .leafStyle(.caption)
+                    if typeSize.isAccessibilitySize, let rating = cabinetTea.rating {
+                        TeaLeaves(rating: rating)
+                    }
                 }
                 Spacer(minLength: Space.s)
-                if let rating = cabinetTea.rating {
+                if !typeSize.isAccessibilitySize, let rating = cabinetTea.rating {
                     TeaLeaves(rating: rating)
                 }
             }
@@ -175,7 +180,7 @@ struct TeaCabinetView: View {
         switch stage {
         case "add": addsOwn = true
         case "catalog": browsesCatalog = true
-        case "edit": editing = inStock.first ?? outOf.first
+        case "edit": editing = inStock.first { $0.catalogID != nil } ?? inStock.first ?? outOf.first
         default: break
         }
     }
@@ -323,7 +328,7 @@ struct TeaFormView: View {
             .settingsRows()
 
             Section {
-                Stepper(value: steepBinding, in: 30...900, step: 15) {
+                Stepper(value: steepBinding, in: TeaSuggester.minimumSteepSeconds...TeaSuggester.maximumSteepSeconds, step: 15) {
                     SettingsValueRow(title: "Steep", value: SteepText.duration(seconds: steepSeconds))
                 }
                 .accessibilityValue(SteepText.spoken(seconds: steepSeconds))

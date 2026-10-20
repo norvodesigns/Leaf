@@ -401,12 +401,19 @@ enum ChallengeEvaluator {
         return Outcome(states: states, current: done, target: challenge.tasks.count)
     }
 
+    /// A catalog tea, or one of the reader's own ("custom." and the tea's id).
+    static func isRealTea(_ id: String) -> Bool {
+        if TeaCatalog.tea(id: id) != nil { return true }
+        guard id.hasPrefix(CabinetTea.customPrefix) else { return false }
+        return UUID(uuidString: String(id.dropFirst(CabinetTea.customPrefix.count))) != nil
+    }
+
     private static func differentTeas(_ challenge: Challenge, _ history: History) -> Outcome {
         var seen = Set<String>()
         var firsts: [(id: String, at: Date)] = []
         for sitting in history.sittings where sitting.seconds >= ChallengeRules.sittingSeconds {
-            // Only teas the catalog knows count, so a made-up or misspelled id can’t fill the card.
-            guard let id = sitting.teaID, TeaCatalog.tea(id: id) != nil, seen.insert(id).inserted else { continue }
+            // Leaf's teas and the reader's own count; a made-up or misspelled id can’t fill the card.
+            guard let id = sitting.teaID, ChallengeEvaluator.isRealTea(id), seen.insert(id).inserted else { continue }
             firsts.append((id, sitting.start))
         }
         let states = challenge.tasks.map { task -> ChallengeTaskState in

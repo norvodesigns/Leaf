@@ -137,10 +137,11 @@ enum ReadingSessionLauncher {
 
     /// "Start reading" on a reminder: clear anything on screen, then start on Today.
     static func startFromReminder(bookID: String?, store: LibraryStore, router: AppRouter) {
-        let wasPresenting = router.showSettings || router.showSpeedTest || router.lastOutcome != nil
+        let wasPresenting = router.showSettings || router.showSpeedTest || router.lastOutcome != nil || router.teaPage != nil
         router.showSpeedTest = false
         router.showSettings = false
         router.lastOutcome = nil
+        router.teaPage = nil
         router.popToRoot()
         router.tab = .today
         Task { @MainActor in
@@ -153,10 +154,11 @@ enum ReadingSessionLauncher {
     /// Closes the full-screen session (and any sheet in the way), then shows the wrap-up sheet once the
     /// cover has gone, because SwiftUI can't present a sheet while a cover is still leaving.
     static func present(_ outcome: SessionOutcome, router: AppRouter) {
-        let wasPresenting = router.showSession || router.showSettings || router.showSpeedTest
+        let wasPresenting = router.showSession || router.showSettings || router.showSpeedTest || router.teaPage != nil
         router.showSession = false
         router.showSettings = false
         router.showSpeedTest = false
+        router.teaPage = nil
         Task { @MainActor in
             if wasPresenting { try? await Task.sleep(for: .milliseconds(700)) }
             router.lastOutcome = outcome

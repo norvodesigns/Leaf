@@ -43,6 +43,8 @@ struct TeaPairingSection: View {
             if item == nil {
                 Text("Add the book to your shelves to pin a pairing.")
                     .leafStyle(.caption)
+            } else {
+                otherTeas(shown: Set(picks.map(\.tea.id)))
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -78,6 +80,29 @@ struct TeaPairingSection: View {
         }
         .padding(.vertical, Space.xs)
         .accessibilityElement(children: .contain)
+    }
+
+    /// Any other tea, from Leaf's or the reader's own, to pin instead.
+    private func otherTeas(shown: Set<String>) -> some View {
+        let others = store.pairingTeas
+            .filter { !shown.contains($0.id) }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        return Menu {
+            ForEach(others) { tea in
+                Button(tea.name) {
+                    Haptics.shared.selection()
+                    withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
+                        store.setPairedTea(book.id, teaID: tea.id)
+                    }
+                }
+            }
+        } label: {
+            Text("Pin another tea")
+                .leafStyle(.caption, color: .accent)
+                .frame(minHeight: Space.hitTarget)
+                .contentShape(.rect)
+        }
+        .accessibilityHint("Choose any tea as this book’s pairing")
     }
 
     /// "Your pairing · in your cabinet", "Oolong · 4 min"
@@ -117,7 +142,7 @@ struct TastingCard: View {
                 Eyebrow(isSaved ? "Your note on the \(tea.name)" : "How was the \(tea.name)?")
                     .accessibilityAddTraits(.isHeader)
             }
-            HStack(spacing: Space.s) {
+            TeaFlowLayout(spacing: Space.s) {
                 ForEach(TastingStrength.allCases, id: \.self) { option in
                     Button {
                         Haptics.shared.selection()

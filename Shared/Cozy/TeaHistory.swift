@@ -187,8 +187,8 @@ enum TeaOfTheWeek {
     ///
     /// The book: a book being read whose likely finish (the forecast's median) falls in the next seven days, the
     /// soonest first; else the book being read that is furthest along; else the first book on To read. The tea: the
-    /// reader's pinned pairing for that book, else the best pairing from the cabinet's teas in stock (the catalog when
-    /// the cabinet is empty).
+    /// reader's pinned pairing for that book while they have it, else the best pairing from the cabinet's teas in
+    /// stock (the catalog when the cabinet is empty).
     static func pick(data: LeafData, forecast: ForecastResult?, now: Date, calendar: Calendar) -> TeaAndBook? {
         let reading = data.items(on: .reading)
         let weekEnd = calendar.date(byAdding: .day, value: 7, to: calendar.startOfDay(for: now)) ?? now.addingTimeInterval(7 * 86_400)
@@ -218,7 +218,8 @@ enum TeaOfTheWeek {
         let tea: Tea
         let reason: String
         let pinned: Bool
-        if let pinnedID = item.pairedTeaID, let pinnedTea = TeaShelf.tea(id: pinnedID, cabinet: data.cabinet) {
+        if let pinnedID = item.pairedTeaID, TeaShelf.isAvailable(pinnedID, cabinet: data.cabinet),
+           let pinnedTea = TeaShelf.tea(id: pinnedID, cabinet: data.cabinet) {
             tea = pinnedTea
             reason = TeaPairing.reason(for: pinnedTea, with: item.book)
             pinned = true

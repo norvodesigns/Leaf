@@ -45,7 +45,7 @@ struct SessionRitualView: View {
 
     /// The cabinet's teas for the hour (or Leaf's), with the chosen one always among them.
     private var offer: TeaShelf.Choices {
-        var offer = store.teaChoices(limit: 8)
+        var offer = store.teaChoices(limit: 8, for: request.bookID)
         if !offer.teas.contains(where: { $0.id == teaID }) { offer.teas.insert(tea, at: 0) }
         return offer
     }
@@ -91,7 +91,7 @@ struct SessionRitualView: View {
     private func settleTea() {
         guard !didSettleTea else { return }
         didSettleTea = true
-        guard pot == nil, request.teaID == nil, let best = pairing(in: store.teaChoices(limit: 8).teas) else { return }
+        guard pot == nil, request.teaID == nil, let best = pairing(in: store.teaChoices(limit: 8, for: request.bookID).teas) else { return }
         teaID = best.tea.id
     }
 
@@ -259,15 +259,19 @@ struct SessionRitualView: View {
             }
             .buttonStyle(.pressable)
             .accessibilityElement(children: .combine)
-            .accessibilityHint(isChosen ? "" : "Chooses this tea")
+            .accessibilityAddTraits(isChosen ? AccessibilityTraits.isSelected : AccessibilityTraits())
+            .accessibilityHint(isChosen ? "The tea you’ll pour" : "Chooses this tea")
         }
     }
 
     /// "Bergamot and black tea. 95°C · Some caffeine."
     private var teaFacts: String {
-        let blurb = tea.blurb.trimmingCharacters(in: .whitespacesAndNewlines)
+        var blurb = tea.blurb.trimmingCharacters(in: .whitespacesAndNewlines)
         let facts = "\(tea.celsius)°C · \(tea.caffeine.title)."
-        return blurb.isEmpty ? facts : "\(blurb) \(facts)"
+        guard !blurb.isEmpty else { return facts }
+        // A tea of the reader's own carries their notes, which may not end a sentence.
+        if let last = blurb.last, !".?!…".contains(last) { blurb += "." }
+        return "\(blurb) \(facts)"
     }
 
     // MARK: Actions

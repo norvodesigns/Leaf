@@ -146,7 +146,12 @@ struct SettingsTeaSection: View {
 
     private var teaBinding: Binding<String?> {
         Binding(
-            get: { store.preferences.favoriteTeaID },
+            // A favourite that has left the cabinet shows as "Suggest one" rather than as no choice at all.
+            get: {
+                guard let id = store.preferences.favoriteTeaID else { return nil }
+                let ownIDs = store.data.cabinet.filter { $0.catalogID == nil }.map(\.teaID)
+                return TeaCatalog.tea(id: id) != nil || ownIDs.contains(id) ? id : nil
+            },
             set: { id in
                 Haptics.shared.selection()
                 store.updatePreferences { $0.favoriteTeaID = id }
