@@ -17,7 +17,7 @@ concurrency:
 jobs:
   build:
     runs-on: macos-26
-    timeout-minutes: 75
+    timeout-minutes: 90
     permissions:
       contents: write
     steps:
@@ -104,7 +104,7 @@ jobs:
 
       - name: Screenshots
         if: success()
-        timeout-minutes: 40
+        timeout-minutes: 55
         run: bash scripts/ci_screenshots.sh screenshots
 
       # Some machines that review the design can reach github.com but not the storage that serves logs and artifacts.
