@@ -320,6 +320,7 @@ struct SpineTint: Hashable {
 
     /// The cover scan's average colour, made a little richer and kept in a bookish brightness, with lettering that
     /// reads on it.
+    @MainActor
     static func from(scan: UIImage) -> SpineTint? {
         guard let average = CoverBackdropRenderer.grid(of: scan, side: 1)?.first else { return nil }
         var hue: CGFloat = 0
