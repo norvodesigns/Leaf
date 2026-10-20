@@ -254,7 +254,11 @@ enum TeaShelf {
 
     /// The teas in stock, as `Tea`s, in the order they were added.
     static func inStock(_ cabinet: [CabinetTea]) -> [Tea] {
-        cabinet.filter { !$0.isOutOf }.sorted { $0.addedAt < $1.addedAt || ($0.addedAt == $1.addedAt && $0.id.uuidString < $1.id.uuidString) }.map(\.tea)
+        let kept = cabinet.filter { !$0.isOutOf }.sorted { (a: CabinetTea, b: CabinetTea) -> Bool in
+            if a.addedAt != b.addedAt { return a.addedAt < b.addedAt }
+            return a.id.uuidString < b.id.uuidString
+        }
+        return kept.map(\.tea)
     }
 
     /// What the ritual offers, best first, and whether it came from the reader's own cabinet.

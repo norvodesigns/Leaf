@@ -57,6 +57,30 @@ struct TeaHistory: Hashable, Sendable {
     /// Share of all reading minutes that had a cup alongside, 0 to 1.
     var teaShare: Double { minutesInAll > 0 ? min(1, minutesWithTea / minutesInAll) : 0 }
 
+    /// A tea's name and family, as the cabinet, the catalog or a tasting note knows it.
+    private struct Named {
+        var name: String
+        var family: TeaFamily?
+    }
+
+    /// Most minutes first, then most notes, then by id.
+    private static func comesBefore(_ a: TeaLine, _ b: TeaLine) -> Bool {
+        if a.minutes != b.minutes { return a.minutes > b.minutes }
+        if a.tastings != b.tastings { return a.tastings > b.tastings }
+        return a.teaID < b.teaID
+    }
+
+    private static func comesBefore(_ a: BookLine.TeaShare, _ b: BookLine.TeaShare) -> Bool {
+        if a.minutes != b.minutes { return a.minutes > b.minutes }
+        return a.teaID < b.teaID
+    }
+
+    /// Most recently read first, then by id.
+    private static func comesBefore(_ a: BookLine, _ b: BookLine) -> Bool {
+        if a.lastRead != b.lastRead { return a.lastRead > b.lastRead }
+        return a.bookID < b.bookID
+    }
+
     static func build(data: LeafData) -> TeaHistory {
         var minutes: [String: Double] = [:]
         var sessions: [String: Int] = [:]
@@ -80,44 +104,66 @@ struct TeaHistory: Hashable, Sendable {
         }
         var ratings: [String: [Int]] = [:]
         var tastingCounts: [String: Int] = [:]
-        var tastedNames: [String: (name: String, family: TeaFamily?)] = [:]
+        var tastedNames: [String: Named] = [:]
         for note in data.tastings {
             tastingCounts[note.teaID, default: 0] += 1
             if let rating = note.rating { ratings[note.teaID, default: []].append(rating) }
-            tastedNames[note.teaID] = (note.teaName, note.family)
+            tastedNames[note.teaID] = Named(name: note.teaName, family: note.family)
         }
 
-        func describe(_ teaID: String) -> (name: String, family: TeaFamily?) {
-            if let tea = TeaShelf.tea(id: teaID, cabinet: data.cabinet) { return (tea.name, tea.family) }
+        func describe(_ teaID: String) -> Named {
+            if let tea = TeaShelf.tea(id: teaID, cabinet: data.cabinet) { return Named(name: tea.name, family: tea.family) }
             if let named = tastedNames[teaID], !named.name.isEmpty { return named }
-            return ("A tea", nil)
+            return Named(name: "A tea", family: nil)
         }
 
-        let ids = Set(minutes.keys).union(tastingCounts.keys)
-        let lines = ids.map { id -> TeaLine in
-            let described = describe(id)
-            let rated = ratings[id] ?? []
-            return TeaLine(
-                teaID: id, name: described.name, family: described.family,
-                minutes: minutes[id] ?? 0, sessions: sessions[id] ?? 0, books: booksPerTea[id]?.count ?? 0,
-                lastBrewed: last[id], tastings: tastingCounts[id] ?? 0,
-                averageRating: rated.isEmpty ? nil : Double(rated.reduce(0, +)) / Double(rated.count)
+        var lines: [TeaLine] = []
+        for id in Set(minutes.keys).union(tastingCounts.keys) {
+            let described: Named = describe(id)
+            let rated: [Int] = ratings[id] ?? []
+            var average: Double?
+            if !rated.isEmpty {
+                let total = Double(rated.reduce(0, +))
+                average = total / Double(rated.count)
+            }
+            let line = TeaLine(
+                teaID: id,
+                name: described.name,
+                family: described.family,
+                minutes: minutes[id] ?? 0,
+                sessions: sessions[id] ?? 0,
+                books: booksPerTea[id]?.count ?? 0,
+                lastBrewed: last[id],
+                tastings: tastingCounts[id] ?? 0,
+                averageRating: average
             )
+            lines.append(line)
         }
-        .sorted { $0.minutes > $1.minutes || ($0.minutes == $1.minutes && ($0.tastings > $1.tastings || ($0.tastings == $1.tastings && $0.teaID < $1.teaID))) }
+        lines.sort(by: TeaHistory.comesBefore)
 
-        let items = Dictionary(data.items.map { ($0.id, $0.book) }, uniquingKeysWith: { first, _ in first })
-        let titles = Dictionary(data.journal.map { ($0.bookID, ($0.bookTitle, $0.bookAuthor)) }, uniquingKeysWith: { first, _ in first })
-        let bookLines = perBook.compactMap { bookID, teas -> BookLine? in
-            let book = items[bookID]
-            guard let title = book?.title ?? titles[bookID]?.0, !title.isEmpty else { return nil }
-            let shares = teas.map { BookLine.TeaShare(teaID: $0.key, name: describe($0.key).name, minutes: $0.value) }
-                .sorted { $0.minutes > $1.minutes || ($0.minutes == $1.minutes && $0.teaID < $1.teaID) }
-            return BookLine(bookID: bookID, title: title, author: book?.author ?? titles[bookID]?.1 ?? "", teas: shares, lastRead: bookLast[bookID] ?? .distantPast)
+        var items: [String: Book] = [:]
+        for item in data.items where items[item.id] == nil { items[item.id] = item.book }
+        var titles: [String: (title: String, author: String)] = [:]
+        for entry in data.journal where titles[entry.bookID] == nil { titles[entry.bookID] = (entry.bookTitle, entry.bookAuthor) }
+        var bookLines: [BookLine] = []
+        for (bookID, teas) in perBook {
+            let book: Book? = items[bookID]
+            let title: String = book?.title ?? titles[bookID]?.title ?? ""
+            guard !title.isEmpty else { continue }
+            var shares: [BookLine.TeaShare] = []
+            for (teaID, teaMinutes) in teas {
+                shares.append(BookLine.TeaShare(teaID: teaID, name: describe(teaID).name, minutes: teaMinutes))
+            }
+            shares.sort(by: TeaHistory.comesBefore)
+            let author: String = book?.author ?? titles[bookID]?.author ?? ""
+            bookLines.append(BookLine(bookID: bookID, title: title, author: author, teas: shares, lastRead: bookLast[bookID] ?? .distantPast))
         }
-        .sorted { $0.lastRead > $1.lastRead || ($0.lastRead == $1.lastRead && $0.bookID < $1.bookID) }
+        bookLines.sort(by: TeaHistory.comesBefore)
 
-        let notes = data.tastings.sorted { $0.createdAt > $1.createdAt || ($0.createdAt == $1.createdAt && $0.id.uuidString < $1.id.uuidString) }
+        let notes = data.tastings.sorted { (a: TastingNote, b: TastingNote) -> Bool in
+            if a.createdAt != b.createdAt { return a.createdAt > b.createdAt }
+            return a.id.uuidString < b.id.uuidString
+        }
         return TeaHistory(teas: lines, books: bookLines, tastings: notes, minutesWithTea: withTea, minutesInAll: inAll)
     }
 }
@@ -146,15 +192,26 @@ enum TeaOfTheWeek {
     static func pick(data: LeafData, forecast: ForecastResult?, now: Date, calendar: Calendar) -> TeaAndBook? {
         let reading = data.items(on: .reading)
         let weekEnd = calendar.date(byAdding: .day, value: 7, to: calendar.startOfDay(for: now)) ?? now.addingTimeInterval(7 * 86_400)
-        let finishing = reading
-            .compactMap { item -> (LibraryItem, Date)? in
-                guard let median = forecast?.book(item.id)?.median, median < weekEnd else { return nil }
-                return (item, median)
+        var finishing: (item: LibraryItem, date: Date)?
+        for candidate in reading {
+            guard let median = forecast?.book(candidate.id)?.median, median < weekEnd else { continue }
+            if let soonest = finishing {
+                if soonest.date < median { continue }
+                if soonest.date == median && soonest.item.id < candidate.id { continue }
             }
-            .sorted { $0.1 < $1.1 || ($0.1 == $1.1 && $0.0.id < $1.0.id) }
-            .first
-        let furthest = reading.max { a, b in a.progress < b.progress || (a.progress == b.progress && a.id > b.id) }
-        guard let item = finishing?.0 ?? furthest ?? data.items(on: .toRead).first else { return nil }
+            finishing = (candidate, median)
+        }
+        var furthest: LibraryItem?
+        for candidate in reading {
+            guard let best = furthest else {
+                furthest = candidate
+                continue
+            }
+            if candidate.progress > best.progress || (candidate.progress == best.progress && candidate.id < best.id) {
+                furthest = candidate
+            }
+        }
+        guard let item = finishing?.item ?? furthest ?? data.items(on: .toRead).first else { return nil }
 
         let stock = TeaShelf.inStock(data.cabinet)
         let pool = stock.isEmpty ? TeaCatalog.all : stock
@@ -174,7 +231,7 @@ enum TeaOfTheWeek {
         }
 
         let line: String
-        if let finish = finishing?.1 {
+        if let finish = finishing?.date {
             let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: now), to: calendar.startOfDay(for: finish)).day ?? 0
             let when = days <= 0 ? "today" : days == 1 ? "tomorrow" : "by " + LeafFormat.format(finish, template: "EEEE", calendar: calendar)
             line = "Likely finished \(when). A pot of \(tea.name) to see it home."
