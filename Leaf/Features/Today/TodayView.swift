@@ -393,8 +393,11 @@ struct TodayView: View {
                     pick: pick,
                     book: book,
                     onSteep: {
+                        // The week's tea when it suits the hour; otherwise the ritual opens on the book's best
+                        // pairing among the teas it can offer now (no strong black tea at midnight).
+                        let suits = store.teaChoices().teas.contains { $0.id == pick.tea.id }
                         _ = ReadingSessionLauncher.beginRitual(
-                            bookID: pick.bookID, teaID: pick.tea.id, store: store, router: router,
+                            bookID: pick.bookID, teaID: suits ? pick.tea.id : nil, store: store, router: router,
                             from: ReadingSessionLauncher.heroSource
                         )
                     },

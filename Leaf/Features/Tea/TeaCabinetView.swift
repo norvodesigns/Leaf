@@ -125,9 +125,9 @@ struct TeaCabinetView: View {
                 TeaSwatch(tea: tea)
                     .opacity(cabinetTea.isOutOf ? 0.4 : 1)
                 VStack(alignment: .leading, spacing: Space.xxs) {
-                    Text(cabinetTea.displayName)
+                    Text(cabinetTea.name.isEmpty ? cabinetTea.family.title : cabinetTea.name)
                         .leafStyle(.uiBody, color: cabinetTea.isOutOf ? .inkSecondary : nil)
-                    Text("\(cabinetTea.family.title) · \(SteepText.duration(seconds: cabinetTea.steepSeconds))\(cabinetTea.catalogID == nil ? " · your own" : "")")
+                    Text(rowDetail(cabinetTea))
                         .leafStyle(.caption)
                 }
                 Spacer(minLength: Space.s)
@@ -155,6 +155,17 @@ struct TeaCabinetView: View {
                 Motion.animate(Motion.paper) { store.removeCabinetTea(cabinetTea.id) }
             }
         }
+    }
+
+    /// "Homemade · Chai · 5 min · your own"
+    private func rowDetail(_ tea: CabinetTea) -> String {
+        var parts: [String] = []
+        let brand = tea.brand.trimmingCharacters(in: .whitespaces)
+        if !brand.isEmpty { parts.append(brand) }
+        parts.append(tea.family.title)
+        parts.append(SteepText.duration(seconds: tea.steepSeconds))
+        if tea.catalogID == nil { parts.append("your own") }
+        return parts.joined(separator: " · ")
     }
 
     /// Screenshot staging: "add" opens the form for a tea of your own, "catalog" the list, "edit" the first tea.
@@ -339,8 +350,13 @@ struct TeaFormView: View {
 
             if editing != nil {
                 Section {
-                    Button("Take out of the cabinet", role: .destructive) {
+                    Button(role: .destructive) {
                         confirmsRemoval = true
+                    } label: {
+                        Text("Take out of the cabinet")
+                            .leafFont(.uiBody)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(.rect)
                     }
                 } footer: {
                     Text("Sittings and tasting notes keep its name.")
