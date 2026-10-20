@@ -389,7 +389,7 @@ struct LibraryStoreTests {
         let store = makeStore()
         store.replaceAll(with: DemoData.make())
         #expect(store.data.cabinet.count >= 4)
-        #expect(store.data.cabinet.contains(where: \.isOutOf))
+        #expect(store.data.cabinet.contains { $0.isOutOf })
         #expect(!store.data.tastings.isEmpty)
         #expect(store.item(DemoData.hobbit.id)?.pairedTeaID == "earl-grey")
         #expect(TeaOfTheWeek.pick(data: store.data, forecast: nil, now: store.now, calendar: store.calendar) != nil)
