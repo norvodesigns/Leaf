@@ -288,6 +288,29 @@ final class LibraryStore {
         commit()
     }
 
+    /// Another printing of the same book: the words stay the same and only the page count changes. The count it
+    /// had stays on offer, and a reader who tracks percent keeps their place by share rather than by page number.
+    func switchEdition(_ id: String, pages: Int) {
+        guard pages > 0, let index = data.items.firstIndex(where: { $0.id == id }) else { return }
+        var item = data.items[index]
+        let old = item.book.pages
+        guard pages != old else { return }
+        var counts = item.book.pageCounts ?? []
+        if old > 0, !counts.contains(old) { counts.append(old) }
+        item.book.pageCounts = counts
+        item.book.pages = pages
+        if item.progressMode == .percent, old > 0 {
+            let scale = Double(pages) / Double(old)
+            item.currentPage = min(pages, Int((Double(item.currentPage) * scale).rounded()))
+            item.startPage = min(pages, Int((Double(item.startPage) * scale).rounded()))
+        } else {
+            item.currentPage = min(item.currentPage, pages)
+        }
+        item.updatedAt = stamp
+        data.items[index] = item
+        commit()
+    }
+
     // MARK: - Preferences
 
     func updatePreferences(_ change: (inout ReadingPreferences) -> Void) {
@@ -583,6 +606,10 @@ final class LibraryStore {
     }
 
     func resetEverything() {
+        // Nothing of the erased library stays on this phone: not the file, its rolling backup (which the next save
+        // would otherwise refresh from the old file), or a damaged copy set aside.
+        saveTask?.cancel()
+        persistence.delete()
         data = LeafData()
         syncShadow = data
         recomputePlan()
@@ -591,7 +618,9 @@ final class LibraryStore {
         // Not reported as a diff (that would read as deleting everything); the cloud copy is cleared separately.
         if let sync {
             Task { @MainActor [weak self] in
-                _ = await sync.deleteCloudData()
+                // If iCloud couldn't clear its copy, syncing again now would bring the library straight back; the
+                // error stays in Settings instead. (A retry that survives relaunch belongs in CloudSync.)
+                guard await sync.deleteCloudData() else { return }
                 if let data = self?.data { sync.start(initial: data) }
             }
         }

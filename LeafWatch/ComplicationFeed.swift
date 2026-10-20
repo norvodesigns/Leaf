@@ -3,29 +3,40 @@ import WidgetKit
 
 /// Hands the complications what they draw, from the watch's snapshot, and reloads them only when that changed.
 enum ComplicationFeed {
-    static func publish(_ snapshot: WatchSnapshot, now: Date = Date()) {
-        if ComplicationStore.write(ComplicationSnapshot(snapshot, now: now)) {
+    /// `day` is the day the snapshot's minutes belong to (WatchStore.minutesDay).
+    static func publish(_ snapshot: WatchSnapshot, day: Date, now: Date = Date()) {
+        var next = ComplicationSnapshot(snapshot, day: day, now: now)
+        // Once the day's goal is met the phone plans no more reading times, so it sends none; the face keeps the
+        // last ones it knew, so tomorrow's card still rises around them.
+        if next.slotMinutes.isEmpty, next.isReadingDay, let previous = ComplicationStore.read() {
+            next.slotMinutes = previous.slotMinutes
+        }
+        if ComplicationStore.write(next) {
             WidgetCenter.shared.reloadTimelines(ofKind: ComplicationStore.kind)
         }
     }
 }
 
 extension ComplicationSnapshot {
-    init(_ snapshot: WatchSnapshot, now: Date = Date(), calendar: Calendar = .current) {
+    init(_ snapshot: WatchSnapshot, day: Date, now: Date = Date(), calendar: Calendar = .current) {
         let first = snapshot.today.first
         let book = first.flatMap { snapshot.book($0.bookID) } ?? snapshot.reading.first
+        // Only a session the watch is timing counts up on the face; the watch may sleep through a phone's session
+        // and never hear that it ended.
         let live = snapshot.activeSession.flatMap { session -> Date? in
-            session.isPaused ? nil : now.addingTimeInterval(-session.elapsed(at: now))
+            session.isPaused || session.origin != .watch ? nil : now.addingTimeInterval(-session.elapsed(at: now))
         }
         self.init(
-            day: calendar.startOfDay(for: snapshot.generatedAt),
+            day: calendar.startOfDay(for: day),
             dailyMinutes: snapshot.dailyMinutes,
             minutesReadToday: snapshot.minutesReadToday,
             isReadingDay: snapshot.isReadingDay,
             title: book?.title,
-            nextPage: book.map { book -> Int in
-                if let first, first.bookID == book.id { return first.fromPage }
-                return book.currentPage + 1
+            nextPage: book.flatMap { book -> Int? in
+                guard book.currentPage < book.pages else { return nil }
+                let next = book.currentPage + 1
+                if let first, first.bookID == book.id { return min(book.pages, max(first.fromPage, next)) }
+                return next
             },
             slotMinutes: snapshot.slots.map(\.minuteOfDay),
             liveSince: live

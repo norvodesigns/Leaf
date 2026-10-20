@@ -15,6 +15,24 @@ struct LibraryStoreTests {
         Book(id: id, title: id.uppercased(), author: "Author", pages: pages, words: pages * 270)
     }
 
+    @Test func switchingEditionKeepsWordsAndTheOldCount() {
+        let store = makeStore()
+        var printed = book("a", pages: 300)
+        printed.pageCounts = [280]
+        store.add(printed, to: .reading)
+        store.confirmPosition("a", page: 150, mode: .percent)
+        store.switchEdition("a", pages: 400)
+        let item = store.item("a")
+        #expect(item?.book.pages == 400)
+        #expect(item?.book.words == 300 * 270)
+        #expect(item?.book.pageCounts?.sorted() == [280, 300])
+        #expect(item?.currentPage == 200)
+        store.setProgressMode("a", .pages)
+        store.switchEdition("a", pages: 280)
+        #expect(store.item("a")?.currentPage == 200)
+        #expect(store.item("a")?.book.pageCounts?.sorted() == [280, 300, 400])
+    }
+
     @Test func addingAndMovingBooks() {
         let store = makeStore()
         store.add(book("a"), to: .toRead)

@@ -2,23 +2,29 @@ import SwiftUI
 
 @main
 struct LeafWatchApp: App {
-    @State private var store = WatchStore(demo: LaunchScreen.isDemo)
+    @State private var store: WatchStore
+
+    init() {
+        let store = WatchStore(demo: LaunchScreen.isDemo)
+        _store = State(initialValue: store)
+        // Before launch finishes: a reminder's Start that launched the app is delivered to this delegate.
+        if !LaunchScreen.isDemo {
+            WatchNotifications.shared.configure(store: store)
+            PhoneBridge.shared.activate(store: store)
+        }
+    }
 
     var body: some Scene {
         WindowGroup {
             WatchRootView()
                 .environment(store)
-                .task {
-                    guard !LaunchScreen.isDemo else { return }
-                    PhoneBridge.shared.activate(store: store)
-                    WatchNotifications.shared.configure(store: store)
-                }
         }
     }
 }
 
 struct WatchRootView: View {
     @Environment(WatchStore.self) private var store
+    @Environment(\.scenePhase) private var scenePhase
     /// Lets the reader step away from a live session to browse, without ending it.
     @State private var sessionMinimized = false
     @State private var page = WatchPage.today
@@ -67,7 +73,10 @@ struct WatchRootView: View {
             }
         }
         .fullScreenCover(isPresented: sessionPresented) {
-            SessionView(onMinimize: { sessionMinimized = true })
+            SessionView(onMinimize: {
+                sessionMinimized = true
+                store.lastLogged = nil
+            })
                 .environment(store)
                 .stagedAlwaysOn(LaunchScreen.current == "aod")
         }
@@ -75,6 +84,12 @@ struct WatchRootView: View {
             if id != nil { sessionMinimized = false }
         }
         .onAppear(perform: stage)
+        .onChange(of: scenePhase) { _, phase in
+            // Back on the wrist after midnight: a fresh day until the phone sends its numbers.
+            guard phase == .active, !LaunchScreen.isDemo else { return }
+            store.rollDayIfNeeded()
+            PhoneBridge.shared.refreshIfReachable()
+        }
     }
 
     /// Screenshot staging (`-LeafScreen`, DEBUG only).

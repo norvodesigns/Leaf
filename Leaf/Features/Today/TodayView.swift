@@ -152,7 +152,7 @@ struct TodayView: View {
             issueNumber: store.issueNumber,
             issueSpoken: issueSpoken,
             tea: chosenTea(brief),
-            steepSeconds: TeaSuggester.steepSeconds(for: chosenTea(brief)),
+            steepSeconds: TeaSuggester.steepSeconds(for: chosenTea(brief), strength: CozySettings.teaStrength),
             teaChoices: teaChoices(brief),
             action: nookAction(brief),
             readingBooks: store.reading,

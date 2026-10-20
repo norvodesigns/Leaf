@@ -169,7 +169,7 @@ private struct OnboardingFlowBody: View {
             return reminderDeclined ? Text("No reminders. Leaf will be here when you are.") : nil
         case .books:
             // The optional sync note: only where iCloud is on offer.
-            return Text(CloudSync.isAvailable ? stackNote + " Your shelves are kept in your own iCloud too, so they follow you to a new phone." : stackNote)
+            return Text(store.sync?.status.isRunning == true ? stackNote + " Your shelves are kept in your own iCloud too, so they follow you to a new phone." : stackNote)
         default:
             return nil
         }
@@ -195,7 +195,8 @@ private struct OnboardingFlowBody: View {
             return OnboardingAction("Continue", isEnabled: !days.isEmpty) { saveDays() }
         case .reminder:
             if reminderDeclined {
-                return OnboardingAction("Continue") { step = .deck }
+                // Keeps a time changed after declining; without reminders it still shapes the plan.
+                return OnboardingAction("Continue") { skipReminder() }
             }
             return OnboardingAction("Allow notifications", isLoading: isRequestingPermission) { allowNotifications() }
         case .deck:
@@ -304,8 +305,9 @@ private struct OnboardingFlowBody: View {
         let parts = Calendar.current.dateComponents([.hour, .minute], from: reminderTime)
         let hour = parts.hour ?? 20
         let minute = parts.minute ?? 30
-        var slots = [ReadingSlot(hour: hour, minute: minute, label: ReadingSlotText.defaultLabel(hour: hour))]
-        if let extraTime, extraTime.hour != hour {
+        // No stored label: Today names the slot by its hour, so it stays right if the time moves later.
+        var slots = [ReadingSlot(hour: hour, minute: minute)]
+        if let extraTime, extraTime.hour * 60 + extraTime.minute != hour * 60 + minute {
             slots.append(ReadingSlot(hour: extraTime.hour, minute: extraTime.minute, label: extraTime.label))
         }
         let ordered = slots.sorted { $0.minuteOfDay < $1.minuteOfDay }

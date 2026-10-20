@@ -12,7 +12,14 @@ struct AmbienceSheet: View {
 
     private var player: AmbiencePlayer { AmbiencePlayer.shared }
 
-    private var options: [Ambience] { AmbienceCatalog.all.filter { !$0.isSilence } }
+    /// Your usual (chosen here or in Settings) comes first; nothing plays until you tap it.
+    private var options: [Ambience] {
+        var all = AmbienceCatalog.all.filter { !$0.isSilence }
+        if let saved = store.preferences.ambienceID, let index = all.firstIndex(where: { $0.id == saved }) {
+            all.insert(all.remove(at: index), at: 0)
+        }
+        return all
+    }
 
     var body: some View {
         NavigationStack {
@@ -82,7 +89,7 @@ struct AmbienceSheet: View {
                 VStack(alignment: .leading, spacing: Space.xxs) {
                     Text(ambience?.name ?? "Silence")
                         .leafStyle(.uiBody)
-                    Text(ambience?.blurb ?? "Just the page turning.")
+                    Text(caption(for: ambience))
                         .leafStyle(.caption)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -98,6 +105,11 @@ struct AmbienceSheet: View {
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(isOn ? AccessibilityTraits.isSelected : AccessibilityTraits())
+    }
+
+    private func caption(for ambience: Ambience?) -> String {
+        guard let ambience else { return "Just the page turning." }
+        return ambience.id == store.preferences.ambienceID ? "Your usual. \(ambience.blurb)" : ambience.blurb
     }
 
     /// Starts the chosen sound (the reader's tap is the only thing that ever starts one), or stops it.

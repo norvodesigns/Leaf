@@ -28,6 +28,7 @@ final class ForecastService {
             guard !Task.isCancelled else { return }
             self?.result = computed
             self?.isWorking = false
+            WatchBridge.shared.forecast = computed
         }
     }
 
@@ -97,5 +98,6 @@ extension LibraryStore {
         memory.record(brief.greeting, on: now, calendar: calendar)
         GreetingMemoryStore.save(memory)
         UserDefaults.standard.set(GreetingMemoryStore.dayKey(now, calendar: calendar), forKey: "leaf.greeting.lastShownDay")
+        WatchBridge.shared.noteGreeting(brief.greeting, now: now, calendar: calendar)
     }
 }

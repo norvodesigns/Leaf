@@ -109,14 +109,14 @@ struct PrivacyNoteView: View {
                 note("No accounts", "Leaf has no accounts, no analytics and no ads, and no servers of its own.")
                 note(
                     "What Leaf keeps",
-                    "Your library, your reading sessions, your reading speed and your settings. All of it stays on this iPhone. A summary of today’s plan syncs straight to your paired Apple Watch. Nothing is uploaded anywhere else."
+                    "Your library, your reading sessions, your reading speed and your settings. They live on this iPhone and, while iCloud is on, in your own private iCloud, so your iPad and a new phone stay in step. A summary of today’s plan syncs straight to your paired Apple Watch. Nothing is sent anywhere else."
                 )
                 note(
                     "Book search",
                     "When you search for a book that isn’t in Leaf’s built-in catalog, what you typed is sent to Open Library, a free, non-profit catalog run by the Internet Archive, and cover images are loaded from it. The request carries only the search text, never who you are or what’s in your library."
                 )
                 note("Reminders", "Daily reminders are scheduled on your phone. They aren’t push notifications from a server.")
-                note("Deleting your data", "Settings, then Erase all data, removes everything at once. Deleting the app does the same.")
+                note("Deleting your data", "Settings, then Erase all data, removes everything from this iPhone and its iCloud copy; your other devices keep their own. Deleting the app removes it from this iPhone only: the iCloud copy stays, and comes back if you install Leaf again.")
                 contact
             }
             .leafMargins()

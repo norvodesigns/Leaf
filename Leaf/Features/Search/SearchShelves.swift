@@ -500,11 +500,13 @@ struct SimilarBooksView: View {
                                     shelf: store.shelf(of: pick.book.id),
                                     onAdd: { shelf, front in add(pick.book, to: shelf, atFront: front) }
                                 )
-                                Text(pick.reason.text)
-                                    .leafStyle(.caption, color: .inkTertiary)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(.leading, BookCover.Size.s.width + Space.l)
-                                    .padding(.bottom, Space.s)
+                                if store.similarReason(for: book) != nil {
+                                    Text(pick.reason.text)
+                                        .leafStyle(.caption, color: .inkTertiary)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .padding(.leading, BookCover.Size.s.width + Space.l)
+                                        .padding(.bottom, Space.s)
+                                }
                                 Hairline()
                                     .padding(.leading, BookCover.Size.s.width + Space.l)
                             }
@@ -521,8 +523,10 @@ struct SimilarBooksView: View {
         .paperBackground()
         .navigationTitle("More like this")
         .navigationBarTitleDisplayMode(.inline)
-        .task(id: book.id) {
-            picks = await catalog.similar(to: book, context: store.recommendationContext(catalog: catalog))
+        .task(id: "\(book.id)|\(catalog.isLoaded)") {
+            // Before the catalog has loaded there is nothing to compare with; keep the spinner rather than say "nothing".
+            guard catalog.isLoaded else { return }
+            picks = await catalog.similar(to: book, context: store.recommendationContext(catalog: catalog), because: store.similarReason(for: book))
         }
     }
 
@@ -583,10 +587,15 @@ struct TasteView: View {
             SectionHeader("Themes you return to")
             chips(themes.prefix(10).map(Self.themeName))
         }
-        let worlds = profile.topThemes.filter { $0.hasPrefix("series:") }
+        // Series live in the profile's features as "s:<name>", not among its top themes.
+        let worlds = profile.positive.weights
+            .filter { $0.key.hasPrefix("s:") && $0.value > 0 }
+            .sorted { $0.value > $1.value || ($0.value == $1.value && $0.key < $1.key) }
+            .prefix(6)
+            .map { "series:" + $0.key.dropFirst(2) }
         if !worlds.isEmpty {
             SectionHeader("Worlds you're in")
-            chips(worlds.prefix(6).map(Self.themeName))
+            chips(worlds.map(Self.themeName))
         }
         if let hours = profile.logHoursMean.map({ exp($0) }) {
             SectionHeader("Length")
@@ -620,7 +629,7 @@ struct TasteView: View {
 
     /// "found-family" → "Found family"; "series:middle earth" → "Middle Earth".
     static func themeName(_ raw: String) -> String {
-        if raw.hasPrefix("series:") { return String(raw.dropFirst(7)).capitalized }
+        if raw.hasPrefix("series:") { return String(raw.dropFirst(7)).replacingOccurrences(of: "-", with: " ").capitalized }
         let spaced = raw.replacingOccurrences(of: "-", with: " ")
         return spaced.prefix(1).uppercased() + spaced.dropFirst()
     }

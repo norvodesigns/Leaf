@@ -95,10 +95,10 @@ final class BookCatalog {
     }
 
     /// Books like this one, by shared genres, themes and series, for "More like this". Off the main thread.
-    func similar(to book: Book, context: RecommendationContext, limit: Int = 24) async -> [Recommendation] {
+    func similar(to book: Book, context: RecommendationContext, limit: Int = 24, because: RecommendationReason? = nil) async -> [Recommendation] {
         let books = books, stats = stats
         return await Task.detached(priority: .userInitiated) {
-            Recommender(stats: stats, context: context).similar(to: book, in: books, limit: limit)
+            Recommender(stats: stats, context: context).similar(to: book, in: books, limit: limit, because: because)
         }.value
     }
 
@@ -117,5 +117,17 @@ final class BookCatalog {
 
     nonisolated static func normalize(_ text: String) -> String {
         CatalogQuery.normalize(text)
+    }
+}
+
+extension LibraryStore {
+    /// Why "More like this" picks are shown for `book`: you finished it, or you're reading it. Nil for any other
+    /// book, whose picks then carry no "because" line (the engine's default would claim you finished it).
+    func similarReason(for book: Book) -> RecommendationReason? {
+        switch shelf(of: book.id) {
+        case .finished?: return .becauseYouFinished(title: book.title)
+        case .reading?: return .becauseYouAreReading(title: book.title)
+        default: return nil
+        }
     }
 }

@@ -313,7 +313,7 @@ struct SettingsView: View {
 
     private var eraseMessage: String {
         syncsToCloud
-            ? "Your books, sessions and settings will be removed from this phone and from iCloud. Your other devices keep their own copy and will put it back in iCloud; to remove your library everywhere, erase each device. This can’t be undone."
+            ? "Your books, sessions and settings will be removed from this phone and from iCloud. Your other devices keep their own copy, and while iCloud is on they will sync it back here too; to start fresh everywhere, erase each device. This can’t be undone."
             : "Your books, sessions and settings will be removed from this phone. This can’t be undone."
     }
 
@@ -340,6 +340,9 @@ struct SettingsView: View {
     /// seen emptying behind it. Onboarding takes over afterwards.
     private func eraseEverything() {
         Haptics.shared.warning()
+        // Silence first: nothing keeps playing for a library that is gone.
+        AmbiencePlayer.shared.stop(fadeOut: 0)
+        CozySounds.shared.cancelPending()
         router.showSettings = false
         let store = store
         let router = router
@@ -350,6 +353,9 @@ struct SettingsView: View {
             router.lastOutcome = nil
             router.popToRoot()
             router.tab = .today
+            router.ritual = nil
+            TeaSteepState.save(nil)
+            CozySettings.reset()
             store.resetEverything()
         }
     }

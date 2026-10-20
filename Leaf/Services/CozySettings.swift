@@ -35,4 +35,11 @@ enum CozySettings {
     static func apply() {
         CozySounds.shared.isEnabled = soundCues
     }
+
+    /// Back to the quiet defaults, for "Erase all data": no cues, regular tea, the ambience's own volume.
+    static func reset() {
+        soundCues = false
+        defaults.removeObject(forKey: strengthKey)
+        defaults.removeObject(forKey: volumeKey)
+    }
 }

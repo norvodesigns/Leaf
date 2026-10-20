@@ -22,7 +22,7 @@ struct TodayPage: View {
         let snapshot = store.snapshot
         if !snapshot.hasOnboarded && snapshot.reading.isEmpty {
             WatchPlaceholder(symbol: "iphone", text: "Open Leaf on your iPhone to set up your plan.")
-        } else if let steep = store.steep {
+        } else if store.activeSession == nil, let steep = store.steep {
             SteepTimerView(steep: steep, now: now, onStart: startCup)
         } else if let book = store.suggestedBook {
             VStack(alignment: .leading, spacing: 6) {
@@ -378,7 +378,13 @@ struct ShelfBookActions: View {
                 .buttonStyle(.glassProminent)
                 .tint(WatchTheme.accent)
                 .disabled(store.activeSession != nil)
-                if isReading {
+                if store.activeSession?.bookID == book.id {
+                    // Finishing or setting aside would drop the minutes being timed; end the session first.
+                    Text("Reading now. End the session to finish it or set it aside.")
+                        .font(.footnote)
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(WatchTheme.inkSecondary)
+                } else if isReading {
                     Button {
                         WatchHaptics.play(.success)
                         store.moveBook(book.id, to: .finished)

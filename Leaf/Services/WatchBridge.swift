@@ -11,6 +11,25 @@ final class WatchBridge: NSObject {
 
     /// A session logged on the watch (so the phone can celebrate, too).
     var onRemoteOutcome: ((SessionOutcome) -> Void)?
+    /// The latest forecast the phone worked out (Today and Plan both run one), for the wrist's Forecast page.
+    var forecast: ForecastResult? {
+        didSet { schedulePush() }
+    }
+    /// The greeting Today last showed and the day it showed it, so the wrist says the same thing.
+    private var shownGreeting: (day: String, greeting: WatchGreeting)?
+
+    func noteGreeting(_ greeting: Greeting, now: Date, calendar: Calendar) {
+        let line = WatchGreeting(headline: greeting.headline, subline: greeting.subline)
+        let day = GreetingMemoryStore.dayKey(now, calendar: calendar)
+        guard shownGreeting?.day != day || shownGreeting?.greeting != line else { return }
+        shownGreeting = (day, line)
+        schedulePush()
+    }
+
+    func greeting(on now: Date, calendar: Calendar) -> WatchGreeting? {
+        guard let shownGreeting, shownGreeting.day == GreetingMemoryStore.dayKey(now, calendar: calendar) else { return nil }
+        return shownGreeting.greeting
+    }
 
     func activate(store: LibraryStore) {
         self.store = store
@@ -102,13 +121,13 @@ extension LibraryStore {
         let today = todayAssignments.map { pair in
             WatchAssignment(bookID: pair.item.id, title: pair.item.book.title, minutes: pair.assignment.minutes, fromPage: pair.assignment.fromPage, toPage: pair.assignment.toPage)
         }
-        var books = reading
-        // A live session for a book that isn't on the Reading shelf still needs its book on the watch.
+        var books = Array(reading.prefix(8))
+        // A live session's book always goes to the watch, even past the first eight or off the Reading shelf.
         if let active = activeSession, !books.contains(where: { $0.id == active.bookID }), let item = item(active.bookID) {
             books.append(item)
         }
         if books.isEmpty, let next = toRead.first { books = [next] }
-        let watchBooks = books.prefix(8).map { item in
+        let watchBooks = books.map { item in
             WatchBook(
                 id: item.id,
                 title: item.book.title,
@@ -121,6 +140,20 @@ extension LibraryStore {
             )
         }
         let days = week.map { WatchDay(date: $0.date, minutes: $0.minutes, goal: preferences.dailyMinutes, isReadingDay: $0.isReadingDay) }
+        // The nook on the wrist: the greeting Today showed (or today's own line), the tea for the hour, each book's
+        // forecast sentence and the year's pacing. A light brief: no catalog picks.
+        let brief = TodayBriefBuilder.build(TodayBriefInput(data: data, plan: plan, now: now, calendar: calendar))
+        let narrator = ForecastNarrator(now: now, calendar: calendar)
+        let forecast = WatchBridge.shared.forecast
+        let forecasts = watchBooks.compactMap { book -> WatchForecast? in
+            guard let bookForecast = forecast?.book(book.id) else { return nil }
+            return WatchForecast(bookID: book.id, sentence: narrator.bookSentence(bookForecast), median: bookForecast.median)
+        }
+        let yearGoal = brief.yearGoal.flatMap { pacing -> WatchYearGoal? in
+            guard let goal = pacing.goal else { return nil }
+            let sentence = forecast.map { narrator.yearSentence($0.year) } ?? pacing.sentence
+            return WatchYearGoal(year: pacing.year, finished: pacing.finished, goal: goal, sentence: sentence)
+        }
         return WatchSnapshot(
             generatedAt: Date(),
             dailyMinutes: preferences.dailyMinutes,
@@ -133,15 +166,39 @@ extension LibraryStore {
             week: days,
             activeSession: activeSession,
             hasOnboarded: hasOnboarded,
+            greeting: WatchBridge.shared.greeting(on: now, calendar: calendar)
+                ?? WatchGreeting(headline: brief.greeting.headline, subline: brief.greeting.subline),
+            tea: WatchTea(id: brief.tea.id, name: brief.tea.name, steepSeconds: TeaSuggester.steepSeconds(for: brief.tea, strength: CozySettings.teaStrength)),
             cupMinutes: preferences.cupMinutes,
             queue: toRead.prefix(5).map { item in
                 WatchBook(id: item.id, title: item.book.title, author: item.book.author, currentPage: item.currentPage, pages: item.book.pages, wordsPerPage: item.book.wordsPerPage, paletteSeed: item.book.paletteSeed, finish: plan.book(item.id)?.finish)
             },
+            forecasts: forecasts,
+            yearGoal: yearGoal,
             liveActivities: preferences.liveActivities,
             slots: slotPlans().compactMap { slotPlan in
                 guard let part = slotPlan.parts.first, let item = item(part.bookID) else { return nil }
                 return WatchSlot(id: slotPlan.slot.id, minuteOfDay: slotPlan.slot.minuteOfDay, label: slotPlan.slot.label, bookID: part.bookID, title: item.book.title, minutes: slotPlan.minutes, fromPage: part.fromPage, toPage: slotPlan.parts.last?.toPage ?? part.toPage)
             }
         )
+    }
+}
+
+extension YearGoalPacing {
+    /// "Two books ahead of a steady pace." The plain-arithmetic line, for when no forecast has run yet.
+    var sentence: String {
+        let ahead = booksAheadOrBehind
+        switch status {
+        case .reached:
+            return "Goal reached. Everything from here is a gift."
+        case .ahead:
+            return ahead == 1 ? "A book ahead of a steady pace." : "\(ahead) books ahead of a steady pace."
+        case .onTrack:
+            return "Right on a steady pace, \(remaining) to go."
+        case .behind:
+            return "A little behind a steady pace. Shorter books count just the same."
+        case .noGoal:
+            return "No goal set."
+        }
     }
 }

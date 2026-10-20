@@ -70,7 +70,7 @@ enum ComplicationTimeline {
         var dates: Set<Date> = [now, tomorrow]
         for start in [today, tomorrow] {
             for minute in snapshot.slotMinutes {
-                let slot = start.addingTimeInterval(TimeInterval(minute * 60))
+                let slot = wallClock(minute, on: start, calendar: calendar)
                 for date in [slot.addingTimeInterval(-lead), slot.addingTimeInterval(window - lead)] where date > now {
                     dates.insert(date)
                 }
@@ -83,13 +83,19 @@ enum ComplicationTimeline {
         return Timeline(entries: entries, policy: .atEnd)
     }
 
+    /// The reading time on that day's clock, so a daylight-saving change doesn't move it by an hour.
+    static func wallClock(_ minuteOfDay: Int, on day: Date, calendar: Calendar) -> Date {
+        calendar.date(bySettingHour: minuteOfDay / 60, minute: minuteOfDay % 60, second: 0, of: day)
+            ?? day.addingTimeInterval(TimeInterval(minuteOfDay * 60))
+    }
+
     /// High while reading and in a reading time's window, none once the day's goal is met, low otherwise.
     static func relevance(of snapshot: ComplicationSnapshot, at date: Date, calendar: Calendar) -> TimelineEntryRelevance {
         if snapshot.liveSince != nil { return TimelineEntryRelevance(score: 1, duration: window) }
         if snapshot.isGoalMet || snapshot.dailyMinutes == 0 || snapshot.isRestDay { return TimelineEntryRelevance(score: 0) }
         let start = calendar.startOfDay(for: date)
         for minute in snapshot.slotMinutes {
-            let opens = start.addingTimeInterval(TimeInterval(minute * 60) - lead)
+            let opens = wallClock(minute, on: start, calendar: calendar).addingTimeInterval(-lead)
             if date >= opens && date < opens.addingTimeInterval(window) {
                 return TimelineEntryRelevance(score: 0.9, duration: opens.addingTimeInterval(window).timeIntervalSince(date))
             }

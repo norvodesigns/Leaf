@@ -292,7 +292,7 @@ struct AddPage: View {
                     store.addBook(query: text)
                     confirm("Sent to your iPhone to find.")
                 }
-                if let book = store.suggestedBook {
+                if let book = store.currentBook {
                     Text(book.title)
                         .font(.system(.footnote, design: .serif))
                         .foregroundStyle(WatchTheme.inkSecondary)
@@ -340,12 +340,14 @@ struct AddPage: View {
 /// with Reduce Motion, and gone in Always-On.
 struct WatchAtmosphere: View {
     var isPaused: Bool
+    /// Passed in as well as read: inside a TimelineView the environment's value can lag the screen's.
+    var isDimmed = false
 
     @Environment(\.isLuminanceReduced) private var isLuminanceReduced
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        if !isLuminanceReduced {
+        if !isLuminanceReduced && !isDimmed {
             TimelineView(.animation(minimumInterval: 1.0 / 12, paused: isPaused || reduceMotion)) { context in
                 Canvas { canvas, size in
                     let time = context.date.timeIntervalSinceReferenceDate

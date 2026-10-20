@@ -59,6 +59,11 @@ struct MainTabs: View {
             SessionAccessory()
         }
         .environment(\.sessionZoomNamespace, sessionZoom)
+        .onChange(of: store.activeSession == nil) { _, ended in
+            // A session ended elsewhere (the watch, the Live Activity) while minimized: its ambience ends with it.
+            // Not during a tea ritual, which plays before the session starts.
+            if ended && router.ritual == nil { AmbiencePlayer.shared.stop() }
+        }
         .fullScreenCover(isPresented: $router.showSession) {
             SessionView()
                 .navigationTransition(.zoom(sourceID: router.sessionSource, in: sessionZoom))

@@ -13,7 +13,8 @@ struct SessionView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if let logged = store.lastLogged, store.activeSession == nil {
+                if let logged = store.lastLogged {
+                    // A wrap-up first, even if a session is still running (a quick log while it was minimized).
                     LoggedView(session: logged)
                 } else if let session = store.activeSession {
                     if askingForPage {
@@ -27,6 +28,13 @@ struct SessionView: View {
             }
             // Opaque, so the page underneath never shows through the cover; black in Always-On.
             .containerBackground(isLuminanceReduced ? Color.black.gradient : WatchTheme.warm.gradient, for: .navigation)
+        }
+        .onChange(of: store.activeSession?.id) { _, _ in
+            // A new session (or none) starts on its timer, with its own goal still ahead.
+            askingForPage = false
+            if let session = store.activeSession {
+                celebratedGoal = session.goalSeconds.map { session.elapsed() >= $0 } ?? (store.goalProgress(at: Date()) >= 1)
+            }
         }
         .onAppear {
             if LaunchScreen.current == "pages" { askingForPage = true }
@@ -50,7 +58,7 @@ struct SessionView: View {
             let progress = session.goalSeconds.map { elapsed / max($0, 1) } ?? store.goalProgress(at: context.date)
             let blur = focusBlur(left: left, elapsed: elapsed, countingDown: countingDown, paused: session.isPaused)
             ZStack {
-                WatchAtmosphere(isPaused: session.isPaused)
+                WatchAtmosphere(isPaused: session.isPaused, isDimmed: isLuminanceReduced)
                 VStack(spacing: 6) {
                     ZStack {
                         GoalRing(progress: progress, lineWidth: 8)
@@ -162,9 +170,13 @@ struct PageEntryView: View {
 
     @State private var page: Double = 0
     @State private var lastWhole = 0
+    @State private var confirmsDiscard = false
 
     var body: some View {
-        let pages = store.snapshot.book(session.bookID)?.pages ?? max(session.startPage + 1, 1)
+        // A book the watch doesn't know yet (the phone's list hasn't arrived) gets room to turn, and no "The end!".
+        let known = store.snapshot.book(session.bookID)
+        let pages = known?.pages ?? session.startPage + 2_000
+        let atEnd = known != nil && Int(page) >= pages
         VStack(spacing: 4) {
             Text("Which page?")
                 .font(.footnote)
@@ -175,7 +187,7 @@ struct PageEntryView: View {
                 .contentTransition(.numericText())
                 .focusable()
                 .digitalCrownRotation($page, from: Double(session.startPage), through: Double(pages), by: 1, sensitivity: .medium, isContinuous: false, isHapticFeedbackEnabled: true)
-                .accessibilityLabel("Page \(Int(page)) of \(pages)")
+                .accessibilityLabel(known == nil ? "Page \(Int(page))" : "Page \(Int(page)) of \(pages)")
                 .accessibilityAdjustableAction { direction in
                     switch direction {
                     case .increment: page = min(Double(pages), page + 1)
@@ -183,15 +195,15 @@ struct PageEntryView: View {
                     @unknown default: break
                     }
                 }
-            Text(Int(page) >= pages ? "The end!" : "of \(pages) · +\(max(0, Int(page) - session.startPage)) pages")
+            Text(atEnd ? "The end!" : (known == nil ? "" : "of \(pages) · ") + "+\(max(0, Int(page) - session.startPage)) pages")
                 .font(.system(size: 11))
-                .foregroundStyle(Int(page) >= pages ? WatchTheme.accent : WatchTheme.inkSecondary)
+                .foregroundStyle(atEnd ? WatchTheme.accent : WatchTheme.inkSecondary)
 
             Button {
-                WatchHaptics.play(Int(page) >= pages ? .success : .directionUp)
+                WatchHaptics.play(atEnd ? .success : .directionUp)
                 store.finish(at: Int(page))
             } label: {
-                Text(Int(page) >= pages ? "Finish book" : "Save").frame(maxWidth: .infinity)
+                Text(atEnd ? "Finish book" : "Save").frame(maxWidth: .infinity)
             }
             .buttonStyle(.glassProminent)
             .tint(WatchTheme.accent)
@@ -206,13 +218,21 @@ struct PageEntryView: View {
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button(role: .destructive) {
-                    WatchHaptics.play(.retry)
-                    store.cancel()
+                    confirmsDiscard = true
                 } label: {
                     Image(systemName: "trash")
                 }
                 .accessibilityLabel("Discard session")
             }
+        }
+        .confirmationDialog("Discard this session?", isPresented: $confirmsDiscard, titleVisibility: .visible) {
+            Button("Discard", role: .destructive) {
+                WatchHaptics.play(.retry)
+                store.cancel()
+            }
+            Button("Keep reading", role: .cancel) {}
+        } message: {
+            Text("Its minutes won't count, here or on your iPhone.")
         }
     }
 }
@@ -239,6 +259,11 @@ struct LoggedView: View {
                 .foregroundStyle(WatchTheme.inkSecondary)
             Button("Done") { store.lastLogged = nil }
                 .buttonStyle(.glass)
+        }
+        .task(id: session.id) {
+            // It closes itself after a few seconds (DESIGN.md, Apple Watch).
+            try? await Task.sleep(for: .seconds(4))
+            if store.lastLogged?.id == session.id { store.lastLogged = nil }
         }
     }
 }

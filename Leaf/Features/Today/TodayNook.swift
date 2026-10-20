@@ -243,7 +243,7 @@ struct TodayNook: View {
                         actions.chooseTea(choice)
                     } label: {
                         Label(
-                            "\(choice.name) · \(SteepText.duration(seconds: TeaSuggester.steepSeconds(for: choice)))",
+                            "\(choice.name) · \(SteepText.duration(seconds: TeaSuggester.steepSeconds(for: choice, strength: CozySettings.teaStrength)))",
                             systemImage: choice.id == tea.id ? "checkmark" : "leaf"
                         )
                     }

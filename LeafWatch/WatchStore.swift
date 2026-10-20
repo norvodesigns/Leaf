@@ -11,30 +11,55 @@ final class WatchStore {
     var lastLogged: ReadingSession?
     /// A pot steeping right now (the tea timer that hands off to reading), if any.
     private(set) var steep: SteepTimer?
+    /// The day `snapshot.minutesReadToday` belongs to. On a later day nothing is read yet, even before the phone says so.
+    private(set) var minutesDay: Date
 
     @ObservationIgnored var send: ((SyncEvent) -> Void)?
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let persist: Bool
     private static let key = "leaf.watch.snapshot"
+    private static let dayKey = "leaf.watch.minutesDay"
 
     init(defaults: UserDefaults = .standard, demo: Bool = false) {
         self.defaults = defaults
         self.persist = !demo
+        let loaded: WatchSnapshot
         if demo {
-            let demoSnapshot = WatchDemo.snapshot()
-            snapshot = demoSnapshot
-            steep = WatchDemo.steep(for: demoSnapshot)
+            loaded = WatchDemo.snapshot()
+            steep = WatchDemo.steep(for: loaded)
         } else if let data = defaults.data(forKey: Self.key), let saved = SyncCodec.decode(WatchSnapshot.self, from: [SyncCodec.snapshotKey: data], key: SyncCodec.snapshotKey) {
-            snapshot = saved
+            loaded = saved
         } else {
-            snapshot = .empty
+            loaded = .empty
         }
+        snapshot = loaded
+        let stored = demo ? nil : defaults.object(forKey: Self.dayKey) as? Double
+        minutesDay = stored.map { Date(timeIntervalSince1970: $0) } ?? Calendar.current.startOfDay(for: demo ? Date() : loaded.generatedAt)
+    }
+
+    /// Today's minutes as far as the wrist knows: zero once the day the snapshot counted has passed.
+    var minutesReadToday: Double {
+        Calendar.current.isDate(minutesDay, inSameDayAs: Date()) ? snapshot.minutesReadToday : 0
+    }
+
+    /// A new day on the wrist before the phone has said so: nothing read yet, no stale assignments.
+    func rollDayIfNeeded(now: Date = Date()) {
+        guard !Calendar.current.isDate(minutesDay, inSameDayAs: now) else { return }
+        snapshot.minutesReadToday = 0
+        snapshot.today = []
+        minutesDay = Calendar.current.startOfDay(for: now)
+        save()
     }
 
     // MARK: Reading
 
     var activeSession: ActiveSession? { snapshot.activeSession }
     var reading: [WatchBook] { snapshot.reading }
+
+    /// The book a thought or a quote belongs to: the one being read right now, else the suggested one.
+    var currentBook: WatchBook? {
+        activeSession.flatMap { snapshot.book($0.bookID) } ?? suggestedBook
+    }
 
     /// The book to suggest: today's first assignment, else the first book being read.
     var suggestedBook: WatchBook? {
@@ -48,7 +73,7 @@ final class WatchStore {
     /// goal. Nil once today's goal is met: the timer then just counts up.
     func sessionTarget(for session: ActiveSession) -> Double? {
         if let cup = session.goalSeconds, cup > 0 { return cup }
-        let left = (Double(snapshot.dailyMinutes) - snapshot.minutesReadToday) * 60
+        let left = (Double(snapshot.dailyMinutes) - minutesReadToday) * 60
         return left >= 60 ? left : nil
     }
 
@@ -56,11 +81,11 @@ final class WatchStore {
     func goalProgress(at now: Date) -> Double {
         guard snapshot.dailyMinutes > 0 else { return 0 }
         let live = (activeSession?.elapsed(at: now) ?? 0) / 60
-        return min(1, (snapshot.minutesReadToday + live) / Double(snapshot.dailyMinutes))
+        return min(1, (minutesReadToday + live) / Double(snapshot.dailyMinutes))
     }
 
     func minutesToday(at now: Date) -> Double {
-        snapshot.minutesReadToday + (activeSession?.elapsed(at: now) ?? 0) / 60
+        minutesReadToday + (activeSession?.elapsed(at: now) ?? 0) / 60
     }
 
     /// A smart starting point for the page picker: where your pace says you are.
@@ -73,19 +98,30 @@ final class WatchStore {
     // MARK: From the phone
 
     func apply(_ incoming: WatchSnapshot) {
+        // The system replays the last application context on every launch; an older or repeated snapshot would undo
+        // what happened on the wrist since.
+        guard incoming.generatedAt > snapshot.generatedAt else { return }
+        let before = snapshot.activeSession
         var next = incoming
         // Keep a newer local copy of the live session if the phone hasn't seen our change yet.
         if let local = snapshot.activeSession, let remote = incoming.activeSession, local.id == remote.id, local.revision > remote.revision {
             next.activeSession = local
         }
         snapshot = next
+        minutesDay = Calendar.current.startOfDay(for: incoming.generatedAt)
+        if next.activeSession != nil, steep != nil { cancelSteep() }
         save()
+        // The phone paused, resumed, ended or replaced the session: the wrist-down runtime follows.
+        if snapshot.activeSession != before {
+            keepAwake()
+        }
     }
 
     // MARK: Sessions on the wrist
 
     func start(bookID: String, teaID: String? = nil, goalSeconds: Double? = nil) {
         guard snapshot.activeSession == nil, let book = snapshot.book(bookID) else { return }
+        rollDayIfNeeded()
         let session = ActiveSession(bookID: bookID, startedAt: Date(), startPage: book.currentPage, origin: .watch, teaID: teaID, goalSeconds: goalSeconds)
         snapshot.activeSession = session
         steep = nil
@@ -122,6 +158,7 @@ final class WatchStore {
     /// Logs the session at `page`, updates the local copy optimistically, and tells the phone.
     func finish(at page: Int, end: Date = Date()) {
         guard let active = snapshot.activeSession else { return }
+        rollDayIfNeeded(now: end)
         let logged = ReadingSession(
             id: active.id, bookID: active.bookID, startedAt: active.startedAt, seconds: active.elapsed(at: end),
             fromPage: active.startPage, toPage: page, teaID: active.teaID, ambienceID: active.ambienceID, device: .watch
@@ -140,17 +177,24 @@ final class WatchStore {
     // MARK: Wrist down
 
     /// A session timed on the watch keeps running with the wrist down and taps at its goal (WatchRuntime.swift).
-    /// A session mirrored from the phone is the phone's to time; it gets the old scheduled nudge.
+    /// A paused session, none at all, or one the phone is timing (the phone nudges for its own) lets the watch sleep.
     private func keepAwake() {
-        guard persist, let session = snapshot.activeSession, !session.isPaused else { return }
-        guard session.origin == .watch else {
-            scheduleGoalNudge()
+        guard persist else { return }
+        guard let session = snapshot.activeSession, !session.isPaused, session.origin == .watch else {
+            letSleep()
             return
         }
         let runtime = ReadingRuntime.shared
         runtime.onLost = { [weak self] in self?.scheduleGoalNudge() }
         cancelGoalNudge()
-        runtime.begin(secondsToGoal: sessionTarget(for: session).map { $0 - session.elapsed() })
+        runtime.begin(secondsToGoal: secondsToGoal(for: session))
+    }
+
+    /// Seconds from now to this session's goal: its cup, else what is left of today's minutes. Nil once it is met.
+    private func secondsToGoal(for session: ActiveSession, now: Date = Date()) -> Double? {
+        let target = session.goalSeconds.flatMap { $0 > 0 ? $0 : nil } ?? (Double(snapshot.dailyMinutes) - minutesReadToday) * 60
+        let left = target - session.elapsed(at: now)
+        return left > 1 ? left : nil
     }
 
     private func letSleep() {
@@ -164,6 +208,7 @@ final class WatchStore {
     /// "Read without the timer": crown to the page, tap to save.
     func quickLog(bookID: String, toPage: Int, minutes: Double, now: Date = Date()) {
         guard minutes > 0, let book = snapshot.book(bookID) else { return }
+        rollDayIfNeeded(now: now)
         let page = min(max(0, toPage), book.pages)
         let logged = ReadingSession(
             bookID: bookID, startedAt: now.addingTimeInterval(-minutes * 60), seconds: minutes * 60,
@@ -189,7 +234,9 @@ final class WatchStore {
     func addJournal(bookID: String, kind: JournalEntry.Kind, text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, let book = snapshot.book(bookID) else { return }
-        send?(.journalAdded(bookID: bookID, kind: kind, text: trimmed, page: book.currentPage))
+        // Mid-session, the page your pace says you've reached; otherwise the last page Leaf knows.
+        let page = activeSession.map { $0.bookID == bookID ? estimatedPage(for: $0) : book.currentPage } ?? book.currentPage
+        send?(.journalAdded(bookID: bookID, kind: kind, text: trimmed, page: page))
     }
 
     /// Mark finished, set aside, or start a queued book from the wrist.
@@ -260,17 +307,16 @@ final class WatchStore {
     // MARK: Goal nudge (a wrist tap when today's minutes are done, even with the app in the background)
 
     private func scheduleGoalNudge() {
-        guard persist, let session = snapshot.activeSession, !session.isPaused else { return }
-        let remaining = (Double(snapshot.dailyMinutes) - snapshot.minutesReadToday) * 60 - session.elapsed()
-        guard remaining > 5 else { return }
+        guard persist, let session = snapshot.activeSession, !session.isPaused, let remaining = secondsToGoal(for: session), remaining > 5 else { return }
         let center = UNUserNotificationCenter.current()
         let minutes = snapshot.dailyMinutes
+        let isCup = session.goalSeconds != nil
         Task {
             let granted = (try? await center.requestAuthorization(options: [.alert, .sound])) ?? false
             guard granted else { return }
             let content = UNMutableNotificationContent()
-            content.title = "\(minutes) minutes read"
-            content.body = "That's today's goal. Keep going, or log your page."
+            content.title = isCup ? "Your cup is done" : "\(minutes) minutes read"
+            content.body = isCup ? "Keep going, or log your page." : "That's today's goal. Keep going, or log your page."
             content.sound = .default
             let trigger = UNTimeIntervalNotificationTrigger(timeInterval: remaining, repeats: false)
             try? await center.add(UNNotificationRequest(identifier: "leaf.watch.goal", content: content, trigger: trigger))
@@ -284,7 +330,8 @@ final class WatchStore {
     private func save() {
         guard persist, let data = SyncCodec.encode(snapshot, key: SyncCodec.snapshotKey)[SyncCodec.snapshotKey] else { return }
         defaults.set(data, forKey: Self.key)
-        ComplicationFeed.publish(snapshot)
+        defaults.set(minutesDay.timeIntervalSince1970, forKey: Self.dayKey)
+        ComplicationFeed.publish(snapshot, day: minutesDay)
     }
 }
 

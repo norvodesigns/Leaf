@@ -455,21 +455,7 @@ struct YearGoalCard: View {
         }
     }
 
-    private var pacingSentence: String {
-        let ahead = pacing.booksAheadOrBehind
-        switch pacing.status {
-        case .reached:
-            return "Goal reached. Everything from here is a gift."
-        case .ahead:
-            return ahead == 1 ? "A book ahead of a steady pace." : "\(ahead) books ahead of a steady pace."
-        case .onTrack:
-            return "Right on a steady pace, \(pacing.remaining) to go."
-        case .behind:
-            return "A little behind a steady pace. Shorter books count just the same."
-        case .noGoal:
-            return "No goal set."
-        }
-    }
+    private var pacingSentence: String { pacing.sentence }
 }
 
 // MARK: - Challenge

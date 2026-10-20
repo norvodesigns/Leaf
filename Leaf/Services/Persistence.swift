@@ -43,9 +43,16 @@ struct Persistence: Sendable {
         try data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
     }
 
+    /// Removes the library, its rolling backup and any damaged copies set aside, so nothing of it stays on disk.
     func delete() {
-        try? FileManager.default.removeItem(at: url)
-        try? FileManager.default.removeItem(at: backupURL)
+        let fm = FileManager.default
+        try? fm.removeItem(at: url)
+        try? fm.removeItem(at: backupURL)
+        let folder = url.deletingLastPathComponent()
+        let damagedPrefix = url.deletingPathExtension().lastPathComponent + ".damaged-"
+        for name in (try? fm.contentsOfDirectory(atPath: folder.path)) ?? [] where name.hasPrefix(damagedPrefix) {
+            try? fm.removeItem(at: folder.appendingPathComponent(name))
+        }
     }
 
     // MARK: Internals

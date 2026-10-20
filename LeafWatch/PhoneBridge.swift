@@ -33,6 +33,12 @@ final class PhoneBridge: NSObject {
 
     func requestSnapshot() { send(.requestSnapshot) }
 
+    /// Asks for fresh numbers only when the phone can answer now; a queued ask would arrive after they matter.
+    func refreshIfReachable() {
+        guard WCSession.isSupported(), WCSession.default.activationState == .activated, WCSession.default.isReachable else { return }
+        requestSnapshot()
+    }
+
     private func receive(_ snapshot: WatchSnapshot) {
         store?.apply(snapshot)
     }

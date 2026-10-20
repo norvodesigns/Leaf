@@ -95,6 +95,7 @@ final class PlanDesk {
             guard !Task.isCancelled else { return }
             self.forecast = forecast
             self.isWorking = false
+            if let result = self.forecast?.result { WatchBridge.shared.forecast = result }
             // Only if the controls haven't moved since: a newer what-if is already on its way.
             if let whatIf, let ask, let current = self.whatIfAsk, current.minutes == ask.minutes, current.days == ask.days {
                 self.whatIf = whatIf

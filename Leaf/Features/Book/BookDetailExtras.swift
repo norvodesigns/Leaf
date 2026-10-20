@@ -31,7 +31,7 @@ struct BookEditionPicker: View {
                             Button {
                                 guard count != item.book.pages else { return }
                                 Haptics.shared.selection()
-                                store.updateBook(item.id, pages: count)
+                                store.switchEdition(item.id, pages: count)
                             } label: {
                                 if count == item.book.pages {
                                     Label("\(LeafFormat.number(count)) pages", systemImage: "checkmark")
@@ -169,7 +169,7 @@ struct BookMoreLikeThis: View {
                                         .leafStyle(.caption, color: .ink)
                                         .lineLimit(2)
                                         .frame(width: BookCover.Size.m.width, alignment: .leading)
-                                    Text(pick.reason.text)
+                                    Text(store.similarReason(for: book) == nil ? pick.book.author : pick.reason.text)
                                         .leafStyle(.caption, color: .inkTertiary)
                                         .lineLimit(2)
                                         .frame(width: BookCover.Size.m.width, alignment: .leading)
@@ -177,7 +177,9 @@ struct BookMoreLikeThis: View {
                             }
                             .buttonStyle(.pressable)
                             .accessibilityElement(children: .ignore)
-                            .accessibilityLabel("\(pick.book.title), by \(pick.book.author). \(pick.reason.text)")
+                            .accessibilityLabel(store.similarReason(for: book) == nil
+                                ? "\(pick.book.title), by \(pick.book.author)"
+                                : "\(pick.book.title), by \(pick.book.author). \(pick.reason.text)")
                         }
                     }
                     .padding(.bottom, Space.s)
@@ -190,7 +192,7 @@ struct BookMoreLikeThis: View {
         }
         .task(id: "\(book.id)|\(catalog.isLoaded)") {
             guard catalog.isLoaded else { return }
-            picks = await catalog.similar(to: book, context: store.recommendationContext(catalog: catalog), limit: 12)
+            picks = await catalog.similar(to: book, context: store.recommendationContext(catalog: catalog), limit: 12, because: store.similarReason(for: book))
         }
     }
 }

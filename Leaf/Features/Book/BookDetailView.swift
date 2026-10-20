@@ -15,6 +15,7 @@ struct BookDetailView: View {
     @State private var showsPageSheet = false
     @State private var showsPagesEditor = false
     @State private var confirmsRemoval = false
+    @State private var confirmsReread = false
     @State private var showsAllSessions = false
     /// Sittings or the journal, under the actions.
     @State private var lowerTab: LowerTab = .sittings
@@ -37,7 +38,8 @@ struct BookDetailView: View {
 
     /// The minutes still to read: what is left for a book underway, else the whole book.
     private var minutesToRead: Double {
-        if let item, item.shelf == .reading { return item.minutesLeft(atWPM: store.wpm) }
+        // A paused (or put-back) book keeps its page, so what's left counts from there too.
+        if let item, item.shelf != .finished, item.currentPage > 0 { return item.minutesLeft(atWPM: store.wpm) }
         return shown.minutes(atWPM: store.wpm)
     }
 
@@ -112,6 +114,20 @@ struct BookDetailView: View {
         } message: {
             Text("“\(shown.title)” will leave your shelves and your plan.")
         }
+        .confirmationDialog("Start it again?", isPresented: $confirmsReread, titleVisibility: .visible) {
+            Button("Read it again") {
+                LibraryShelfActions.move(book.id, to: .reading, store: store)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(rereadMessage)
+        }
+    }
+
+    /// A reread starts the book from page one and takes its finish off this year's count until you finish again.
+    private var rereadMessage: String {
+        guard let finished = item?.finishedAt else { return "It goes back on Reading from page one." }
+        return "It goes back on Reading from page one, and its finish on \(LeafFormat.format(finished, template: "dMMMyyyy", calendar: store.calendar)) comes off your count until you finish it again."
     }
 
     // MARK: Stage
@@ -186,7 +202,7 @@ struct BookDetailView: View {
 
     /// "3 h 40 min left at 262 words a minute, about 9 reading days at 25 min a day."
     private var paceSentence: String {
-        let hasProgress = shelf == .reading && (item?.currentPage ?? 0) > 0
+        let hasProgress = shelf != .finished && (item?.currentPage ?? 0) > 0
         let wpm = Int(store.wpm.rounded())
         var text = "\(LeafFormat.duration(minutes: minutesToRead)) \(hasProgress ? "left" : "to read") at \(wpm) words a minute"
         let daily = store.preferences.dailyMinutes
@@ -226,7 +242,12 @@ struct BookDetailView: View {
                     router.askPosition(for: item.id)
                 }
             }
-            if let finish = planned?.finish {
+            if item.shelf == .paused {
+                // A set-aside book is out of the plan, so it has no date; say so rather than blame the settings.
+                Text("Set aside. It stays out of the plan until you pick it back up.")
+                    .leafStyle(.pullQuote)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if let finish = planned?.finish {
                 Text("You’ll finish on \(dayLong(finish)).")
                     .leafStyle(.pullQuote)
                     .fixedSize(horizontal: false, vertical: true)
@@ -258,7 +279,7 @@ struct BookDetailView: View {
                 ratingRow(current: item.rating)
             }
             SecondaryGlassButton("Read it again", systemImage: "arrow.counterclockwise", compact: true) {
-                LibraryShelfActions.move(item.id, to: .reading, store: store)
+                confirmsReread = true
             }
         }
     }
@@ -443,15 +464,18 @@ struct BookDetailView: View {
             } label: {
                 Label("Mark finished", systemImage: "checkmark.circle")
             }
-            Button {
-                LibraryShelfActions.move(book.id, to: .paused, store: store)
-            } label: {
-                Label("Set aside for now", systemImage: "pause.circle")
-            }
-            Button {
-                LibraryShelfActions.move(book.id, to: .toRead, store: store)
-            } label: {
-                Label("Move to To read", systemImage: "bookmark")
+            // Moving the book off Reading mid-session would drop the minutes being timed.
+            if store.activeSession?.bookID != book.id {
+                Button {
+                    LibraryShelfActions.move(book.id, to: .paused, store: store)
+                } label: {
+                    Label("Set aside for now", systemImage: "pause.circle")
+                }
+                Button {
+                    LibraryShelfActions.move(book.id, to: .toRead, store: store)
+                } label: {
+                    Label("Move to To read", systemImage: "bookmark")
+                }
             }
         case .paused?:
             Button {
@@ -489,7 +513,7 @@ struct BookDetailView: View {
             }
         case .finished?:
             Button {
-                LibraryShelfActions.move(book.id, to: .reading, store: store)
+                confirmsReread = true
             } label: {
                 Label("Read again", systemImage: "book")
             }

@@ -140,7 +140,8 @@ struct SearchView: View {
                 message: "Type a title or an author to see how long it takes at your pace."
             )
         } else {
-            if !collections.contains(where: { $0.kind == .personal }) {
+            // "Loved by readers" is the cold-start row; any other personal row means Leaf has learned something.
+            if !collections.contains(where: { $0.kind == .personal && $0.id != "loved" }) {
                 SearchFrontTableNote {
                     router.searchPath.append(TasteRoute())
                 }

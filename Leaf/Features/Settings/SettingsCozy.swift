@@ -19,7 +19,7 @@ struct SettingsTeaSection: View {
     @Environment(LibraryStore.self) private var store
     @State private var strength = CozySettings.teaStrength
     @State private var cues = CozySettings.soundCues
-    @State private var volume = CozySettings.ambienceVolume ?? 0.5
+    @State private var volume = 0.5
 
     private static let cupChoices = [15, 20, 25, 30, 40, 45, 50, 60]
 
@@ -73,16 +73,12 @@ struct SettingsTeaSection: View {
             if store.preferences.ambienceID != nil {
                 VStack(alignment: .leading, spacing: Space.xs) {
                     Text("Starting volume").leafStyle(.uiBody)
-                    Slider(value: $volume, in: 0...1) {
+                    Slider(value: volumeBinding, in: 0...1) {
                         Text("Starting volume")
                     } minimumValueLabel: {
                         Image(systemName: "speaker.fill").foregroundStyle(Color.inkTertiary)
                     } maximumValueLabel: {
                         Image(systemName: "speaker.wave.3.fill").foregroundStyle(Color.inkTertiary)
-                    }
-                    .onChange(of: volume) { _, level in
-                        CozySettings.ambienceVolume = level
-                        if AmbiencePlayer.shared.isPlaying { AmbiencePlayer.shared.setVolume(Float(level)) }
                     }
                 }
                 .padding(.vertical, Space.xs)
@@ -98,9 +94,30 @@ struct SettingsTeaSection: View {
         } header: {
             settingsHeader("Sound")
         } footer: {
-            settingsFooter("Leaf is silent unless you choose a sound. The ambience only plays while you read, and cues (the kettle, the pour) follow the silent switch.")
+            settingsFooter("Leaf is silent unless you choose a sound. Your ambience is offered first when you read and only plays once you tap it; cues (the kettle, the pour) follow the silent switch.")
         }
         .settingsRows()
+        .onAppear(perform: syncVolume)
+        .onChange(of: store.preferences.ambienceID) { _, _ in syncVolume() }
+    }
+
+    /// Only the reader's own drag saves a level; showing the sound's default doesn't.
+    private var volumeBinding: Binding<Double> {
+        Binding(
+            get: { volume },
+            set: { level in
+                volume = level
+                CozySettings.ambienceVolume = level
+                if AmbiencePlayer.shared.isPlaying { AmbiencePlayer.shared.setVolume(Float(level)) }
+            }
+        )
+    }
+
+    /// The level a chosen ambience will really start at: yours once you've set one, else that sound's own.
+    private func syncVolume() {
+        volume = CozySettings.ambienceVolume
+            ?? AmbienceCatalog.all.first { $0.id == store.preferences.ambienceID }?.defaultVolume
+            ?? 0.5
     }
 
     private var teaBinding: Binding<String?> {
@@ -171,7 +188,7 @@ struct SettingsPlanSection: View {
         } header: {
             settingsHeader("Plan")
         } footer: {
-            settingsFooter(catchUpFooter)
+            settingsFooter(catchUpFooter + " Pages or percent is set per book: open a book and tap its page line.")
         }
         .settingsRows()
     }
@@ -311,12 +328,23 @@ struct SettingsCloudSection: View {
         } header: {
             settingsHeader("iCloud")
         } footer: {
-            settingsFooter("Your library is kept in your own iCloud, so it survives a new phone and stays the same on your iPad. No account, nothing anywhere else.")
+            settingsFooter(cloudFooter)
         }
         .settingsRows()
     }
 
     private var status: SyncStatus { store.sync?.status ?? .off }
+
+    private var cloudFooter: String {
+        switch status {
+        case .noAccount:
+            return "Sign in to iCloud on this iPhone and Leaf keeps a copy of your library there, in your own account."
+        case .off:
+            return "Your library is kept on this iPhone only."
+        default:
+            return "Your library is kept in your own iCloud, so it survives a new phone and stays the same on your iPad. No account, nothing anywhere else."
+        }
+    }
 
     private var statusTitle: String {
         switch status {

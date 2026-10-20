@@ -136,7 +136,8 @@ final class Reminders: NSObject {
 
     /// While a session runs, a quiet tap when today's goal is reached (useful with the phone face down).
     private func scheduleGoalNudge(store: LibraryStore) {
-        guard let active = store.activeSession, !active.isPaused, !store.goalMetToday else { return }
+        // A session the watch is timing gets its tap on the wrist (LeafWatch/WatchRuntime.swift); one is enough.
+        guard let active = store.activeSession, !active.isPaused, active.origin != .watch, !store.goalMetToday else { return }
         let remaining = (Double(store.preferences.dailyMinutes) - store.minutesReadToday) * 60 - active.elapsed()
         guard remaining > 5 else { return }
         let content = UNMutableNotificationContent()
