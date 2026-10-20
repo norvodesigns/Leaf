@@ -546,30 +546,31 @@ struct ReadingPreferences: Codable, Hashable, Sendable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let d = ReadingPreferences()
-        wpm = try c.decodeIfPresent(Double.self, forKey: .wpm) ?? d.wpm
-        dailyMinutes = try c.decodeIfPresent(Int.self, forKey: .dailyMinutes) ?? d.dailyMinutes
-        readingDays = try c.decodeIfPresent(Set<Int>.self, forKey: .readingDays) ?? d.readingDays
-        planMode = try c.decodeIfPresent(PlanMode.self, forKey: .planMode) ?? d.planMode
-        reminderEnabled = try c.decodeIfPresent(Bool.self, forKey: .reminderEnabled) ?? d.reminderEnabled
-        reminderHour = try c.decodeIfPresent(Int.self, forKey: .reminderHour) ?? d.reminderHour
-        reminderMinute = try c.decodeIfPresent(Int.self, forKey: .reminderMinute) ?? d.reminderMinute
-        hasOnboarded = try c.decodeIfPresent(Bool.self, forKey: .hasOnboarded) ?? d.hasOnboarded
-        onboardedAt = try c.decodeIfPresent(Date.self, forKey: .onboardedAt)
-        learnFromSessions = try c.decodeIfPresent(Bool.self, forKey: .learnFromSessions) ?? d.learnFromSessions
-        hapticsLevel = try c.decodeIfPresent(HapticsLevel.self, forKey: .hapticsLevel) ?? d.hapticsLevel
-        appearance = try c.decodeIfPresent(AppearancePreference.self, forKey: .appearance) ?? d.appearance
-        updatedAt = try c.decodeIfPresent(Date.self, forKey: .updatedAt) ?? d.updatedAt
-        yearlyGoal = try c.decodeIfPresent(Int.self, forKey: .yearlyGoal)
-        favoriteTeaID = try c.decodeIfPresent(String.self, forKey: .favoriteTeaID)
-        ambienceID = try c.decodeIfPresent(String.self, forKey: .ambienceID)
-        readingSlots = try c.decodeIfPresent([ReadingSlot].self, forKey: .readingSlots) ?? []
-        cupMinutes = try c.decodeIfPresent(Int.self, forKey: .cupMinutes) ?? d.cupMinutes
-        catchUp = try c.decodeIfPresent(CatchUpMode.self, forKey: .catchUp) ?? d.catchUp
-        nookScene = try c.decodeIfPresent(String.self, forKey: .nookScene)
-        weeklyLetter = try c.decodeIfPresent(Bool.self, forKey: .weeklyLetter) ?? d.weeklyLetter
-        aiGreetings = try c.decodeIfPresent(Bool.self, forKey: .aiGreetings) ?? d.aiGreetings
-        liveActivities = try c.decodeIfPresent(Bool.self, forKey: .liveActivities) ?? d.liveActivities
-        syncEnabled = try c.decodeIfPresent(Bool.self, forKey: .syncEnabled) ?? d.syncEnabled
+        let s = decoder.decodeSkips
+        wpm = try c.decode(Double.self, forKey: .wpm, or: d.wpm, skips: s)
+        dailyMinutes = try c.decode(Int.self, forKey: .dailyMinutes, or: d.dailyMinutes, skips: s)
+        readingDays = try c.decode(Set<Int>.self, forKey: .readingDays, or: d.readingDays, skips: s)
+        planMode = try c.decode(PlanMode.self, forKey: .planMode, or: d.planMode, skips: s)
+        reminderEnabled = try c.decode(Bool.self, forKey: .reminderEnabled, or: d.reminderEnabled, skips: s)
+        reminderHour = try c.decode(Int.self, forKey: .reminderHour, or: d.reminderHour, skips: s)
+        reminderMinute = try c.decode(Int.self, forKey: .reminderMinute, or: d.reminderMinute, skips: s)
+        hasOnboarded = try c.decode(Bool.self, forKey: .hasOnboarded, or: d.hasOnboarded, skips: s)
+        onboardedAt = try c.decodeOptional(Date.self, forKey: .onboardedAt, skips: s)
+        learnFromSessions = try c.decode(Bool.self, forKey: .learnFromSessions, or: d.learnFromSessions, skips: s)
+        hapticsLevel = try c.decode(HapticsLevel.self, forKey: .hapticsLevel, or: d.hapticsLevel, skips: s)
+        appearance = try c.decode(AppearancePreference.self, forKey: .appearance, or: d.appearance, skips: s)
+        updatedAt = try c.decode(Date.self, forKey: .updatedAt, or: d.updatedAt, skips: s)
+        yearlyGoal = try c.decodeOptional(Int.self, forKey: .yearlyGoal, skips: s)
+        favoriteTeaID = try c.decodeOptional(String.self, forKey: .favoriteTeaID, skips: s)
+        ambienceID = try c.decodeOptional(String.self, forKey: .ambienceID, skips: s)
+        readingSlots = try c.decodeList(ReadingSlot.self, forKey: .readingSlots, skips: s)
+        cupMinutes = try c.decode(Int.self, forKey: .cupMinutes, or: d.cupMinutes, skips: s)
+        catchUp = try c.decode(CatchUpMode.self, forKey: .catchUp, or: d.catchUp, skips: s)
+        nookScene = try c.decodeOptional(String.self, forKey: .nookScene, skips: s)
+        weeklyLetter = try c.decode(Bool.self, forKey: .weeklyLetter, or: d.weeklyLetter, skips: s)
+        aiGreetings = try c.decode(Bool.self, forKey: .aiGreetings, or: d.aiGreetings, skips: s)
+        liveActivities = try c.decode(Bool.self, forKey: .liveActivities, or: d.liveActivities, skips: s)
+        syncEnabled = try c.decode(Bool.self, forKey: .syncEnabled, or: d.syncEnabled, skips: s)
     }
 }
 
@@ -595,20 +596,23 @@ struct LeafData: Codable, Sendable {
 
     init() {}
 
+    /// Strict by default; tolerant when the decoder carries a `DecodeSkips` (the library file does), so an entry this
+    /// version can't read costs that entry and not the whole library.
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        version = try c.decodeIfPresent(Int.self, forKey: .version) ?? 1
-        items = try c.decodeIfPresent([LibraryItem].self, forKey: .items) ?? []
-        sessions = try c.decodeIfPresent([ReadingSession].self, forKey: .sessions) ?? []
-        speedTests = try c.decodeIfPresent([SpeedTestResult].self, forKey: .speedTests) ?? []
-        preferences = try c.decodeIfPresent(ReadingPreferences.self, forKey: .preferences) ?? ReadingPreferences()
-        activeSession = try c.decodeIfPresent(ActiveSession.self, forKey: .activeSession)
-        dismissed = try c.decodeIfPresent([String].self, forKey: .dismissed) ?? []
-        journal = try c.decodeIfPresent([JournalEntry].self, forKey: .journal) ?? []
-        challenges = try c.decodeIfPresent([ChallengeEnrollment].self, forKey: .challenges) ?? []
-        tombstones = try c.decodeIfPresent([Tombstone].self, forKey: .tombstones) ?? []
-        cabinet = try c.decodeIfPresent([CabinetTea].self, forKey: .cabinet) ?? []
-        tastings = try c.decodeIfPresent([TastingNote].self, forKey: .tastings) ?? []
+        let s = decoder.decodeSkips
+        version = try c.decode(Int.self, forKey: .version, or: 1, skips: s)
+        items = try c.decodeList(LibraryItem.self, forKey: .items, skips: s)
+        sessions = try c.decodeList(ReadingSession.self, forKey: .sessions, skips: s)
+        speedTests = try c.decodeList(SpeedTestResult.self, forKey: .speedTests, skips: s)
+        preferences = try c.decode(ReadingPreferences.self, forKey: .preferences, or: ReadingPreferences(), skips: s)
+        activeSession = try c.decodeOptional(ActiveSession.self, forKey: .activeSession, skips: s)
+        dismissed = try c.decodeList(String.self, forKey: .dismissed, skips: s)
+        journal = try c.decodeList(JournalEntry.self, forKey: .journal, skips: s)
+        challenges = try c.decodeList(ChallengeEnrollment.self, forKey: .challenges, skips: s)
+        tombstones = try c.decodeList(Tombstone.self, forKey: .tombstones, skips: s)
+        cabinet = try c.decodeList(CabinetTea.self, forKey: .cabinet, skips: s)
+        tastings = try c.decodeList(TastingNote.self, forKey: .tastings, skips: s)
     }
 
     func items(on shelf: Shelf) -> [LibraryItem] {

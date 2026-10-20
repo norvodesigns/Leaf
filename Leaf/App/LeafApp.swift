@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 @main
 struct LeafApp: App {
@@ -30,12 +31,7 @@ struct LeafApp: App {
             })
         }
 
-        if !options.isScripted, CloudSync.isAvailable {
-            let sync = CloudSync()
-            sync.onRemoteData = { [weak store] merged in store?.applyRemote(merged: merged) }
-            store.sync = sync
-            sync.start(initial: store.data)
-        }
+        if !options.isScripted { Self.startSyncIfReady(store) }
 
         Reminders.shared.configure(store: store)
         Reminders.shared.onOpenWeeklyLetter = { [weak router] in router?.openWeeklyLetter() }
@@ -52,6 +48,22 @@ struct LeafApp: App {
         Haptics.shared.prepare()
         CozySettings.apply()
         LeafAppearance.configure()
+    }
+
+    /// iCloud starts once the library has been read: never against the empty stand-in of a launch before the first
+    /// unlock, whose merge would be written over the reader's real library.
+    private static func startSyncIfReady(_ store: LibraryStore) {
+        guard store.sync == nil, !store.isLoadDeferred, CloudSync.isAvailable else { return }
+        let sync = CloudSync()
+        sync.onRemoteData = { [weak store] merged in store?.applyRemote(merged: merged) }
+        store.sync = sync
+        sync.start(initial: store.data)
+    }
+
+    /// After a launch before the first unlock, reads the library as soon as it can be read.
+    private func loadDeferredLibrary() {
+        guard store.loadIfDeferred(), !LaunchOptions.current.isScripted else { return }
+        Self.startSyncIfReady(store)
     }
 
     private var colorScheme: ColorScheme? {
@@ -74,6 +86,7 @@ struct LeafApp: App {
                 .onChange(of: scenePhase) { _, phase in
                     switch phase {
                     case .active:
+                        loadDeferredLibrary()
                         store.refreshDay(LaunchOptions.current.now())
                         Haptics.shared.prepare()
                         LiveActivityController.shared.sync()
@@ -85,6 +98,9 @@ struct LeafApp: App {
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
                     store.refreshDay(LaunchOptions.current.now())
+                }
+                .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataDidBecomeAvailableNotification)) { _ in
+                    loadDeferredLibrary()
                 }
         }
     }

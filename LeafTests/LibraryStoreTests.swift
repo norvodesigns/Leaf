@@ -300,6 +300,74 @@ struct LibraryStoreTests {
         #expect(Persistence.ephemeral().load() == nil)
     }
 
+    @Test func aLibraryThatCantBeReadYetIsNeitherSetAsideNorOverwritten() throws {
+        // Before the first unlock after a restart the file is there but can't be read. A folder in its place stands in.
+        let persistence = Persistence.ephemeral()
+        try FileManager.default.createDirectory(at: persistence.url, withIntermediateDirectories: true)
+        guard case .unavailable = persistence.loadLibrary() else {
+            Issue.record("an unreadable library must not count as damaged or missing")
+            return
+        }
+        let store = LibraryStore(persistence: persistence)
+        #expect(store.isLoadDeferred)
+        store.add(book("stand-in"), to: .toRead)
+        store.flush()
+        var isFolder: ObjCBool = false
+        let stillThere = FileManager.default.fileExists(atPath: persistence.url.path, isDirectory: &isFolder)
+        let untouched = stillThere && isFolder.boolValue
+        #expect(untouched, "nothing may be written over a library that hasn't been read")
+        #expect(!store.loadIfDeferred(), "still can't be read")
+
+        try FileManager.default.removeItem(at: persistence.url)
+        var saved = LeafData()
+        saved.items = [LibraryItem(book: book("keep"), shelf: .toRead, order: 1)]
+        try persistence.save(saved)
+        #expect(store.loadIfDeferred())
+        #expect(!store.isLoadDeferred)
+        #expect(store.toRead.map(\.id) == ["keep"])
+        persistence.delete()
+    }
+
+    @Test func aMissingLibraryFallsBackToItsBackup() throws {
+        let persistence = Persistence.ephemeral()
+        var good = LeafData()
+        good.items = [LibraryItem(book: book("keep"), shelf: .toRead, order: 1)]
+        try persistence.save(good)
+        try persistence.save(good)
+        try FileManager.default.removeItem(at: persistence.url)
+        #expect(persistence.load()?.items.map(\.id) == ["keep"])
+        persistence.delete()
+    }
+
+    @Test func aLibraryFromANewerLeafKeepsWhatItCanAndTheOriginal() throws {
+        let persistence = Persistence.ephemeral()
+        try FileManager.default.createDirectory(at: persistence.url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let json = #"{"items":[{"book":{"id":"keep","title":"K","author":"A","pages":300,"words":81000,"genres":[],"popularity":0},"shelf":"toRead","currentPage":0,"order":1,"addedAt":700000000},{"book":{"id":"new","title":"N","author":"B","pages":200,"words":54000,"genres":[],"popularity":0},"shelf":"didNotFinish","currentPage":0,"order":2,"addedAt":700000000}],"preferences":{"hasOnboarded":true}}"#
+        try Data(json.utf8).write(to: persistence.url)
+        let loaded = persistence.load()
+        #expect(loaded?.items.map(\.id) == ["keep"])
+        #expect(loaded?.preferences.hasOnboarded == true)
+        #expect(FileManager.default.fileExists(atPath: persistence.partialCopyURL.path), "the original is kept beside it")
+        persistence.delete()
+        #expect(!FileManager.default.fileExists(atPath: persistence.partialCopyURL.path))
+    }
+
+    @Test func savesLandInOrderAndNothingLandsAfterAnErase() {
+        let persistence = Persistence.ephemeral()
+        let writer = LibraryWriter(persistence: persistence)
+        var newer = LeafData()
+        newer.items = [LibraryItem(book: book("newer"), shelf: .toRead, order: 1)]
+        var older = LeafData()
+        older.items = [LibraryItem(book: book("older"), shelf: .toRead, order: 1)]
+        writer.save(newer, generation: 2)
+        writer.save(older, generation: 1)
+        #expect(persistence.load()?.items.map(\.id) == ["newer"], "a late save of an older snapshot is dropped")
+        writer.erase(generation: 3)
+        writer.save(older, generation: 2)
+        #expect(persistence.load() == nil, "a save queued before an erase must not bring the library back")
+        persistence.delete()
+    }
+
     @Test func severalReadingTimesSplitTheDay() {
         let store = makeStore()
         store.updatePreferences { $0.planMode = .sideBySide; $0.dailyMinutes = 40 }

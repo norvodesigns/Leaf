@@ -24,7 +24,13 @@ final class LibraryStore {
     /// Called after every change (reminders and the watch listen here).
     @ObservationIgnored var onChange: (() -> Void)?
     @ObservationIgnored private let persistence: Persistence
+    @ObservationIgnored private let writer: LibraryWriter
     @ObservationIgnored private var saveTask: Task<Void, Never>?
+    /// Bumped for every write, so a slow save of an older snapshot can never land after a newer one.
+    @ObservationIgnored private var saveGeneration = 0
+    /// True while the saved library couldn't be read yet (Leaf was woken before the first unlock after a restart).
+    /// Nothing is written until `loadIfDeferred()` has read it, so the empty stand-in can never replace it.
+    @ObservationIgnored private(set) var isLoadDeferred = false
     @ObservationIgnored var calendar: Calendar = .current
     /// iCloud sync, when the build has it. Every local change is reported to it as a diff against `syncShadow`.
     @ObservationIgnored var sync: CloudSync?
@@ -35,13 +41,42 @@ final class LibraryStore {
 
     init(persistence: Persistence = .shared, now: Date = Date()) {
         self.persistence = persistence
+        self.writer = LibraryWriter(persistence: persistence)
         self.now = now
         // Earlier read-throughs that older versions didn't keep are recovered from sessions. Every device recovers the
         // same ones, so they aren't sent anywhere until the book next changes.
-        let loaded = (persistence.load() ?? LeafData()).withRecoveredReads()
+        let loaded: LeafData
+        switch persistence.loadLibrary() {
+        case .library(let value): loaded = value.withRecoveredReads()
+        case .nothing: loaded = LeafData()
+        case .unavailable:
+            loaded = LeafData()
+            isLoadDeferred = true
+        }
         self.data = loaded
         self.syncShadow = loaded
         recomputePlan()
+    }
+
+    /// Reads the library if the launch couldn't (see `isLoadDeferred`). Call it when protected data becomes
+    /// available and when the app comes to the front. True when the library was read just now.
+    @discardableResult
+    func loadIfDeferred() -> Bool {
+        guard isLoadDeferred else { return false }
+        let loaded: LeafData
+        switch persistence.loadLibrary() {
+        case .unavailable: return false
+        case .library(let value): loaded = value.withRecoveredReads()
+        case .nothing: loaded = LeafData()
+        }
+        isLoadDeferred = false
+        // Anything changed in the meantime was made against an empty stand-in, so the saved library replaces it.
+        saveTask?.cancel()
+        data = loaded
+        syncShadow = loaded
+        recomputePlan()
+        onChange?()
+        return true
     }
 
     // MARK: - Reading the state
@@ -773,7 +808,9 @@ final class LibraryStore {
         // Nothing of the erased library stays on this phone: not the file, its rolling backup (which the next save
         // would otherwise refresh from the old file), or a damaged copy set aside.
         saveTask?.cancel()
-        persistence.delete()
+        saveGeneration += 1
+        writer.erase(generation: saveGeneration)
+        isLoadDeferred = false
         data = LeafData()
         syncShadow = data
         recomputePlan()
@@ -808,8 +845,10 @@ final class LibraryStore {
 
     /// Writes immediately (when the app moves to the background).
     func flush() {
+        guard !isLoadDeferred else { return }
         saveTask?.cancel()
-        try? persistence.save(data)
+        saveGeneration += 1
+        writer.save(data, generation: saveGeneration)
     }
 
     // MARK: - Internals
@@ -862,13 +901,16 @@ final class LibraryStore {
     }
 
     private func scheduleSave() {
+        guard !isLoadDeferred else { return }
         saveTask?.cancel()
+        saveGeneration += 1
+        let generation = saveGeneration
         let snapshot = data
-        let persistence = persistence
+        let writer = writer
         saveTask = Task.detached(priority: .utility) {
             try? await Task.sleep(for: .milliseconds(350))
             guard !Task.isCancelled else { return }
-            try? persistence.save(snapshot)
+            writer.save(snapshot, generation: generation)
         }
     }
 }

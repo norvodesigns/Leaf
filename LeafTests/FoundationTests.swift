@@ -114,6 +114,55 @@ struct FoundationTests {
         let legacy = try JSONDecoder().decode(Book.self, from: Data(#"{"id":"o","title":"T","author":"A","pages":10,"words":2700,"genres":[],"popularity":0}"#.utf8))
         #expect(legacy.language == nil && legacy.pageCounts == nil)
     }
+
+    /// A library as a newer Leaf might write it: a shelf, a session kind, a tombstone kind, a tea family and two
+    /// settings this version has never heard of, next to entries it can read.
+    private let fromANewerLeaf = """
+    {"version":3,"items":[
+      {"book":{"id":"keep","title":"Kept","author":"A","pages":300,"words":81000,"genres":[],"popularity":0},"shelf":"reading","currentPage":40,"order":1,"addedAt":700000000},
+      {"book":{"id":"new","title":"Newer","author":"B","pages":200,"words":54000,"genres":[],"popularity":0},"shelf":"didNotFinish","currentPage":10,"order":2,"addedAt":700000000}],
+    "sessions":[
+      {"id":"6F9619FF-8B86-D011-B42D-00C04FC964FF","bookID":"keep","startedAt":700000200,"seconds":900,"fromPage":10,"toPage":40},
+      {"id":"7F9619FF-8B86-D011-B42D-00C04FC964FF","bookID":"keep","startedAt":700000300,"seconds":600,"fromPage":40,"toPage":50,"kind":"audiobook"}],
+    "tombstones":[{"kind":"item","key":"gone","deletedAt":700000000},{"kind":"bookmark","key":"x","deletedAt":700000000}],
+    "cabinet":[{"id":"8F9619FF-8B86-D011-B42D-00C04FC964FF","name":"Yerba","family":"mate","addedAt":700000000}],
+    "dismissed":["a", 7, "b"],
+    "preferences":{"wpm":250,"dailyMinutes":30,"hasOnboarded":true,"hapticsLevel":"gentle","planMode":"rotate","yearlyGoal":24}}
+    """
+
+    @Test func theLibraryFileKeepsWhatItCanReadFromANewerLeaf() throws {
+        let skips = DecodeSkips()
+        let data = try skips.decoder().decode(LeafData.self, from: Data(fromANewerLeaf.utf8))
+        #expect(data.items.map(\.id) == ["keep"])
+        #expect(data.sessions.count == 1)
+        #expect(data.tombstones.map(\.key) == ["gone"])
+        #expect(data.cabinet.isEmpty)
+        #expect(data.dismissed == ["a", "b"])
+        #expect(data.preferences.hasOnboarded, "one unknown setting must not send the reader back to onboarding")
+        #expect(data.preferences.dailyMinutes == 30)
+        #expect(data.preferences.yearlyGoal == 24)
+        #expect(data.preferences.hapticsLevel == .full)
+        #expect(data.preferences.planMode == .focus)
+        let skipped: Int = skips.count
+        #expect(skipped == 7)
+    }
+
+    @Test func strictDecodingStillFailsSoBackupsAndSyncCanTryAnotherWay() {
+        #expect(throws: (any Error).self) { try JSONDecoder().decode(LeafData.self, from: Data(fromANewerLeaf.utf8)) }
+    }
+
+    @Test func aTolerantDecodeOfACleanFileSkipsNothing() throws {
+        var data = LeafData()
+        data.items = [LibraryItem(book: book, shelf: .finished, currentPage: 300, order: 1, addedAt: Date(timeIntervalSince1970: 1_000), finishedAt: Date(timeIntervalSince1970: 5_000))]
+        data.preferences.readingSlots = [ReadingSlot(hour: 7, label: "Morning tea")]
+        data.preferences.hasOnboarded = true
+        let skips = DecodeSkips()
+        let decoded = try skips.decoder().decode(LeafData.self, from: try JSONEncoder().encode(data))
+        #expect(decoded.items == data.items)
+        #expect(decoded.preferences == data.preferences)
+        let skipped: Int = skips.count
+        #expect(skipped == 0)
+    }
 }
 
 struct MomentTests {
