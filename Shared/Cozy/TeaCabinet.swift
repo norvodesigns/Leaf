@@ -129,7 +129,14 @@ extension TeaFamily {
         }
     }
 
+    /// The lowest caffeine among the catalog's own teas of the family, so a tea of the reader's own is never ruled out
+    /// at an hour when Leaf would still offer one of its teas of that family.
     var defaultCaffeine: TeaCaffeine {
+        TeaCatalog.all.filter { $0.family == self }.map(\.caffeine).min() ?? typicalCaffeine
+    }
+
+    /// For a family the catalog has no tea of.
+    private var typicalCaffeine: TeaCaffeine {
         switch self {
         case .black, .matcha, .chai: return .high
         case .green, .oolong: return .medium
@@ -248,17 +255,42 @@ enum TeaShelf {
     /// catalog tea, so their name and steep time win).
     static func tea(id: String?, cabinet: [CabinetTea]) -> Tea? {
         guard let id, !id.isEmpty else { return nil }
-        if let own = cabinet.first(where: { $0.teaID == id }) { return own.tea }
+        if let own = tin(id: id, cabinet: cabinet) { return own.tea }
         return TeaCatalog.tea(id: id)
     }
 
-    /// The teas in stock, as `Tea`s, in the order they were added.
+    /// The reader's tea with this id. Two devices can each add a tin of the same catalog tea before they sync, so
+    /// there may be two: the one in stock wins, then the one changed last.
+    static func tin(id: String, cabinet: [CabinetTea]) -> CabinetTea? {
+        var best: CabinetTea?
+        for candidate in cabinet where candidate.teaID == id {
+            guard let current = best else {
+                best = candidate
+                continue
+            }
+            if prefers(candidate, over: current) { best = candidate }
+        }
+        return best
+    }
+
+    private static func prefers(_ a: CabinetTea, over b: CabinetTea) -> Bool {
+        if a.isOutOf != b.isOutOf { return !a.isOutOf }
+        if a.updatedAt != b.updatedAt { return a.updatedAt > b.updatedAt }
+        return a.id.uuidString < b.id.uuidString
+    }
+
+    /// The teas in stock, as `Tea`s, in the order they were added, each tea once.
     static func inStock(_ cabinet: [CabinetTea]) -> [Tea] {
         let kept = cabinet.filter { !$0.isOutOf }.sorted { (a: CabinetTea, b: CabinetTea) -> Bool in
             if a.addedAt != b.addedAt { return a.addedAt < b.addedAt }
             return a.id.uuidString < b.id.uuidString
         }
-        return kept.map(\.tea)
+        var seen = Set<String>()
+        var teas: [Tea] = []
+        for candidate in kept where seen.insert(candidate.teaID).inserted {
+            teas.append((tin(id: candidate.teaID, cabinet: cabinet) ?? candidate).tea)
+        }
+        return teas
     }
 
     /// What the ritual offers, best first, and whether it came from the reader's own cabinet.

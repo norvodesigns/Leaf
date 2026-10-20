@@ -50,6 +50,17 @@ enum SyncPolicy {
     /// Version of the record layout, stored on every record so a future layout can be told apart.
     static let recordSchema = 1
 
+    /// Which record types, tombstone kinds and synced fields this build understands. Raise it whenever one is added.
+    /// An older build skips records it can't read, and its sync position moves past them; a device whose saved sync
+    /// state is from a lower layout therefore fetches the whole zone once (2: the tea cabinet and tasting notes).
+    static let syncLayout = 2
+
+    /// Whether sync state saved under `layout` (nil for state saved before layouts were recorded) must be dropped
+    /// for one full fetch.
+    static func needsFullFetch(savedLayout layout: Int?) -> Bool {
+        (layout ?? 1) < syncLayout
+    }
+
     /// When a book restarts (a reread), sessions from before the restart should not drag its page back. A session
     /// counts towards a book's page only if it ended no earlier than this long before the book's `startedAt`.
     /// A day is enough for sessions typed in afterwards ("read without the timer") for a book added today.

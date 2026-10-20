@@ -108,7 +108,7 @@ made elsewhere.
 | Signed out of iCloud | Status `.noAccount`. Local data is untouched. |
 | Signed in, or switched accounts | The whole library is queued for the new account and merged with whatever it already holds. |
 | Cloud copy deleted (Settings, another device's Reset, purge) | This device keeps its data and puts it back. See Reset below. |
-| A record this version cannot read (newer Leaf, damage) | Skipped and left alone on the server; never deleted. |
+| A record this version cannot read (newer Leaf, damage) | Skipped and left alone on the server; never deleted. The sync position still moves past it, so the saved state records `SyncPolicy.syncLayout`; a build with a higher layout drops an older state once and fetches the whole zone (merging is idempotent), which picks up everything the older build skipped. Raise `syncLayout` with every new record type, tombstone kind or synced field. |
 | Another Leaf version edits an item | Fields it does not know are dropped from its copy. Newer Leaf versions should keep `Codable` additions optional. |
 | CloudKit not available in this build (no entitlement, test host) | `CloudSync.isAvailable` is false and the whole thing stays off. CloudKit aborts a process that lacks the entitlement, so this is an explicit opt-in (see below). |
 

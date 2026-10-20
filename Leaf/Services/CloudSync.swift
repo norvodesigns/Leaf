@@ -85,7 +85,11 @@ final class CloudSync {
         }
         guard engine == nil else { return }
 
-        let saved = loadState()
+        var saved = loadState()
+        // Saved by a build that understood fewer record types: forget the sync position (not the local data, nor
+        // the pending catch-up below) so everything that build skipped is fetched again.
+        let outdated = saved?.engine != nil && SyncPolicy.needsFullFetch(savedLayout: saved?.layout)
+        if outdated { saved?.engine = nil }
         lastSynced = saved?.lastSynced
         latestSerialization = saved?.engine
         let proxy = SyncDelegateProxy()
@@ -99,13 +103,15 @@ final class CloudSync {
         engine = CKSyncEngine(configuration)
         status = .syncing
 
-        if saved?.engine == nil {
+        if saved?.engine == nil && !outdated {
             seedEverything()
         } else {
             // The engine kept its own queue. Add anything that changed while it was not looking: sync switched off,
-            // or the app stopped before the queue was saved.
+            // or the app stopped before the queue was saved. After an outdated layout the old queue is gone too, so
+            // the undated records (dismissals, challenges, preferences) go again as well.
             let since = saved?.lastSynced.map { $0.addingTimeInterval(-CloudSync.catchUpSlack) }
-            queueSaves(SyncDiff.recordNames(in: mirror, changedSince: since, includeUndated: saved?.stoppedByUser ?? true))
+            let undated = outdated || (saved?.stoppedByUser ?? true)
+            queueSaves(SyncDiff.recordNames(in: mirror, changedSince: since, includeUndated: undated))
         }
         Task { await refreshAccountStatus() }
     }
@@ -446,6 +452,8 @@ final class CloudSync {
         var lastSynced: Date?
         /// True when sync was switched off (or reset) last time, so changes with no timestamp may have been missed.
         var stoppedByUser: Bool
+        /// `SyncPolicy.syncLayout` when this was saved; nil before layouts were recorded.
+        var layout: Int?
     }
 
     private func loadState() -> SavedState? {
@@ -454,7 +462,7 @@ final class CloudSync {
     }
 
     private func saveState(stoppedByUser: Bool) {
-        let state = SavedState(engine: latestSerialization, lastSynced: lastSynced, stoppedByUser: stoppedByUser)
+        let state = SavedState(engine: latestSerialization, lastSynced: lastSynced, stoppedByUser: stoppedByUser, layout: SyncPolicy.syncLayout)
         guard let data = try? JSONEncoder().encode(state) else { return }
         try? FileManager.default.createDirectory(at: stateURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         try? data.write(to: stateURL, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])

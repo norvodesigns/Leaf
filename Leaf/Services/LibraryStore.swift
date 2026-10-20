@@ -599,12 +599,14 @@ final class LibraryStore {
     /// Adds a tea to the cabinet. A catalog tea is kept once: adding it again puts the tin back in stock.
     @discardableResult
     func addCabinetTea(_ tea: CabinetTea) -> CabinetTea {
+        if let catalogID = tea.catalogID, let kept = data.cabinet.first(where: { $0.catalogID == catalogID && !$0.isOutOf }) {
+            return kept
+        }
         if let catalogID = tea.catalogID, let index = data.cabinet.firstIndex(where: { $0.catalogID == catalogID }) {
-            if data.cabinet[index].isOutOf {
-                data.cabinet[index].isOutOf = false
-                data.cabinet[index].updatedAt = stamp
-                commit()
-            }
+            // Every tin of it has run out: this one is back in stock.
+            data.cabinet[index].isOutOf = false
+            data.cabinet[index].updatedAt = stamp
+            commit()
             return data.cabinet[index]
         }
         var added = tea

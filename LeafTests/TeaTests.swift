@@ -116,13 +116,73 @@ struct TeaPairingTests {
         #expect(!reason.contains("malty black"))
     }
 
+    /// Words that name one catalog tea, and the words that name a family.
+    private static let teaWords: [String: [String]] = [
+        "earl-grey": ["earl grey"], "english-breakfast": ["english breakfast"], "darjeeling": ["darjeeling"],
+        "lapsang-souchong": ["lapsang"], "sencha": ["sencha"], "jasmine-green": ["jasmine"], "genmaicha": ["genmaicha"],
+        "hojicha": ["hojicha"], "silver-needle": ["silver needle"], "milk-oolong": ["milk oolong"],
+        "roasted-oolong": ["roasted oolong"], "chamomile": ["chamomile"], "peppermint": ["peppermint", "mint"],
+        "lemon-ginger": ["lemon ginger"], "apple-cinnamon": ["apple"], "hibiscus": ["hibiscus"], "masala-chai": ["masala"],
+    ]
+    private static let familyWords: [String: Set<TeaFamily>] = [
+        "black tea": [.black], "oolong": [.oolong], "white tea": [.white], "herbal": [.herbal], "rooibos": [.rooibos],
+        "matcha": [.matcha], "chai": [.chai], "green": [.green, .matcha],
+    ]
+
+    /// Every tea a rule gives weight to (catalog teas, and a tea of the reader's own in each family) gets a line
+    /// about it: never one naming another tea or another family.
+    @Test func aReasonNamesOnlyTheTeaItIsFor() {
+        let own = TeaFamily.allCases.map { CabinetTea(name: "Own \($0.rawValue)", family: $0, steepSeconds: 200).tea }
+        for rule in TeaPairing.rules {
+            for tea in TeaCatalog.all + own where rule.weight(for: tea) > 0 {
+                let reason = rule.reason(for: tea).lowercased()
+                for (id, words) in Self.teaWords where id != tea.id {
+                    for word in words { #expect(!reason.contains(word), "\(tea.id): \(reason)") }
+                }
+                for (word, families) in Self.familyWords where reason.contains(word) {
+                    #expect(families.contains(tea.family), "\(tea.id): \(reason)")
+                }
+            }
+        }
+    }
+
+    /// A tea a rule names never ranks below an unnamed tea of its own family.
+    @Test func aNamedTeaWeighsAtLeastItsFamily() {
+        for rule in TeaPairing.rules {
+            for (id, weight) in rule.teas {
+                guard let tea = TeaCatalog.tea(id: id), let family = rule.families[tea.family] else { continue }
+                #expect(weight >= family, "\(id): \(rule.line)")
+            }
+        }
+    }
+
+    /// Rule themes are the catalog's own theme names (scripts/add_themes.py), or they would never match a book.
+    @Test func ruleThemesAreInTheCatalogsVocabulary() throws {
+        let script = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("scripts/add_themes.py")
+        guard let text = try? String(contentsOf: script, encoding: .utf8) else { return }
+        let regex = try NSRegularExpression(pattern: #"^\s*\("([^"]+)",\s*r""#, options: [.anchorsMatchLines])
+        let range = NSRange(text.startIndex..., in: text)
+        let vocabulary = Set(regex.matches(in: text, range: range).compactMap { match in
+            Range(match.range(at: 1), in: text).map { String(text[$0]) }
+        })
+        try #require(vocabulary.count > 50)
+        for rule in TeaPairing.rules {
+            for theme in rule.themes.union(rule.alsoThemes) {
+                #expect(vocabulary.contains(theme), "\(theme)")
+            }
+        }
+    }
+
     @Test func everyRuleNamesRealTeasAndSpeaksInTheAppsVoice() {
         let known = Set(TeaCatalog.all.map(\.id))
         for rule in TeaPairing.rules {
             #expect(Set(rule.teas.keys).isSubset(of: known), "\(rule.line)")
+            #expect(Set(rule.teaLines.keys).isSubset(of: known), "\(rule.line)")
             #expect(!rule.teas.isEmpty || !rule.families.isEmpty)
             #expect(teaCopyIsClean(rule.line), "\(rule.line)")
             for line in rule.lines.values { #expect(teaCopyIsClean(line), "\(line)") }
+            for line in rule.teaLines.values { #expect(teaCopyIsClean(line), "\(line)") }
         }
         for tea in TeaCatalog.all {
             #expect(teaCopyIsClean(TeaPairing.reason(for: tea, with: teaBook("x"))), "\(tea.id)")
@@ -156,7 +216,8 @@ struct TeaCabinetTests {
         #expect(own.displayName == "Mountain mist")
         let tea = own.tea
         #expect(tea.id == own.teaID)
-        #expect(tea.caffeine == .high)
+        // As much caffeine as the catalog's mildest black tea, no more.
+        #expect(tea.caffeine == .medium)
         #expect(!tea.dayparts.contains(.late))
         #expect(tea.dayparts.contains(.morning))
         #expect(TeaShelf.tea(id: own.teaID, cabinet: [own])?.name == "Mountain mist")
@@ -165,6 +226,39 @@ struct TeaCabinetTests {
         #expect(TeaShelf.tea(id: "", cabinet: [own]) == nil)
         // A tea with no name still reads as something.
         #expect(CabinetTea(name: "", family: .rooibos, steepSeconds: 300).tea.name == TeaFamily.rooibos.title)
+    }
+
+    @Test func twoTinsOfOneTeaOfferItOnceAndTheOneInStockWins() {
+        let earl = TeaCatalog.tea(id: "earl-grey")!
+        var older = CabinetTea(tin: earl, now: teaDate(9, 1))
+        older.id = teaUUID(1)
+        older.isOutOf = true
+        var newer = CabinetTea(tin: earl, now: teaDate(9, 2))
+        newer.id = teaUUID(2)
+        newer.steepSeconds = 200
+        let cabinet = [older, newer]
+        #expect(TeaShelf.inStock(cabinet).map(\.id) == ["earl-grey"])
+        #expect(TeaShelf.tea(id: "earl-grey", cabinet: cabinet)?.steepSeconds == 200)
+        newer.isOutOf = false
+        older.isOutOf = false
+        older.updatedAt = teaDate(9, 5)
+        older.steepSeconds = 180
+        #expect(TeaShelf.inStock([older, newer]).map(\.steepSeconds) == [180])
+        let choices = TeaShelf.ritualChoices(cabinet: [older, newer], daypart: .morning, season: .autumn)
+        #expect(choices.teas.filter { $0.id == "earl-grey" }.count == 1)
+    }
+
+    /// The reader's own tea is never ruled out at an hour when the catalog offers a tea of the same family.
+    @Test func aTeaOfYourOwnIsNoStricterThanLeafsOwn() {
+        for family in TeaFamily.allCases {
+            let own = CabinetTea(name: "Own", family: family, steepSeconds: 200).tea
+            for daypart in Daypart.allCases {
+                let catalogOffers = TeaSuggester.allowed(at: daypart).contains { $0.family == family }
+                if catalogOffers {
+                    #expect(!TeaSuggester.allowed(at: daypart, from: [own]).isEmpty, "\(family) at \(daypart)")
+                }
+            }
+        }
     }
 
     @Test func ratingsStayBetweenOneAndFive() {
@@ -416,6 +510,13 @@ struct TeaSyncTests {
 
     private func note(_ n: Int, rating: Int?, updated: Date) -> TastingNote {
         TastingNote(id: teaUUID(n), teaID: "sencha", teaName: "Sencha", rating: rating, createdAt: teaDate(9, 1), updatedAt: updated)
+    }
+
+    @Test func stateFromAnOlderLayoutFetchesEverythingOnce() {
+        #expect(SyncPolicy.syncLayout >= 2)
+        #expect(SyncPolicy.needsFullFetch(savedLayout: nil))
+        #expect(SyncPolicy.needsFullFetch(savedLayout: 1))
+        #expect(!SyncPolicy.needsFullFetch(savedLayout: SyncPolicy.syncLayout))
     }
 
     @Test func recordNamesRoundTrip() {
