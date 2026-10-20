@@ -9,9 +9,11 @@ Commits pushed to main:
   c40c6dd Insights: best-time rows wrap their two layouts in a Group (the compile error that held back UI-4/5/6)
   04e34b4 Screenshot review: opaque watch session, Paused in view, instant Not for me, staging timing
   7efa322 UI-5/UI-6 behaviour review fixes
+  06d328a Library: a plain segmented switcher, a line per shelf, Set aside within Reading (owner request)
 CI: 3b38215 never built on its own (the queue held it behind a UI-4 compile error). First green build with UI-5:
   run 39284653017 (c40c6dd): build, unit tests, watch, unsigned archive, 132 screenshots. Run 39320560882 (04e34b4)
-  green. Last: __LASTRUN__
+  green. Last: run 39374434109 (06d328a) green: build, unit tests (incl. switchEdition), watch build, unsigned
+  archive, 134 screenshots, reviewed in light and dark.
 Screens / states built (staging name -> screenshot file):
   Search front table: hero "Picked for you", jump bar, mood rows   -LeafScreen search          -> 90-search-browse(-dark)
   Series row as spines                                             -LeafScreen search.series   -> 91-search-series
@@ -23,7 +25,9 @@ Screens / states built (staging name -> screenshot file):
   Your taste                                                       -LeafScreen search.taste -LeafScenario year -> 97-search-taste
   First use (no library yet)                                       -LeafScreen search -LeafScenario new -> 98-search-first-use
   "Not for me" with Undo                                           -LeafScreen search.undo     -> 99-search-undo
-  Library: Paused shelf, "Pick it back up"                         -LeafScreen library.paused  -> 100-library-paused(-dark)
+  Library: Reading | To read | Finished segmented, a line per shelf -LeafScreen library        -> 11-library(-dark)
+  Library: To read with "Hold one to move it"                      -LeafScreen library.toread -> 107-library-toread(-dark)
+  Library: Set aside section at the end of Reading                 -LeafScreen library.paused  -> 100-library-paused(-dark)
   Book detail: journal tab                                         -LeafScreen book.journal    -> 101-book-journal
   Book detail: more like this                                      -LeafScreen book.more       -> 102-book-more
   Book detail: edition picker                                      -LeafScreen book.edition    -> 103-book-edition

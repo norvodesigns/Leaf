@@ -13,7 +13,9 @@ Commits pushed to main:
   7efa322 UI-5/UI-6 behaviour review fixes (phone sends the nook, runtime follows the phone, day rollover, ...)
 CI: first green build with the watch pages and the new extension: run 39284653017 (c40c6dd): iPhone build and
   tests, watch simulator build, unsigned archive with LeafWatchWidgets.appex embedded in LeafWatch.app/PlugIns and
-  WKBackgroundModes = mindfulness checked, 16 watch screenshots. Run 39320560882 (04e34b4) green. Last: __LASTRUN__
+  WKBackgroundModes = mindfulness checked, 16 watch screenshots. Run 39320560882 (04e34b4) green. Last: run 39374434109 (06d328a) green: build, unit tests (incl. switchEdition), watch build, unsigned
+  archive, 134 screenshots, reviewed in light and dark.
+  Always-On now draws no bokeh (checked brightened); the session has an opaque background.
 Screens / states built (staging name -> screenshot file, all with -LeafDemo YES):
   Today nook: greeting, cup ring, Steep and read, reading times  -LeafScreen today          -> w1-today
   Session: focus-pull countdown over bokeh                       -LeafScreen session        -> w2-session
