@@ -38,8 +38,10 @@ struct QuoteCardSheet: View {
                 VStack(spacing: Space.l) {
                     if let entry {
                         QuoteCardImage(entry: entry, author: author(for: entry), style: style)
-                            .scaleEffect(previewScale, anchor: .top)
-                            .frame(width: SharePoster.size.width * previewScale, height: SharePoster.size.height * previewScale)
+                            // Laid out at full size from the top-leading corner, then shrunk into the smaller
+                            // frame from that same corner, so nothing is cropped.
+                            .scaleEffect(previewScale, anchor: .topLeading)
+                            .frame(width: SharePoster.size.width * previewScale, height: SharePoster.size.height * previewScale, alignment: .topLeading)
                             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                             .shadow(color: .black.opacity(0.12), radius: 12, y: 6)
                             .accessibilityElement(children: .ignore)
