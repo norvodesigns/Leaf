@@ -85,6 +85,9 @@ struct MainTabs: View {
         .sheet(item: $router.teaPage) { page in
             TeaPageSheet(page: page)
         }
+        .fullScreenCover(item: $router.wrapped) { request in
+            WrappedStoryView(request: request)
+        }
         .sheet(isPresented: $router.showSettings) {
             SettingsView()
                 .fullScreenCover(isPresented: speedTestOverSettings) {

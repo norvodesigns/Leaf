@@ -13,6 +13,13 @@ struct InsightsPage: View {
     var body: some View {
         if let insights = desk.insights {
             VStack(alignment: .leading, spacing: Space.m) {
+                if let year = wrappedYear {
+                    WrappedOfferCard(year: year) {
+                        router.wrapped = WrappedRequest(year: year)
+                    }
+                    .id("wrapped")
+                    .inkIn(0)
+                }
                 heatmapCard(insights)
                     .inkIn(0)
                 YearInBooksCard(summary: insights.yearInBooks) {
@@ -46,6 +53,15 @@ struct InsightsPage: View {
             ProgressView()
                 .frame(maxWidth: .infinity, minHeight: 240)
         }
+    }
+
+    /// December (and the first week of January): the year's story, offered at the top.
+    private var wrappedYear: Int? {
+        let year = router.wrappedStage == "offer"
+            ? store.calendar.component(.year, from: store.now)
+            : WrappedOffer.offeredYear(now: store.now, calendar: store.calendar)
+        guard let year, WrappedOffer.hasStory(data: store.data, year: year, calendar: store.calendar) else { return nil }
+        return year
     }
 
     private func heatmapCard(_ insights: InsightsSnapshot) -> some View {
@@ -614,10 +630,10 @@ enum SharePoster {
     static let size = CGSize(width: 360, height: 480)
 
     @MainActor
-    static func render<Content: View>(_ content: Content, size: CGSize = SharePoster.size) -> UIImage? {
+    static func render<Content: View>(_ content: Content, size: CGSize = SharePoster.size, scale: CGFloat = 3) -> UIImage? {
         let renderer = ImageRenderer(content: content.environment(\.colorScheme, .light))
         renderer.proposedSize = ProposedViewSize(width: size.width, height: size.height)
-        renderer.scale = 3
+        renderer.scale = scale
         return renderer.uiImage
     }
 }

@@ -10,12 +10,18 @@ struct LibraryView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var showsAddSheet = false
+    /// Finished books as a wall of spines instead of a grid of covers; remembered on this device.
+    @AppStorage("library.finishedAsShelf") private var finishedAsShelf = false
+    /// Screenshots show the wall without changing what the reader chose.
+    @State private var stagedShelf: Bool?
     /// The book waiting on "Remove from Library?".
     @State private var pendingRemoval: Book?
 
     init() {}
 
     private var pausedCount: Int { store.data.items(on: .paused).count }
+
+    private var showsShelfWall: Bool { stagedShelf ?? finishedAsShelf }
 
     /// What the shelf on screen holds, how many, and the one gesture worth knowing. Empty shelves say it themselves.
     private var caption: String? {
@@ -32,6 +38,7 @@ struct LibraryView: View {
         case .finished:
             let count = store.finished.count
             guard count > 0 else { return nil }
+            if showsShelfWall { return "A shelf for every year, in the order you finished them. Hold a spine to see when." }
             return count == 1 ? "The book you've finished." : "The \(count) books you've finished, newest first."
         }
     }
@@ -58,13 +65,35 @@ struct LibraryView: View {
             }
             .scrollIndicators(.hidden)
             .scrollEdgeEffectStyle(.soft, for: .top)
-            .onAppear { showSetAsideIfAsked(proxy) }
+            .onAppear {
+                showSetAsideIfAsked(proxy)
+                if let stage = router.libraryStage {
+                    stagedShelf = true
+                    // A held spine or the poster is the wall's to stage.
+                    if stage == "shelf" { router.libraryStage = nil }
+                }
+            }
             .onChange(of: router.libraryShelf) { _, _ in showSetAsideIfAsked(proxy) }
         }
         .paperBackground()
         .navigationTitle("Library")
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
+            if router.libraryShelf == .finished {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        Haptics.shared.selection()
+                        let next = !showsShelfWall
+                        withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
+                            stagedShelf = nil
+                            finishedAsShelf = next
+                        }
+                    } label: {
+                        Image(systemName: showsShelfWall ? "square.grid.3x2" : "books.vertical")
+                    }
+                    .accessibilityLabel(showsShelfWall ? "Show as covers" : "Show as a shelf")
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     Haptics.shared.tap()
@@ -111,8 +140,13 @@ struct LibraryView: View {
             LibraryQueueShelf(onRemove: requestRemoval)
                 .transition(.opacity)
         case .finished:
-            LibraryFinishedShelf(onRemove: requestRemoval)
-                .transition(.opacity)
+            if showsShelfWall {
+                LibraryShelfWall()
+                    .transition(.opacity)
+            } else {
+                LibraryFinishedShelf(onRemove: requestRemoval)
+                    .transition(.opacity)
+            }
         }
     }
 

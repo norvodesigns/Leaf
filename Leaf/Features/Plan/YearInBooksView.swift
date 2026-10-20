@@ -10,6 +10,7 @@ struct YearInBooksView: View {
     @Environment(LibraryStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @State private var poster: UIImage?
+    @State private var wrapped: WrappedRequest?
 
     var body: some View {
         NavigationStack {
@@ -24,6 +25,13 @@ struct YearInBooksView: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.top, Space.s)
                         .accessibilityLabel(YearInBooksText.summary(summary))
+                    if !summary.isEmpty {
+                        SecondaryGlassButton("Play your year", systemImage: "play.fill", compact: true) {
+                            wrapped = WrappedRequest(year: summary.year)
+                        }
+                        .padding(.top, Space.l)
+                        .accessibilityHint("Tells the year as a story, a card at a time")
+                    }
 
                     SectionHeader("The year in rings")
                     MonthRingCollage(months: summary.months, ringSize: 50, showsLabels: true)
@@ -74,6 +82,9 @@ struct YearInBooksView: View {
             .scrollEdgeEffectStyle(.soft, for: .top)
             .paperBackground()
             .navigationBarTitleDisplayMode(.inline)
+            .fullScreenCover(item: $wrapped) { request in
+                WrappedStoryView(request: request)
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }

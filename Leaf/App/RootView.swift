@@ -176,6 +176,22 @@ struct RootView: View {
             router.planSection = .insights
             if key == "quote.style" { router.historyStage = "style" }
             router.planSheet = .quoteCard(entryID: nil)
+        case "shelf", "shelf.slip", "shelf.poster":
+            router.tab = .library
+            router.libraryShelf = .finished
+            router.libraryStage = key == "shelf" ? "shelf" : String(key.dropFirst("shelf.".count))
+        case "wrapped", "wrapped.1", "wrapped.2", "wrapped.3", "wrapped.4", "wrapped.5", "wrapped.6", "wrapped.7":
+            router.tab = .plan
+            router.planSection = .insights
+            let card = Int(key.dropFirst("wrapped.".count)) ?? 0
+            router.wrapped = WrappedRequest(year: store.calendar.component(.year, from: store.now), startCard: card)
+        case "wrapped.offer":
+            router.tab = .today
+            router.wrappedStage = "offer"
+        case "plan.insights.wrapped":
+            router.tab = .plan
+            router.planSection = .insights
+            router.wrappedStage = "offer"
         case "book.timeline":
             router.bookStage = "timeline"
             router.tab = .library

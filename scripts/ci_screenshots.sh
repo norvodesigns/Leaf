@@ -139,6 +139,14 @@ for appearance in light dark; do
     shot 126-quote-style 6 -LeafDemo YES -LeafScreen quote.style
     shot 127-settings-data 6 -LeafDemo YES -LeafScreen settings.data
     shot 128-insights-more 9 -LeafDemo YES -LeafScreen plan.insights.more -LeafScenario year
+    shot 131-shelf-slip 8 -LeafDemo YES -LeafScreen shelf.slip -LeafScenario year
+    shot 132-shelf-poster 7 -LeafDemo YES -LeafScreen shelf.poster -LeafScenario year
+    shot 134-wrapped-tea 7 -LeafDemo YES -LeafScreen wrapped.1 -LeafScenario year
+    shot 135-wrapped-hour 7 -LeafDemo YES -LeafScreen wrapped.2 -LeafScenario year
+    shot 136-wrapped-slowburn 7 -LeafDemo YES -LeafScreen wrapped.4 -LeafScenario year
+    shot 137-wrapped-quoted 7 -LeafDemo YES -LeafScreen wrapped.5 -LeafScenario year
+    shot 138-wrapped-personality 7 -LeafDemo YES -LeafScreen wrapped.6 -LeafScenario year
+    shot 140-insights-wrapped-offer 8 -LeafDemo YES -LeafScreen plan.insights.wrapped -LeafScenario year
     shot 88-insights-large-type 9 -LeafDemo YES -LeafScreen plan.insights -LeafScenario year -UIPreferredContentSizeCategoryName UICTContentSizeCategoryAccessibilityL
   fi
   shot "10-today$suffix" 5 -LeafDemo YES -LeafScreen today -LeafTime 20:30
@@ -169,6 +177,10 @@ for appearance in light dark; do
   shot "121-log$suffix" 6 -LeafDemo YES -LeafScreen log -LeafScenario year
   shot "123-numbers$suffix" 8 -LeafDemo YES -LeafScreen numbers.alltime -LeafScenario year
   shot "125-quote-card$suffix" 6 -LeafDemo YES -LeafScreen quote
+  shot "130-shelf$suffix" 7 -LeafDemo YES -LeafScreen shelf -LeafScenario year
+  shot "133-wrapped$suffix" 7 -LeafDemo YES -LeafScreen wrapped -LeafScenario year
+  shot "139-wrapped-shelf$suffix" 7 -LeafDemo YES -LeafScreen wrapped.7 -LeafScenario year
+  shot "141-today-wrapped$suffix" 7 -LeafDemo YES -LeafScreen wrapped.offer -LeafScroll wrapped
 done
 xcrun simctl ui "$IOS_SIM" appearance light
 

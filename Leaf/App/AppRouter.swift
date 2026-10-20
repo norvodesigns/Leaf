@@ -129,6 +129,12 @@ final class AppRouter {
     var teaStage: String?
     /// Reading log, numbers and quote card staging (screenshots): "finished", "search", "range", "style".
     var historyStage: String?
+    /// The Finished shelf as a wall of spines (screenshots): "shelf", a spine held out ("slip"), the poster ("poster").
+    var libraryStage: String?
+    /// Reading Wrapped, playing over the tabs.
+    var wrapped: WrappedRequest?
+    /// Wrapped staging (screenshots): "offer" shows the December offer whatever the date.
+    var wrappedStage: String?
 
     /// Opens the full-screen session, zooming from `source`.
     func presentSession(from source: String) {

@@ -20,13 +20,15 @@ struct TodayView: View {
     @State private var steepReady = false
     @State private var chosenTeaID: String?
     @State private var quoteCardEntry: JournalEntry?
+    /// The year whose Wrapped offer was put off with "Not now".
+    @AppStorage("wrapped.putOffYear") private var wrappedPutOff = 0
     /// The deck stays on Today while the reader is swiping, even once a kept book means they're no longer between books.
     @State private var keepsDeckOpen = false
     @State private var didStageScroll = false
 
     /// Today's cards, in the order a mode wants them. The raw values are the `-LeafScroll` names.
     enum CardKind: String, Hashable, CaseIterable {
-        case nudges, deck, leftOff = "leftoff", desk, times, forecast, teaWeek = "teaweek", week, year, pick, challenges, quote
+        case nudges, deck, leftOff = "leftoff", desk, times, forecast, teaWeek = "teaweek", week, year, pick, challenges, quote, wrapped
     }
 
     private struct PinnedGreeting {
@@ -296,13 +298,13 @@ struct TodayView: View {
         var order: [CardKind]
         switch brief.mode {
         case .reading:
-            order = [.nudges, .leftOff, .times, .forecast, .teaWeek, .desk, .week, .year, .pick, .challenges, .quote]
+            order = [.nudges, .leftOff, .wrapped, .times, .forecast, .teaWeek, .desk, .week, .year, .pick, .challenges, .quote]
         case .goalMet:
-            order = [.leftOff, .week, .forecast, .teaWeek, .times, .desk, .year, .pick, .challenges, .quote, .nudges]
+            order = [.leftOff, .wrapped, .week, .forecast, .teaWeek, .times, .desk, .year, .pick, .challenges, .quote, .nudges]
         case .restDay:
-            order = [.week, .leftOff, .teaWeek, .quote, .desk, .pick, .year, .challenges, .times, .nudges]
+            order = [.wrapped, .week, .leftOff, .teaWeek, .quote, .desk, .pick, .year, .challenges, .times, .nudges]
         case .betweenBooks:
-            order = [.deck, .teaWeek, .week, .year, .challenges, .quote, .nudges, .times]
+            order = [.deck, .wrapped, .teaWeek, .week, .year, .challenges, .quote, .nudges, .times]
         case .brandNew:
             order = [.deck, .times]
         }
@@ -324,7 +326,17 @@ struct TodayView: View {
         case .pick: return !brief.picks.isEmpty && [TodayMode.reading, .goalMet, .restDay].contains(brief.mode)
         case .challenges: return !brief.challenges.isEmpty
         case .quote: return brief.quote != nil
+        case .wrapped: return wrappedYear != nil
         }
+    }
+
+    /// December and the first week of January: the year's story, until it is put off for the year.
+    private var wrappedYear: Int? {
+        let year = router.wrappedStage == "offer"
+            ? store.calendar.component(.year, from: store.now)
+            : WrappedOffer.offeredYear(now: store.now, calendar: store.calendar)
+        guard let year, year != wrappedPutOff, WrappedOffer.hasStory(data: store.data, year: year, calendar: store.calendar) else { return nil }
+        return year
     }
 
     /// The week's book and its tea, from the forecast and the pairing.
@@ -441,6 +453,17 @@ struct TodayView: View {
         case .quote:
             if let quote = brief.quote {
                 QuoteCard(entry: quote) { quoteCardEntry = quote }
+            }
+        case .wrapped:
+            if let year = wrappedYear {
+                WrappedOfferCard(
+                    year: year,
+                    play: { router.wrapped = WrappedRequest(year: year) },
+                    notNow: {
+                        Haptics.shared.tap()
+                        Motion.animate(Motion.paper) { wrappedPutOff = year }
+                    }
+                )
             }
         }
     }
