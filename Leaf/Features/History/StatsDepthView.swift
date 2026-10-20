@@ -57,8 +57,7 @@ struct StatsDepthView: View {
 
     private var rangeControl: some View {
         VStack(alignment: .leading, spacing: Space.s) {
-            ScrollView(.horizontal) {
-                HStack(spacing: Space.s) {
+            TeaFlowLayout(spacing: Space.s) {
                     ForEach(InsightsRange.allCases, id: \.self) { range in
                         chip(range.title, isOn: !isCustom && preset == range) {
                             preset = range
@@ -73,9 +72,7 @@ struct StatsDepthView: View {
                         }
                         isCustom = true
                     }
-                }
             }
-            .scrollIndicators(.hidden)
             if isCustom {
                 HStack(spacing: Space.m) {
                     DatePicker("From", selection: $customStart, in: ...store.now, displayedComponents: .date)

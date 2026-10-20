@@ -160,6 +160,7 @@ struct QuoteCardSheet: View {
                 ShareLink(item: Image(uiImage: image), preview: SharePreview(entry.bookTitle, image: Image(uiImage: image))) {
                     Label("Share", systemImage: "square.and.arrow.up")
                         .font(LeafType.ui)
+                        .foregroundStyle(Color.paper)
                         .frame(maxWidth: .infinity, minHeight: Space.hitTarget)
                 }
                 .buttonStyle(.borderedProminent)
@@ -267,10 +268,9 @@ struct QuoteCardImage: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.m) {
-            Text("“")
-                .font(.custom(LeafFontName.italic, fixedSize: 72))
+            Image(systemName: "quote.opening")
+                .font(.system(size: 30, weight: .regular))
                 .foregroundStyle(style.accent)
-                .frame(height: 44, alignment: .top)
                 .accessibilityHidden(true)
             Text(entry.text)
                 .font(.custom(LeafFontName.italic, fixedSize: fontSize))
