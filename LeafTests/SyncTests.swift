@@ -131,7 +131,7 @@ private struct SyncReplica {
     private func nextOrder(on shelf: Shelf) -> Double { (data.items.filter { $0.shelf == shelf }.map(\.order).max() ?? 0) + 1 }
 
     mutating func step() {
-        switch pick(21) {
+        switch pick(22) {
         case 0, 1: addBook()
         case 2: moveBook()
         case 3: setPage()
@@ -149,6 +149,7 @@ private struct SyncReplica {
         case 18: cabinetTea()
         case 19: tasting()
         case 20: deleteTeaOrTasting()
+        case 21: removeRead()
         default: touchBook()
         }
     }
@@ -179,6 +180,8 @@ private struct SyncReplica {
         let shelf: Shelf = [.reading, .toRead, .finished, .paused][pick(4)]
         guard data.items[index].shelf != shelf else { return }
         let now = stamp()
+        // As the store does: leaving Finished keeps the finish as a read-through.
+        data.items[index] = data.items[index].keepingCurrentRead(now: now)
         data.items[index].shelf = shelf
         data.items[index].order = nextOrder(on: shelf)
         data.items[index].updatedAt = now
@@ -326,6 +329,17 @@ private struct SyncReplica {
             data.tombstones.removeAll { $0.kind == .tasting && $0.key == id }
             data.tombstones.append(Tombstone(kind: .tasting, key: id, deletedAt: now))
         }
+    }
+
+    /// Takes an earlier read-through off a book, with a tombstone, as the store does.
+    private mutating func removeRead() {
+        guard let index = data.items.indices.first(where: { !data.items[$0].reads.isEmpty }) else { return }
+        let read = data.items[index].reads[pick(data.items[index].reads.count)]
+        let now = stamp()
+        data.items[index].reads.removeAll { $0.id == read.id }
+        data.items[index].updatedAt = now
+        data.tombstones.removeAll { $0.kind == .read && $0.key == read.id.uuidString }
+        data.tombstones.append(Tombstone(kind: .read, key: read.id.uuidString, deletedAt: now))
     }
 
     private mutating func dismiss() {

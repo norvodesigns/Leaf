@@ -120,6 +120,8 @@ enum SyncMerge {
 
     private static func orderingView(_ item: LibraryItem) -> LibraryItem {
         var view = item
+        // Earlier read-throughs are merged on their own, so they never decide which copy wins.
+        view.reads = []
         view.currentPage = 0
         view.positionConfirmed = false
         return view
@@ -138,11 +140,19 @@ enum SyncMerge {
         }
         var sessionsByBook: [String: [ReadingSession]] = [:]
         for session in sessions { sessionsByBook[session.bookID, default: []].append(session) }
+        // Earlier read-throughs merge one by one, whichever copy of the book wins: a reread kept on one device and a
+        // rating changed on another both survive.
+        var readsA: [String: [ReadThrough]] = [:]
+        var readsB: [String: [ReadThrough]] = [:]
+        for item in a { readsA[item.id, default: []].append(contentsOf: item.reads) }
+        for item in b { readsB[item.id, default: []].append(contentsOf: item.reads) }
 
         var out: [LibraryItem] = []
         for (id, item) in best {
             if let deleted = deletedAt[SyncTombstoneKey(kind: .item, key: id)], deleted > item.updatedAt { continue }
-            out.append(raised(item, toSessions: sessionsByBook[id] ?? []))
+            var merged = item
+            merged.reads = newest(readsA[id] ?? [], readsB[id] ?? [], kind: .read, deletedAt: deletedAt, stamp: \.updatedAt, order: ReadThrough.isEarlier)
+            out.append(raised(merged, toSessions: sessionsByBook[id] ?? []))
         }
         return out.sorted { lhs, rhs in
             lhs.order != rhs.order ? lhs.order < rhs.order : bytewiseLess(lhs.id, rhs.id)

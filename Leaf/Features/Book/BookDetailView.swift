@@ -128,10 +128,10 @@ struct BookDetailView: View {
         }
     }
 
-    /// A reread starts the book from page one and takes its finish off this year's count until you finish again.
+    /// A reread starts the book from page one; the last finish is kept in its reading history.
     private var rereadMessage: String {
         guard let finished = item?.finishedAt else { return "It goes back on Reading from page one." }
-        return "It goes back on Reading from page one, and its finish on \(LeafFormat.format(finished, template: "dMMMyyyy", calendar: store.calendar)) comes off your count until you finish it again."
+        return "It goes back on Reading from page one. Your finish on \(LeafFormat.format(finished, template: "dMMMyyyy", calendar: store.calendar)) stays in its history and still counts."
     }
 
     // MARK: Stage

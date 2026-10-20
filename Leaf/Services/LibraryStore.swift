@@ -36,7 +36,9 @@ final class LibraryStore {
     init(persistence: Persistence = .shared, now: Date = Date()) {
         self.persistence = persistence
         self.now = now
-        let loaded = persistence.load() ?? LeafData()
+        // Earlier read-throughs that older versions didn't keep are recovered from sessions. Every device recovers the
+        // same ones, so they aren't sent anywhere until the book next changes.
+        let loaded = (persistence.load() ?? LeafData()).withRecoveredReads()
         self.data = loaded
         self.syncShadow = loaded
         recomputePlan()
@@ -122,6 +124,8 @@ final class LibraryStore {
 
     func move(_ id: String, to shelf: Shelf) {
         guard let index = data.items.firstIndex(where: { $0.id == id }), data.items[index].shelf != shelf else { return }
+        // Leaving Finished (to read it again, or to put it back on a shelf) keeps the finish as a read-through.
+        data.items[index] = data.items[index].keepingCurrentRead(now: stamp)
         data.items[index].shelf = shelf
         data.items[index].order = nextOrder(on: shelf)
         data.items[index].updatedAt = stamp
@@ -578,6 +582,44 @@ final class LibraryStore {
         guard data.journal.contains(where: { $0.id == id }) else { return }
         data.journal.removeAll { $0.id == id }
         addTombstone(.journal, id.uuidString)
+        commit()
+    }
+
+    // MARK: - Read-throughs
+
+    /// Rates one read-through. The current one (a book on Finished) is the book's own rating.
+    func setReadRating(_ bookID: String, readID: UUID, rating: Int?) {
+        guard let index = data.items.firstIndex(where: { $0.id == bookID }) else { return }
+        if let readIndex = data.items[index].reads.firstIndex(where: { $0.id == readID }) {
+            data.items[index].reads[readIndex].rating = rating.map { min(5, max(1, $0)) }
+            data.items[index].reads[readIndex].updatedAt = stamp
+            data.items[index].updatedAt = stamp
+            commit()
+        } else if data.items[index].readThroughs.last?.id == readID, data.items[index].shelf == .finished {
+            setRating(bookID, rating: rating)
+        }
+    }
+
+    /// Adds a read-through from before Leaf ("I read this in 2019"). Ignored when one already ends that day.
+    func addEarlierRead(_ bookID: String, startedAt: Date?, finishedAt: Date, rating: Int? = nil) {
+        guard let index = data.items.firstIndex(where: { $0.id == bookID }) else { return }
+        let day = calendar.startOfDay(for: finishedAt)
+        guard !data.items[index].readThroughs.contains(where: { calendar.startOfDay(for: $0.finishedAt) == day }) else { return }
+        let read = ReadThrough(bookID: bookID, startedAt: startedAt, finishedAt: finishedAt, rating: rating, updatedAt: stamp)
+        data.items[index].reads.append(read)
+        data.items[index].reads.sort(by: ReadThrough.isEarlier)
+        data.items[index].updatedAt = stamp
+        clearTombstone(.read, read.id.uuidString)
+        commit()
+    }
+
+    /// Takes an earlier read-through off a book. The current one goes by moving the book off Finished.
+    func removeRead(_ bookID: String, readID: UUID) {
+        guard let index = data.items.firstIndex(where: { $0.id == bookID }),
+              data.items[index].reads.contains(where: { $0.id == readID }) else { return }
+        data.items[index].reads.removeAll { $0.id == readID }
+        data.items[index].updatedAt = stamp
+        addTombstone(.read, readID.uuidString)
         commit()
     }
 

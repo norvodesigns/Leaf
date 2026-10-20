@@ -140,20 +140,21 @@ struct InsightsEngine: Sendable {
         sittings.filter { $0.day >= first && $0.day <= last }
     }
 
-    /// Library items finished in `year` (all years when nil), oldest finish first.
+    /// Finishes in `year` (all years when nil), oldest first: one finished copy of the book per read-through, with
+    /// that read-through's dates and rating, so a book read twice appears twice.
     func finishedItems(year: Int? = nil) -> [LibraryItem] {
-        data.items
-            .filter { item in
-                guard item.shelf == .finished else { return false }
-                guard let year else { return true }
-                guard let finished = item.finishedAt else { return false }
-                return self.year(of: finished) == year
+        var out: [LibraryItem] = []
+        for item in data.items {
+            for read in item.readThroughs {
+                if let year, self.year(of: read.finishedAt) != year { continue }
+                out.append(item.asOf(read))
             }
-            .sorted { lhs, rhs in
-                let l = lhs.finishedAt ?? .distantPast
-                let r = rhs.finishedAt ?? .distantPast
-                return l != r ? l < r : lhs.id < rhs.id
-            }
+        }
+        return out.sorted { lhs, rhs in
+            let l = lhs.finishedAt ?? .distantPast
+            let r = rhs.finishedAt ?? .distantPast
+            return l != r ? l < r : lhs.id < rhs.id
+        }
     }
 
     // MARK: - Streaks

@@ -17,7 +17,8 @@ struct YearInBooks: Hashable, Sendable {
         var days: Int?
         var pagesPerDay: Double?
 
-        var id: String { bookID }
+        /// The book and its finish, so a book read twice in a year appears twice.
+        var id: String { "\(bookID)@\(Int(finishedAt.timeIntervalSince1970))" }
     }
 
     struct GenreHighlight: Hashable, Sendable {

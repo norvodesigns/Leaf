@@ -66,11 +66,13 @@ enum StampLedger {
     }
 
     static func bookEntries(data: LeafData) -> [StampEntry] {
+        // A book's stamp is earned at its first finish, even when it has since been started again.
         var earliest: [String: LibraryItem] = [:]
-        for item in data.items where item.shelf == .finished {
-            guard let finished = item.finishedAt else { continue }
+        for item in data.items {
+            guard let first = item.readThroughs.first else { continue }
+            let finished = first.finishedAt
             if let existing = earliest[item.book.id], let seen = existing.finishedAt, seen <= finished { continue }
-            earliest[item.book.id] = item
+            earliest[item.book.id] = item.asOf(first)
         }
         return earliest.values.compactMap { item -> StampEntry? in
             guard let finished = item.finishedAt else { return nil }

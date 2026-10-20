@@ -122,6 +122,9 @@ struct LibraryItem: Codable, Hashable, Identifiable, Sendable {
     var updatedAt: Date
     /// The tea the reader pinned as this book's pairing (a catalog id or a cabinet tea's "custom." id).
     var pairedTeaID: String?
+    /// Earlier read-throughs, oldest first, kept when a finished book is started again (`readThroughs` adds the
+    /// current one once it is finished).
+    var reads: [ReadThrough]
 
     var id: String { book.id }
 
@@ -139,7 +142,8 @@ struct LibraryItem: Codable, Hashable, Identifiable, Sendable {
         positionConfirmed: Bool? = nil,
         pausedAt: Date? = nil,
         updatedAt: Date? = nil,
-        pairedTeaID: String? = nil
+        pairedTeaID: String? = nil,
+        reads: [ReadThrough] = []
     ) {
         self.book = book
         self.shelf = shelf
@@ -155,11 +159,12 @@ struct LibraryItem: Codable, Hashable, Identifiable, Sendable {
         self.pausedAt = pausedAt
         self.updatedAt = updatedAt ?? finishedAt ?? startedAt ?? addedAt
         self.pairedTeaID = pairedTeaID
+        self.reads = reads
     }
 
     enum CodingKeys: String, CodingKey {
         case book, shelf, currentPage, order, addedAt, startedAt, finishedAt, rating
-        case progressMode, startPage, positionConfirmed, pausedAt, updatedAt, pairedTeaID
+        case progressMode, startPage, positionConfirmed, pausedAt, updatedAt, pairedTeaID, reads
     }
 
     init(from decoder: Decoder) throws {
@@ -185,7 +190,8 @@ struct LibraryItem: Codable, Hashable, Identifiable, Sendable {
             positionConfirmed: try c.decodeIfPresent(Bool.self, forKey: .positionConfirmed) ?? true,
             pausedAt: try c.decodeIfPresent(Date.self, forKey: .pausedAt),
             updatedAt: try c.decodeIfPresent(Date.self, forKey: .updatedAt),
-            pairedTeaID: try c.decodeIfPresent(String.self, forKey: .pairedTeaID)
+            pairedTeaID: try c.decodeIfPresent(String.self, forKey: .pairedTeaID),
+            reads: (try? c.decodeIfPresent([ReadThrough].self, forKey: .reads)) ?? []
         )
     }
 
@@ -448,6 +454,8 @@ struct Tombstone: Codable, Hashable, Sendable {
         case cabinetTea
         /// A tasting note deleted (key is its UUID string).
         case tasting
+        /// An earlier read-through taken off a book (key is the read-through's UUID string).
+        case read
     }
 
     var kind: Kind

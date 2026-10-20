@@ -147,10 +147,12 @@ enum ChallengeEvaluator {
 
         init(data: LeafData, span: ChallengeSpan) {
             var byBook: [String: Finished] = [:]
-            for item in data.items where item.shelf == .finished {
-                guard let at = item.finishedAt, span.contains(at) else { continue }
-                if let existing = byBook[item.book.id], existing.at <= at { continue }
-                byBook[item.book.id] = Finished(book: item.book, at: at)
+            for item in data.items {
+                for read in item.readThroughs where span.contains(read.finishedAt) {
+                    let at = read.finishedAt
+                    if let existing = byBook[item.book.id], existing.at <= at { continue }
+                    byBook[item.book.id] = Finished(book: item.book, at: at)
+                }
             }
             finished = byBook.values.sorted { $0.at < $1.at || ($0.at == $1.at && $0.book.id < $1.book.id) }
 

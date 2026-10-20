@@ -247,6 +247,16 @@ struct TastingNote: Codable, Hashable, Identifiable, Sendable {
     }
 }
 
+extension TastingNote {
+    /// "Just right · malty, honeyed"
+    var summary: String {
+        var parts: [String] = []
+        if let strength { parts.append(strength.title) }
+        if !aromas.isEmpty { parts.append(aromas.joined(separator: ", ")) }
+        return parts.joined(separator: " · ")
+    }
+}
+
 // MARK: - Finding a tea
 
 /// The reader's teas and the catalog, as one place to look. Pure.

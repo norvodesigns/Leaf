@@ -52,8 +52,9 @@ enum SyncPolicy {
 
     /// Which record types, tombstone kinds and synced fields this build understands. Raise it whenever one is added.
     /// An older build skips records it can't read, and its sync position moves past them; a device whose saved sync
-    /// state is from a lower layout therefore fetches the whole zone once (2: the tea cabinet and tasting notes).
-    static let syncLayout = 2
+    /// state is from a lower layout therefore fetches the whole zone once (2: the tea cabinet and tasting notes;
+    /// 3: earlier read-throughs on books, and their tombstones).
+    static let syncLayout = 3
 
     /// Whether sync state saved under `layout` (nil for state saved before layouts were recorded) must be dropped
     /// for one full fetch.

@@ -52,11 +52,15 @@ enum ReadingStats {
         }
     }
 
+    /// Finishes in `year`, counting each read-through: a book read twice this year counts twice.
     static func booksFinished(in year: Int, items: [LibraryItem], calendar: Calendar = .current) -> Int {
-        items.filter { item in
-            guard item.shelf == .finished, let finished = item.finishedAt else { return false }
-            return calendar.component(.year, from: finished) == year
-        }.count
+        var count = 0
+        for item in items {
+            for read in item.readThroughs where calendar.component(.year, from: read.finishedAt) == year {
+                count += 1
+            }
+        }
+        return count
     }
 
     static func totalMinutes(_ sessions: [ReadingSession]) -> Double {
