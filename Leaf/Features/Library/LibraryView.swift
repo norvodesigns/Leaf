@@ -1,11 +1,13 @@
 import SwiftUI
 
-/// The Library tab (DESIGN.md §6): the large title, a trailing `plus` that opens the by-hand form,
-/// and a shelf switcher over Reading, To read and Finished that follows `router.libraryShelf`.
+/// The Library tab (DESIGN.md §6): the large title, a trailing `plus` that opens the by-hand form, a segmented
+/// switcher over Reading, To read and Finished that follows `router.libraryShelf`, and one plain line saying what the
+/// shelf holds. Books set aside sit at the end of Reading rather than on a fourth tab.
 /// Lives inside `MainTabs`' navigation stack; book rows push `BookRoute`.
 struct LibraryView: View {
     @Environment(LibraryStore.self) private var store
     @Environment(AppRouter.self) private var router
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var showsAddSheet = false
     /// The book waiting on "Remove from Library?".
@@ -15,29 +17,50 @@ struct LibraryView: View {
 
     private var pausedCount: Int { store.data.items(on: .paused).count }
 
-    private var counts: [Shelf: Int] {
-        [.reading: store.reading.count, .toRead: store.toRead.count, .finished: store.finished.count, .paused: pausedCount]
-    }
-
-    /// Paused shows up once something is set aside (or while it is the shelf on screen).
-    private var shelves: [Shelf] {
-        pausedCount > 0 || router.libraryShelf == .paused ? Shelf.main + [.paused] : Shelf.main
+    /// What the shelf on screen holds, how many, and the one gesture worth knowing. Empty shelves say it themselves.
+    private var caption: String? {
+        switch router.libraryShelf {
+        case .reading, .paused:
+            let count = store.reading.count
+            guard count > 0 else { return nil }
+            let open = count == 1 ? "The book you're reading now" : "The \(count) books you're reading now"
+            return pausedCount > 0 ? open + ". Books you've set aside wait below." : open + "."
+        case .toRead:
+            let count = store.toRead.count
+            guard count > 0 else { return nil }
+            return "\(count == 1 ? "One book" : "\(count) books") to read next, in the order Leaf plans them. Hold one to move it."
+        case .finished:
+            let count = store.finished.count
+            guard count > 0 else { return nil }
+            return count == 1 ? "The book you've finished." : "The \(count) books you've finished, newest first."
+        }
     }
 
     var body: some View {
         @Bindable var router = router
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                ShelfSwitcher(selection: $router.libraryShelf, counts: counts, shelves: shelves)
-                    .padding(.top, Space.s)
-                    .padding(.bottom, Space.m)
-                shelf
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    ShelfSwitcher(selection: $router.libraryShelf)
+                        .padding(.top, Space.s)
+                    if let caption {
+                        Text(caption)
+                            .leafStyle(.caption)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.top, Space.s)
+                            .contentTransition(.opacity)
+                    }
+                    shelf
+                        .padding(.top, Space.l)
+                }
+                .leafMargins()
+                .padding(.bottom, Space.xxl)
             }
-            .leafMargins()
-            .padding(.bottom, Space.xxl)
+            .scrollIndicators(.hidden)
+            .scrollEdgeEffectStyle(.soft, for: .top)
+            .onAppear { showSetAsideIfAsked(proxy) }
+            .onChange(of: router.libraryShelf) { _, _ in showSetAsideIfAsked(proxy) }
         }
-        .scrollIndicators(.hidden)
-        .scrollEdgeEffectStyle(.soft, for: .top)
         .paperBackground()
         .navigationTitle("Library")
         .navigationBarTitleDisplayMode(.large)
@@ -74,18 +97,36 @@ struct LibraryView: View {
     @ViewBuilder
     private var shelf: some View {
         switch router.libraryShelf {
-        case .reading:
-            LibraryReadingShelf(onRemove: requestRemoval)
-                .transition(.opacity)
-        case .paused:
-            LibraryPausedShelf(onRemove: requestRemoval)
-                .transition(.opacity)
+        case .reading, .paused:
+            VStack(alignment: .leading, spacing: 0) {
+                LibraryReadingShelf(onRemove: requestRemoval)
+                if pausedCount > 0 {
+                    SectionHeader("Set aside")
+                        .id(Self.setAsideID)
+                    LibraryPausedShelf(onRemove: requestRemoval)
+                }
+            }
+            .transition(.opacity)
         case .toRead:
             LibraryQueueShelf(onRemove: requestRemoval)
                 .transition(.opacity)
         case .finished:
             LibraryFinishedShelf(onRemove: requestRemoval)
                 .transition(.opacity)
+        }
+    }
+
+    private static let setAsideID = "library.setAside"
+
+    /// Anything that asks for the old Paused shelf (a link, a screenshot stage) lands on Reading, at Set aside.
+    private func showSetAsideIfAsked(_ proxy: ScrollViewProxy) {
+        guard router.libraryShelf == .paused else { return }
+        router.libraryShelf = .reading
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(350))
+            withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
+                proxy.scrollTo(Self.setAsideID, anchor: .top)
+            }
         }
     }
 

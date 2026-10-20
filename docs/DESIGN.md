@@ -191,7 +191,7 @@ In dark mode, ambient opacity is 0.5. A lifted row gets `shadow` at opacity 0.18
 - **List overlay:** month eyebrows on top, 1 px `hairline` gridlines at 50% at month starts, and a 1 pt vertical `ribbon` rule at today.
 - **DeltaChip:** a 22 pt capsule with 8 pt padding, `caption` semibold, shown for 2.5 s. "6 days sooner": `accent` on `accentSoft`. "4 days later": `inkSecondary` on `paperSunken`.
 
-**ShelfSwitcher**: three tabs in `title` with superscript counts (`caption`, `baselineOffset(8)`): "Reading² To read⁷ Finished³¹". Active: `ink` with a 2 pt `ribbon` underline that slides via `matchedGeometryEffect`. Inactive: `inkTertiary`. It sits on paper, not glass.
+**ShelfSwitcher**: a segmented control over Reading, To read and Finished, the control people already know. The counts are in the line under it ("The 4 books you've finished, newest first."), so the segments stay short at every text size. Books set aside are not a fourth segment: they sit in a "Set aside" section at the end of Reading.
 
 **SessionAccessory** (`.tabViewBottomAccessory`, always present). Expanded: a BookCover XS (a ProgressRing 22 when live), two lines (`ui` `ink` over `caption`), and a trailing 36×36 plain symbol button, with 16 pt horizontal padding. Inline (`tabViewBottomAccessoryPlacement == .inline`): the symbol and line 1 only. It's a `matchedTransitionSource` for the session zoom.
 
@@ -231,7 +231,8 @@ The only toolbar item is a trailing glass `gearshape` that opens Settings; there
 - **Empty:** EmptyState "An empty issue." / "Add a book and Leaf will plan the pages." with a "Find a book" button that goes to Search.
 
 ### Library
-- **Header:** the large title "Library", a trailing glass `plus` (opens AddBookManuallyView), and a ShelfSwitcher that respects `router.libraryShelf`.
+- **Header:** the large title "Library", a trailing glass `plus` (opens AddBookManuallyView), a ShelfSwitcher that respects `router.libraryShelf`, and one `caption` line saying what the shelf holds, how many, and (on To read) "Hold one to move it."
+- **Set aside:** after the Reading rows, a "SET ASIDE" section with the paused books and "Pick it back up". Asking for the old Paused shelf lands here.
 - **Reading:** 168 pt rows of cover M with ribbon, title in `headline`, author, PageSpanBar, and "p. 142 of 310 · done by 26 Oct". Tapping a cover zooms to the detail.
 - **To read** (the running order): 76 pt rows of `index` "01", cover S, title and author, and "by 3 Dec" in `data`.
   - **Reorder** in a custom `LazyVStack`. A 0.3 s long press lifts the row with `reorderLift`, scale 1.03, `paperRaised` and the lifted shadow. Each slot crossed plays `selection`. The drop plays `reorderDrop` and calls `store.reorder`. Then the dates reflow (§7) with `riffle` and DeltaChips.

@@ -106,6 +106,9 @@ struct RootView: View {
         case "library.paused":
             router.tab = .library
             router.libraryShelf = .paused
+        case "library.toread":
+            router.tab = .library
+            router.libraryShelf = .toRead
         case "plan":
             router.tab = .plan
         case "plan.whatif", "plan.care", "plan.order", "plan.reading":

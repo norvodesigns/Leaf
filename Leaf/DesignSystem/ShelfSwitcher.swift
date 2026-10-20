@@ -1,20 +1,17 @@
 import SwiftUI
 
-/// The Library's shelf tabs on paper (DESIGN.md §5): "Reading² To read⁷ Finished³¹" in `title`
-/// with superscript counts. Active: `ink` with a 2 pt `ribbon` underline that slides between
-/// tabs. Inactive: `inkTertiary`. Plays `selection()`.
+/// The Library's shelves as a segmented control: Reading, To read, Finished. A control everyone already knows how to
+/// use, rather than a row of serif words that read like a second title. Counts live in the caption under it, so the
+/// segments stay short at every text size. Plays `selection()`.
 struct ShelfSwitcher: View {
     @Binding var selection: Shelf
-    var counts: [Shelf: Int]
-    /// The shelves to offer; Paused joins the three main ones when something is set aside.
+    /// The shelves to offer. Paused is not a segment: set-aside books sit at the end of Reading.
     var shelves: [Shelf] = Shelf.main
 
-    @Namespace private var underline
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    init(selection: Binding<Shelf>, counts: [Shelf: Int], shelves: [Shelf] = Shelf.main) {
+    init(selection: Binding<Shelf>, shelves: [Shelf] = Shelf.main) {
         self._selection = selection
-        self.counts = counts
         self.shelves = shelves
     }
 
@@ -24,71 +21,38 @@ struct ShelfSwitcher: View {
         case .reading: "Reading"
         case .toRead: "To read"
         case .finished: "Finished"
-        case .paused: "Paused"
+        case .paused: "Set aside"
         }
     }
 
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView(.horizontal) {
-                // A fourth shelf (Paused) sits a little closer so all four fit on most phones.
-                HStack(alignment: .top, spacing: shelves.count > 3 ? Space.l : Space.xl) {
-                    ForEach(shelves, id: \.self) { shelf in
-                        tab(shelf)
-                            .id(shelf)
-                    }
-                }
-            }
-            .scrollIndicators(.hidden)
-            .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
-            .scrollClipDisabled()
-            .onAppear { proxy.scrollTo(selection) }
-            .onChange(of: selection) { _, shelf in
-                withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
-                    proxy.scrollTo(shelf)
-                }
+        Picker("Shelf", selection: animatedSelection) {
+            ForEach(shelves, id: \.self) { shelf in
+                Text(Self.title(for: shelf)).tag(shelf)
             }
         }
+        .pickerStyle(.segmented)
+        .labelsHidden()
     }
 
-    private func tab(_ shelf: Shelf) -> some View {
-        let isActive = shelf == selection
-        let count = counts[shelf] ?? 0
-        let name = ShelfSwitcher.title(for: shelf)
-        return Button {
-            guard !isActive else { return }
-            Haptics.shared.selection()
-            withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
-                selection = shelf
-            }
-        } label: {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("\(Text(name).font(LeafType.title))\(Text(String(count)).font(LeafType.caption).baselineOffset(8))")
-                    .foregroundStyle(isActive ? Color.ink : Color.inkTertiary)
-                    .lineLimit(1)
-                    .fixedSize()
-                ZStack {
-                    if isActive {
-                        Capsule()
-                            .fill(Color.ribbon)
-                            .matchedGeometryEffect(id: "underline", in: underline)
-                    }
+    private var animatedSelection: Binding<Shelf> {
+        Binding(
+            get: { selection },
+            set: { shelf in
+                guard shelf != selection else { return }
+                Haptics.shared.selection()
+                withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
+                    selection = shelf
                 }
-                .frame(height: 2)
             }
-            .frame(minHeight: Space.hitTarget, alignment: .top)
-            .contentShape(.rect)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(name), \(count) \(count == 1 ? "book" : "books")")
-        .accessibilityAddTraits(isActive ? .isSelected : [])
+        )
     }
 }
 
 #Preview("Shelf switcher") {
     @Previewable @State var shelf: Shelf = .reading
     VStack(alignment: .leading, spacing: Space.l) {
-        ShelfSwitcher(selection: $shelf, counts: [.reading: 2, .toRead: 7, .finished: 31])
+        ShelfSwitcher(selection: $shelf)
         Text(ShelfSwitcher.title(for: shelf)).leafStyle(.caption)
     }
     .leafMargins()

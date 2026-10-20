@@ -32,7 +32,7 @@ struct DesignSystemGallery: View {
                     WeekStrip(days: store.week, streak: store.streak)
 
                     SectionHeader("Shelves")
-                    ShelfSwitcher(selection: $shelf, counts: [.reading: store.reading.count, .toRead: store.toRead.count, .finished: store.finished.count])
+                    ShelfSwitcher(selection: $shelf)
 
                     SectionHeader("Running order")
                     VStack(spacing: Space.m) {

@@ -149,6 +149,7 @@ for appearance in light dark; do
   shot "82-challenges$suffix" 8 -LeafDemo YES -LeafScreen plan.challenges -LeafScenario year
   shot "90-search-browse$suffix" 10 -LeafDemo YES -LeafScreen search
   shot "100-library-paused$suffix" 5 -LeafDemo YES -LeafScreen library.paused
+  shot "107-library-toread$suffix" 5 -LeafDemo YES -LeafScreen library.toread
 done
 xcrun simctl ui "$IOS_SIM" appearance light
 

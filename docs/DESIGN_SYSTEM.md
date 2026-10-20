@@ -208,9 +208,9 @@ Constants: `inkInStagger 0.05`, `inkInRise 8`, `inkInMaxItems 6`, `countUpDurati
   `Calendar.current.firstWeekday`; `masthead` letters, `ribbon` underline, `selection()` haptic, each
   column a toggle ("Monday, reading day"). `WeekdayPicker.orderedWeekdays()` → `[Int]` in display order.
   An empty selection is allowed; the screen disables its button and says "Pick at least one day."
-- `ShelfSwitcher(selection: Binding<Shelf>, counts: [Shelf: Int])` — "Reading² To read⁷ Finished³¹",
-  sliding `ribbon` underline, `selection()` haptic. Bind to `router.libraryShelf` via `@Bindable`.
-  `ShelfSwitcher.title(for: Shelf) -> String` ("Reading", "To read", "Finished").
+- `ShelfSwitcher(selection: Binding<Shelf>, shelves: [Shelf] = Shelf.main)` — a segmented control over Reading, To
+  read and Finished, playing `selection()`; the counts live in the Library's caption line.
+  `ShelfSwitcher.title(for: Shelf) -> String` ("Reading", "To read", "Finished", "Set aside").
 
 ## Week & plan
 
@@ -361,7 +361,7 @@ Sheets: `router.planSheet` (`.finishLine(bookID:)`, `.smartOrder`, `.yearInBooks
 - **Catalog helpers** — `BookCatalog.similar(to:context:limit:)` and `tasteProfile(context:)`, both off the main actor.
 - **Book detail** — `BookDetailExtras.swift`: `BookEditionPicker` (from `Book.pageCounts`), `BookJournalList`
   (Sittings | Journal tabs), `BookMoreLikeThis`. The page line honours `ProgressMode`; the page chip is `PageChip`.
-- **Library** — `LibraryPausedShelf`; `ShelfSwitcher(… shelves:)` adds Paused when something is set aside.
+- **Library** — `LibraryPausedShelf`, shown as the "Set aside" section at the end of Reading (no fourth segment).
 - **Settings** — `SettingsCozy.swift`: `SettingsPlanSection` (missed days, yearly goal, weekly letter),
   `SettingsTeaSection` (favourite tea, strength, cup, ambience and its starting volume, sound cues),
   `SettingsExtrasSection` (Apple Intelligence greetings, Live Activity), `SettingsCloudSection` (status, waiting
