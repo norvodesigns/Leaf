@@ -77,6 +77,8 @@ enum SyncRecordName: Hashable, Sendable {
     case dismissal(String)
     case challenge(id: String, year: Int?)
     case tombstone(Tombstone.Kind, String)
+    case cabinetTea(UUID)
+    case tasting(UUID)
 
     private static let itemPrefix = "item."
     private static let sessionPrefix = "session."
@@ -86,6 +88,8 @@ enum SyncRecordName: Hashable, Sendable {
     private static let dismissalPrefix = "dismissal."
     private static let challengePrefix = "challenge."
     private static let tombstonePrefix = "tombstone."
+    private static let cabinetTeaPrefix = "tea."
+    private static let tastingPrefix = "tasting."
 
     var string: String {
         switch self {
@@ -99,6 +103,8 @@ enum SyncRecordName: Hashable, Sendable {
             return SyncRecordName.challengePrefix + SyncKey.escape(id) + "." + (year.map(String.init) ?? "none")
         case .tombstone(let kind, let key):
             return SyncRecordName.tombstonePrefix + kind.rawValue + "." + SyncKey.escape(key)
+        case .cabinetTea(let id): return SyncRecordName.cabinetTeaPrefix + id.uuidString
+        case .tasting(let id): return SyncRecordName.tastingPrefix + id.uuidString
         }
     }
 
@@ -112,6 +118,8 @@ enum SyncRecordName: Hashable, Sendable {
         case .dismissal: return .dismissal
         case .challenge: return .challenge
         case .tombstone: return .tombstone
+        case .cabinetTea: return .cabinetTea
+        case .tasting: return .tasting
         }
     }
 
@@ -153,6 +161,12 @@ enum SyncRecordName: Hashable, Sendable {
                   let kind = Tombstone.Kind(rawValue: String(rest[..<dot])),
                   let key = SyncKey.unescape(String(rest[rest.index(after: dot)...])) else { return nil }
             self = .tombstone(kind, key)
+        } else if let rest = SyncRecordName.rest(of: string, after: SyncRecordName.tastingPrefix) {
+            guard let id = UUID(uuidString: rest) else { return nil }
+            self = .tasting(id)
+        } else if let rest = SyncRecordName.rest(of: string, after: SyncRecordName.cabinetTeaPrefix) {
+            guard let id = UUID(uuidString: rest) else { return nil }
+            self = .cabinetTea(id)
         } else {
             return nil
         }

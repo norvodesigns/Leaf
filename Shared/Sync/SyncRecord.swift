@@ -29,6 +29,8 @@ enum SyncRecordType: String, CaseIterable, Sendable {
     case dismissal = "LeafDismissal"
     case challenge = "LeafChallenge"
     case tombstone = "LeafTombstone"
+    case cabinetTea = "LeafTea"
+    case tasting = "LeafTasting"
 }
 
 /// A record as plain data: its name, its type and its fields. Every record carries the same three fields.

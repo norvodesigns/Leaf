@@ -115,6 +115,10 @@ enum ChallengeTaskGoal: Hashable, Sendable {
     case evenings(Int)
     /// This many different teas read with.
     case teas(Int)
+    /// Tasting notes on this many different teas.
+    case tasted(Int)
+    /// Tasting notes across this many tea families.
+    case tastedFamilies(Int)
 }
 
 struct ChallengeTask: Identifiable, Hashable, Sendable {
@@ -163,6 +167,8 @@ enum ChallengeRule: Hashable, Sendable {
     case eveningStreak
     /// Different teas read with.
     case differentTeas
+    /// Tasting notes: how many teas, and how many families, the reader has written about.
+    case tastingNotes
 }
 
 struct Challenge: Identifiable, Hashable, Sendable {

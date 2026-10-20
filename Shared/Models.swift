@@ -120,6 +120,8 @@ struct LibraryItem: Codable, Hashable, Identifiable, Sendable {
     var pausedAt: Date?
     /// Last change, for iCloud merging (newest wins).
     var updatedAt: Date
+    /// The tea the reader pinned as this book's pairing (a catalog id or a cabinet tea's "custom." id).
+    var pairedTeaID: String?
 
     var id: String { book.id }
 
@@ -136,7 +138,8 @@ struct LibraryItem: Codable, Hashable, Identifiable, Sendable {
         startPage: Int = 0,
         positionConfirmed: Bool? = nil,
         pausedAt: Date? = nil,
-        updatedAt: Date? = nil
+        updatedAt: Date? = nil,
+        pairedTeaID: String? = nil
     ) {
         self.book = book
         self.shelf = shelf
@@ -151,11 +154,12 @@ struct LibraryItem: Codable, Hashable, Identifiable, Sendable {
         self.positionConfirmed = positionConfirmed ?? (currentPage > 0 || shelf == .finished)
         self.pausedAt = pausedAt
         self.updatedAt = updatedAt ?? finishedAt ?? startedAt ?? addedAt
+        self.pairedTeaID = pairedTeaID
     }
 
     enum CodingKeys: String, CodingKey {
         case book, shelf, currentPage, order, addedAt, startedAt, finishedAt, rating
-        case progressMode, startPage, positionConfirmed, pausedAt, updatedAt
+        case progressMode, startPage, positionConfirmed, pausedAt, updatedAt, pairedTeaID
     }
 
     init(from decoder: Decoder) throws {
@@ -180,7 +184,8 @@ struct LibraryItem: Codable, Hashable, Identifiable, Sendable {
             // Anyone who already had this book on a shelf before the flag existed has effectively confirmed it.
             positionConfirmed: try c.decodeIfPresent(Bool.self, forKey: .positionConfirmed) ?? true,
             pausedAt: try c.decodeIfPresent(Date.self, forKey: .pausedAt),
-            updatedAt: try c.decodeIfPresent(Date.self, forKey: .updatedAt)
+            updatedAt: try c.decodeIfPresent(Date.self, forKey: .updatedAt),
+            pairedTeaID: try c.decodeIfPresent(String.self, forKey: .pairedTeaID)
         )
     }
 
@@ -439,6 +444,10 @@ struct Tombstone: Codable, Hashable, Sendable {
         case dismissal
         /// A challenge the reader left (key is the challenge id).
         case challenge
+        /// A tea taken out of the cabinet (key is its UUID string).
+        case cabinetTea
+        /// A tasting note deleted (key is its UUID string).
+        case tasting
     }
 
     var kind: Kind
@@ -571,6 +580,10 @@ struct LeafData: Codable, Sendable {
     var challenges: [ChallengeEnrollment] = []
     /// Deletions that still need to reach other devices.
     var tombstones: [Tombstone] = []
+    /// The reader's own teas.
+    var cabinet: [CabinetTea] = []
+    /// Notes on cups, written after reading with tea.
+    var tastings: [TastingNote] = []
 
     init() {}
 
@@ -586,6 +599,8 @@ struct LeafData: Codable, Sendable {
         journal = try c.decodeIfPresent([JournalEntry].self, forKey: .journal) ?? []
         challenges = try c.decodeIfPresent([ChallengeEnrollment].self, forKey: .challenges) ?? []
         tombstones = try c.decodeIfPresent([Tombstone].self, forKey: .tombstones) ?? []
+        cabinet = try c.decodeIfPresent([CabinetTea].self, forKey: .cabinet) ?? []
+        tastings = try c.decodeIfPresent([TastingNote].self, forKey: .tastings) ?? []
     }
 
     func items(on shelf: Shelf) -> [LibraryItem] {

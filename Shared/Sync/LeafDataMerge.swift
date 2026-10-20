@@ -39,6 +39,12 @@ extension LeafData {
         out.speedTests = SyncMerge.speedTests(self.speedTests, remote.speedTests)
         out.dismissed = SyncMerge.dismissed(self.dismissed, remote.dismissed, deletedAt: deletedAt)
         out.challenges = SyncMerge.challenges(self.challenges, remote.challenges, deletedAt: deletedAt)
+        out.cabinet = SyncMerge.newest(self.cabinet, remote.cabinet, kind: .cabinetTea, deletedAt: deletedAt, stamp: \.updatedAt) {
+            $0.addedAt != $1.addedAt ? $0.addedAt < $1.addedAt : $0.id.uuidString < $1.id.uuidString
+        }
+        out.tastings = SyncMerge.newest(self.tastings, remote.tastings, kind: .tasting, deletedAt: deletedAt, stamp: \.updatedAt) {
+            $0.createdAt != $1.createdAt ? $0.createdAt < $1.createdAt : $0.id.uuidString < $1.id.uuidString
+        }
         out.preferences = SyncMerge.preferences(local: preferences, remote: remote.preferences)
         // The live session never syncs. It also cannot outlive its book: if the book was deleted elsewhere there is
         // nothing left to log it against.
@@ -175,6 +181,41 @@ enum SyncMerge {
         return best.values.sorted { lhs, rhs in
             lhs.startedAt != rhs.startedAt ? lhs.startedAt < rhs.startedAt : lhs.id.uuidString < rhs.id.uuidString
         }
+    }
+
+    // MARK: Cabinet and tastings
+
+    /// Per id, the newest stamp wins as a whole (a tie goes to the larger JSON, so both sides pick the same copy);
+    /// a tombstone of `kind` removes a thing only if it is strictly later than the thing's stamp. Ordered by `order`.
+    static func newest<T: Codable & Equatable & Identifiable>(
+        _ a: [T],
+        _ b: [T],
+        kind: Tombstone.Kind,
+        deletedAt: [SyncTombstoneKey: Date],
+        stamp: KeyPath<T, Date>,
+        order: (T, T) -> Bool
+    ) -> [T] where T.ID == UUID {
+        var best: [UUID: T] = [:]
+        for element in a + b {
+            guard let existing = best[element.id] else {
+                best[element.id] = element
+                continue
+            }
+            if existing == element { continue }
+            let mine = existing[keyPath: stamp]
+            let theirs = element[keyPath: stamp]
+            if mine != theirs {
+                best[element.id] = mine > theirs ? existing : element
+            } else {
+                best[element.id] = larger(existing, element)
+            }
+        }
+        return best.values
+            .filter { element in
+                guard let deleted = deletedAt[SyncTombstoneKey(kind: kind, key: element.id.uuidString)] else { return true }
+                return !(deleted > element[keyPath: stamp])
+            }
+            .sorted(by: order)
     }
 
     // MARK: Journal

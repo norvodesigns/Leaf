@@ -131,7 +131,7 @@ private struct SyncReplica {
     private func nextOrder(on shelf: Shelf) -> Double { (data.items.filter { $0.shelf == shelf }.map(\.order).max() ?? 0) + 1 }
 
     mutating func step() {
-        switch pick(18) {
+        switch pick(21) {
         case 0, 1: addBook()
         case 2: moveBook()
         case 3: setPage()
@@ -146,6 +146,9 @@ private struct SyncReplica {
         case 14: challenge()
         case 15: speedTest()
         case 16: preferences()
+        case 18: cabinetTea()
+        case 19: tasting()
+        case 20: deleteTeaOrTasting()
         default: touchBook()
         }
     }
@@ -283,6 +286,46 @@ private struct SyncReplica {
         data.journal.remove(at: index)
         data.tombstones.removeAll { $0.kind == .journal && $0.key == id.uuidString }
         data.tombstones.append(Tombstone(kind: .journal, key: id.uuidString, deletedAt: now))
+    }
+
+    /// Adds a tin or edits one (stock, rating), the way the cabinet does.
+    private mutating func cabinetTea() {
+        let now = stamp()
+        if !data.cabinet.isEmpty, pick(2) == 0 {
+            let index = pick(data.cabinet.count)
+            data.cabinet[index].isOutOf.toggle()
+            data.cabinet[index].rating = 1 + pick(5)
+            data.cabinet[index].updatedAt = now
+            return
+        }
+        let tea = TeaCatalog.all[pick(TeaCatalog.all.count)]
+        data.cabinet.append(CabinetTea(id: SyncFixtures.uuid(&rng), catalogID: pick(3) == 0 ? nil : tea.id, name: tea.name, family: tea.family, steepSeconds: tea.steepSeconds, addedAt: now))
+    }
+
+    private mutating func tasting() {
+        let now = stamp()
+        if !data.tastings.isEmpty, pick(2) == 0 {
+            let index = pick(data.tastings.count)
+            data.tastings[index].rating = 1 + pick(5)
+            data.tastings[index].aromas = [TastingAroma.all[pick(TastingAroma.all.count)]]
+            data.tastings[index].updatedAt = now
+            return
+        }
+        let tea = TeaCatalog.all[pick(TeaCatalog.all.count)]
+        data.tastings.append(TastingNote(id: SyncFixtures.uuid(&rng), teaID: tea.id, teaName: tea.name, family: tea.family, strength: .justRight, createdAt: now))
+    }
+
+    private mutating func deleteTeaOrTasting() {
+        let now = stamp()
+        if pick(2) == 0, !data.cabinet.isEmpty {
+            let id = data.cabinet.remove(at: pick(data.cabinet.count)).id.uuidString
+            data.tombstones.removeAll { $0.kind == .cabinetTea && $0.key == id }
+            data.tombstones.append(Tombstone(kind: .cabinetTea, key: id, deletedAt: now))
+        } else if !data.tastings.isEmpty {
+            let id = data.tastings.remove(at: pick(data.tastings.count)).id.uuidString
+            data.tombstones.removeAll { $0.kind == .tasting && $0.key == id }
+            data.tombstones.append(Tombstone(kind: .tasting, key: id, deletedAt: now))
+        }
     }
 
     private mutating func dismiss() {
@@ -578,6 +621,10 @@ struct SyncRecordMappingTests {
             .challenge(ChallengeEnrollment(id: "autumn", joinedAt: SyncFixtures.at(2), year: 2026)),
             .challenge(ChallengeEnrollment(id: "cozy", joinedAt: SyncFixtures.at(2), year: nil)),
             .tombstone(SyncFixtures.tomb(.item, "OL2", 20)),
+            .cabinetTea(CabinetTea(catalogID: "earl-grey", name: "Earl Grey", brand: "Twinings", family: .black, notes: "With a slice of lemon", steepSeconds: 200, rating: 4, isOutOf: true, addedAt: SyncFixtures.at(4), updatedAt: SyncFixtures.at(8))),
+            .cabinetTea(CabinetTea(name: "Grandma’s blend", family: .herbal, steepSeconds: 420, addedAt: SyncFixtures.at(6))),
+            .tasting(TastingNote(teaID: "sencha", teaName: "Sencha", family: .green, bookID: "OL1", sessionID: session.id, strength: .strong, aromas: ["grassy", "citrus"], rating: 5, text: "Bright", createdAt: SyncFixtures.at(7), updatedAt: SyncFixtures.at(11))),
+            .tombstone(SyncFixtures.tomb(.tasting, UUID().uuidString, 21)),
         ]
     }
 

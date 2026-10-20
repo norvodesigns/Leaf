@@ -25,10 +25,25 @@ struct SettingsTeaSection: View {
 
     var body: some View {
         Section {
+            NavigationLink {
+                TeaCabinetView()
+            } label: {
+                SettingsValueRow(title: "Tea cabinet", value: cabinetValue)
+            }
+
+            NavigationLink {
+                TeaHistoryView()
+            } label: {
+                Text("Tea history").leafStyle(.uiBody)
+            }
+
             Picker(selection: teaBinding) {
                 Text("Suggest one").tag(String?.none)
                 ForEach(TeaCatalog.all) { tea in
                     Text(tea.name).tag(Optional(tea.id))
+                }
+                ForEach(store.data.cabinet.filter { $0.catalogID == nil }) { tea in
+                    Text(tea.name).tag(Optional(tea.teaID))
                 }
             } label: {
                 Text("Favourite tea").leafStyle(.uiBody)
@@ -56,7 +71,7 @@ struct SettingsTeaSection: View {
         } header: {
             settingsHeader("Tea")
         } footer: {
-            settingsFooter("A cup is \(store.preferences.cupMinutes) minutes of reading. Strength sets how long the tea steeps before it starts.")
+            settingsFooter("The ritual offers the teas in your cabinet, or Leaf’s when it’s empty. A cup is \(store.preferences.cupMinutes) minutes of reading; strength sets how long the tea steeps before it starts.")
         }
         .settingsRows()
 
@@ -118,6 +133,15 @@ struct SettingsTeaSection: View {
         volume = CozySettings.ambienceVolume
             ?? AmbienceCatalog.all.first { $0.id == store.preferences.ambienceID }?.defaultVolume
             ?? 0.5
+    }
+
+    /// "4 teas", "4 teas · 1 run out", or "Empty".
+    private var cabinetValue: String {
+        let cabinet = store.data.cabinet
+        guard !cabinet.isEmpty else { return "Empty" }
+        let out = cabinet.filter(\.isOutOf).count
+        let teas = "\(cabinet.count) \(cabinet.count == 1 ? "tea" : "teas")"
+        return out == 0 ? teas : "\(teas) · \(out) run out"
     }
 
     private var teaBinding: Binding<String?> {

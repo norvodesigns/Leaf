@@ -581,6 +581,117 @@ final class LibraryStore {
         commit()
     }
 
+    // MARK: - Tea
+
+    /// A tea by the id a session saved: one of the reader's own (or their tin of a catalog tea), else the catalog's.
+    func tea(id: String?) -> Tea? {
+        TeaShelf.tea(id: id, cabinet: data.cabinet)
+    }
+
+    /// Pins a tea as the book's pairing; nil unpins it.
+    func setPairedTea(_ bookID: String, teaID: String?) {
+        guard let index = data.items.firstIndex(where: { $0.id == bookID }), data.items[index].pairedTeaID != teaID else { return }
+        data.items[index].pairedTeaID = teaID
+        data.items[index].updatedAt = stamp
+        commit()
+    }
+
+    /// Adds a tea to the cabinet. A catalog tea is kept once: adding it again puts the tin back in stock.
+    @discardableResult
+    func addCabinetTea(_ tea: CabinetTea) -> CabinetTea {
+        if let catalogID = tea.catalogID, let index = data.cabinet.firstIndex(where: { $0.catalogID == catalogID }) {
+            if data.cabinet[index].isOutOf {
+                data.cabinet[index].isOutOf = false
+                data.cabinet[index].updatedAt = stamp
+                commit()
+            }
+            return data.cabinet[index]
+        }
+        var added = tea
+        added.name = tea.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        added.addedAt = stamp
+        added.updatedAt = added.addedAt
+        data.cabinet.append(added)
+        clearTombstone(.cabinetTea, added.id.uuidString)
+        commit()
+        return added
+    }
+
+    /// Saves edits to a tea in the cabinet (name, brand, notes, steep time, rating, stock).
+    func updateCabinetTea(_ tea: CabinetTea) {
+        guard let index = data.cabinet.firstIndex(where: { $0.id == tea.id }) else { return }
+        var updated = tea
+        updated.name = tea.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        updated.addedAt = data.cabinet[index].addedAt
+        updated.updatedAt = data.cabinet[index].updatedAt
+        guard updated != data.cabinet[index] else { return }
+        updated.updatedAt = stamp
+        data.cabinet[index] = updated
+        commit()
+    }
+
+    func setOutOf(_ id: UUID, _ isOutOf: Bool) {
+        guard let index = data.cabinet.firstIndex(where: { $0.id == id }), data.cabinet[index].isOutOf != isOutOf else { return }
+        data.cabinet[index].isOutOf = isOutOf
+        data.cabinet[index].updatedAt = stamp
+        commit()
+    }
+
+    /// Takes a tea out of the cabinet. Sessions and tasting notes keep its name.
+    func removeCabinetTea(_ id: UUID) {
+        guard data.cabinet.contains(where: { $0.id == id }) else { return }
+        data.cabinet.removeAll { $0.id == id }
+        addTombstone(.cabinetTea, id.uuidString)
+        commit()
+    }
+
+    /// The tasting note written after a session, if there is one.
+    func tasting(forSession id: UUID) -> TastingNote? {
+        data.tastings.first { $0.sessionID == id }
+    }
+
+    /// Writes (or rewrites) the tasting note for a session's cup.
+    @discardableResult
+    func saveTasting(
+        sessionID: UUID?,
+        teaID: String,
+        bookID: String?,
+        strength: TastingStrength?,
+        aromas: [String],
+        rating: Int?,
+        text: String = ""
+    ) -> TastingNote {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let sessionID, let index = data.tastings.firstIndex(where: { $0.sessionID == sessionID }) {
+            var note = data.tastings[index]
+            note.strength = strength
+            note.aromas = aromas
+            note.rating = rating.map { min(5, max(1, $0)) }
+            note.text = trimmed
+            guard note != data.tastings[index] else { return note }
+            note.updatedAt = stamp
+            data.tastings[index] = note
+            commit()
+            return note
+        }
+        let tea = self.tea(id: teaID)
+        let note = TastingNote(
+            teaID: teaID, teaName: tea?.name ?? "", family: tea?.family, bookID: bookID, sessionID: sessionID,
+            strength: strength, aromas: aromas, rating: rating, text: trimmed, createdAt: stamp
+        )
+        data.tastings.append(note)
+        clearTombstone(.tasting, note.id.uuidString)
+        commit()
+        return note
+    }
+
+    func deleteTasting(_ id: UUID) {
+        guard data.tastings.contains(where: { $0.id == id }) else { return }
+        data.tastings.removeAll { $0.id == id }
+        addTombstone(.tasting, id.uuidString)
+        commit()
+    }
+
     // MARK: - Challenges
 
     func joinChallenge(_ id: String, year: Int? = nil) {

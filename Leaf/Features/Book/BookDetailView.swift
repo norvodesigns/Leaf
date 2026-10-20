@@ -59,6 +59,10 @@ struct BookDetailView: View {
                         }
                         status
                         actions
+                        if shelf != .finished {
+                            TeaPairingSection(book: shown)
+                                .id("pairing")
+                        }
                         lower
                             .id("lower")
                         BookMoreLikeThis(book: shown)

@@ -20,6 +20,8 @@ struct SessionRitualView: View {
     @State private var pot: TeaSteepState?
     @State private var isReady = false
     @State private var showsAmbience = false
+    /// Whether the opening tea has been settled (the book's pairing, when no tea was asked for).
+    @State private var didSettleTea = false
 
     init(request: RitualRequest) {
         self.request = request
@@ -31,26 +33,27 @@ struct SessionRitualView: View {
         _isReady = State(initialValue: pot?.isReady(at: Date()) ?? false)
     }
 
-    private var tea: Tea { TeaCatalog.tea(id: teaID) ?? TeaCatalog.earlGrey }
+    private var tea: Tea { store.tea(id: teaID) ?? TeaCatalog.earlGrey }
 
-    private var book: Book? { store.item(request.bookID)?.book }
+    private var item: LibraryItem? { store.item(request.bookID) }
+
+    private var book: Book? { item?.book }
 
     private var cupMinutes: Int { store.preferences.cupMinutes }
 
     private var steepSeconds: Int { TeaSuggester.steepSeconds(for: tea, strength: strength) }
 
-    private var choices: [Tea] {
-        let now = store.now
-        let calendar = store.calendar
-        var teas = TeaSuggester.ranked(
-            daypart: Daypart.of(now, calendar: calendar),
-            season: Season.of(now, calendar: calendar),
-            favoriteTeaID: store.preferences.favoriteTeaID,
-            seed: SeededGenerator.daySeed(now, calendar: calendar),
-            limit: 8
-        )
-        if !teas.contains(where: { $0.id == teaID }) { teas.insert(tea, at: 0) }
-        return teas
+    /// The cabinet's teas for the hour (or Leaf's), with the chosen one always among them.
+    private var offer: TeaShelf.Choices {
+        var offer = store.teaChoices(limit: 8)
+        if !offer.teas.contains(where: { $0.id == teaID }) { offer.teas.insert(tea, at: 0) }
+        return offer
+    }
+
+    /// The best of the offered teas for this book: the reader's pinned pairing when it's on offer.
+    private func pairing(in choices: [Tea]) -> (tea: Tea, reason: String, isPinned: Bool)? {
+        guard let book, let best = TeaShelf.preferred(for: book, pinnedTeaID: item?.pairedTeaID, choices: choices) else { return nil }
+        return (best, TeaPairing.reason(for: best, with: book), best.id == item?.pairedTeaID)
     }
 
     // MARK: Body
@@ -81,6 +84,15 @@ struct SessionRitualView: View {
         .task(id: pot?.startedAt) {
             await waitForTea()
         }
+        .onAppear(perform: settleTea)
+    }
+
+    /// With no tea asked for, the ritual opens on the book's pairing among what's on offer.
+    private func settleTea() {
+        guard !didSettleTea else { return }
+        didSettleTea = true
+        guard pot == nil, request.teaID == nil, let best = pairing(in: store.teaChoices(limit: 8).teas) else { return }
+        teaID = best.tea.id
     }
 
     // MARK: Top
@@ -175,11 +187,15 @@ struct SessionRitualView: View {
     // MARK: Picking a tea
 
     private var teaPicker: some View {
-        VStack(alignment: .leading, spacing: Space.m) {
-            Eyebrow("Teas for this hour")
+        let offer = self.offer
+        return VStack(alignment: .leading, spacing: Space.m) {
+            if let pairing = pairing(in: offer.teas) {
+                pairingNote(pairing)
+            }
+            Eyebrow(offer.fromCabinet ? "From your cabinet" : "Teas for this hour")
             ScrollView(.horizontal) {
                 HStack(spacing: Space.s) {
-                    ForEach(choices) { choice in
+                    ForEach(offer.teas) { choice in
                         Button {
                             Haptics.shared.selection()
                             withAnimation(Motion.resolved(Motion.glass, reduceMotion: reduceMotion)) {
@@ -195,6 +211,11 @@ struct SessionRitualView: View {
                 }
             }
             .scrollIndicators(.hidden)
+            if offer.cabinetUnsuitable {
+                Text("Nothing in your cabinet suits the hour, so these are Leaf’s.")
+                    .leafStyle(.caption)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             Picker("Strength", selection: $strength) {
                 ForEach(TeaStrength.allCases, id: \.self) { option in
                     Text(option.title).tag(option)
@@ -208,9 +229,45 @@ struct SessionRitualView: View {
         }
     }
 
+    /// "Pairs well with this book": the best tea on offer for it, why, and a tap to choose it.
+    private func pairingNote(_ pairing: (tea: Tea, reason: String, isPinned: Bool)) -> some View {
+        let isChosen = pairing.tea.id == teaID
+        return VStack(alignment: .leading, spacing: Space.xs) {
+            Eyebrow(pairing.isPinned ? "Your pairing for this book" : "Pairs well with this book")
+            Button {
+                guard !isChosen else { return }
+                Haptics.shared.selection()
+                withAnimation(Motion.resolved(Motion.glass, reduceMotion: reduceMotion)) {
+                    teaID = pairing.tea.id
+                }
+            } label: {
+                HStack(alignment: .top, spacing: Space.s) {
+                    TeaSwatch(tea: pairing.tea, size: 20)
+                        .padding(.top, 2)
+                    VStack(alignment: .leading, spacing: Space.xxs) {
+                        Text(isChosen ? pairing.tea.name : "\(pairing.tea.name) · choose it")
+                            .leafStyle(.uiBody, color: isChosen ? nil : .accent)
+                        Text(pairing.reason)
+                            .leafStyle(.caption)
+                            .italic()
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .contentShape(.rect)
+            }
+            .buttonStyle(.pressable)
+            .accessibilityElement(children: .combine)
+            .accessibilityHint(isChosen ? "" : "Chooses this tea")
+        }
+    }
+
     /// "Bergamot and black tea. 95°C · Some caffeine."
     private var teaFacts: String {
-        "\(tea.blurb) \(tea.celsius)°C · \(tea.caffeine.title)."
+        let blurb = tea.blurb.trimmingCharacters(in: .whitespacesAndNewlines)
+        let facts = "\(tea.celsius)°C · \(tea.caffeine.title)."
+        return blurb.isEmpty ? facts : "\(blurb) \(facts)"
     }
 
     // MARK: Actions
@@ -246,7 +303,8 @@ struct SessionRitualView: View {
 
     private func pour() {
         let ritual = TeaRitual.plan(tea: tea, strength: strength, cupMinutes: cupMinutes)
-        let state = TeaSteepState(teaID: tea.id, steepSeconds: ritual.steepSeconds, startedAt: Date(), bookID: request.bookID, strength: strength)
+        let isOwn = store.data.cabinet.contains { $0.teaID == tea.id }
+        let state = TeaSteepState(teaID: tea.id, steepSeconds: ritual.steepSeconds, startedAt: Date(), bookID: request.bookID, strength: strength, ownTea: isOwn ? tea : nil)
         TeaSteepState.save(state)
         Haptics.shared.soft(0.6)
         CozySounds.shared.teaBrewStarted()

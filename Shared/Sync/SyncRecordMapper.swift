@@ -44,6 +44,8 @@ enum SyncRecordMapper {
         case .dismissal(let id): return encode(DismissalPayload(bookID: id))
         case .challenge(let value): return encode(value)
         case .tombstone(let value): return encode(value)
+        case .cabinetTea(let value): return encode(value)
+        case .tasting(let value): return encode(value)
         }
     }
 
@@ -68,6 +70,8 @@ enum SyncRecordMapper {
         case .dismissal: return decode(DismissalPayload.self, from: payload).map { SyncEntity.dismissal($0.bookID) }
         case .challenge: return decode(ChallengeEnrollment.self, from: payload).map(SyncEntity.challenge)
         case .tombstone: return decode(Tombstone.self, from: payload).map(SyncEntity.tombstone)
+        case .cabinetTea: return decode(CabinetTea.self, from: payload).map(SyncEntity.cabinetTea)
+        case .tasting: return decode(TastingNote.self, from: payload).map(SyncEntity.tasting)
         }
     }
 
@@ -89,6 +93,8 @@ enum SyncRecordMapper {
             case .dismissal(let id): delta.dismissed.append(id)
             case .challenge(let value): delta.challenges.append(value)
             case .tombstone(let value): delta.tombstones.append(value)
+            case .cabinetTea(let value): delta.cabinet.append(value)
+            case .tasting(let value): delta.tastings.append(value)
             }
         }
         return delta

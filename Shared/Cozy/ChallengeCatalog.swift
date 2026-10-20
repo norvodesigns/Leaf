@@ -8,7 +8,7 @@ import Foundation
 enum ChallengeCatalog {
     static let all: [Challenge] = [
         spookySeason, winterHearth, springRain, summerPorch,
-        yearlyGoal, hundredCups, potAWeek, sevenEvenings, cozyBingo, teaTasting,
+        yearlyGoal, hundredCups, potAWeek, sevenEvenings, cozyBingo, teaTasting, tastingNotebook,
     ]
 
     static let ids: [String] = all.map(\.id)
@@ -240,5 +240,24 @@ enum ChallengeCatalog {
             stamp("tea-tasting", "tea-taster", "Tea Taster", rings: 5, CozyPalette.chai, .completion),
         ],
         unitSingular: "tea", unitPlural: "teas", paletteToken: CozyPalette.chai
+    )
+
+    /// Depth rather than breadth of reading: a note after the cup, on more teas and more families of tea.
+    static let tastingNotebook = Challenge(
+        id: "tasting-notebook", title: "Tasting Notebook", subtitle: "A few words after the cup, across the families of tea.",
+        kind: .teaTasting, window: .sinceJoining(days: nil), rule: .tastingNotes,
+        tasks: [
+            ChallengeTask(id: "note-1", title: "A first tasting note", goal: .tasted(1)),
+            ChallengeTask(id: "note-3", title: "Notes on three teas", goal: .tasted(3)),
+            ChallengeTask(id: "note-6", title: "Notes on six teas", goal: .tasted(6)),
+            ChallengeTask(id: "family-3", title: "Three families of tea", goal: .tastedFamilies(3)),
+            ChallengeTask(id: "family-5", title: "Five families of tea", goal: .tastedFamilies(5)),
+        ],
+        stamps: [
+            stamp("tasting-notebook", "first-note", "First Note", rings: 1, CozyPalette.steam, .task("note-1")),
+            stamp("tasting-notebook", "steady-palate", "Steady Palate", rings: 3, CozyPalette.matcha, .task("note-6")),
+            stamp("tasting-notebook", "tea-scholar", "Tea Scholar", rings: 5, CozyPalette.chai, .completion),
+        ],
+        unitSingular: "entry", unitPlural: "entries", paletteToken: CozyPalette.matcha
     )
 }

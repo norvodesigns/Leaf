@@ -25,7 +25,7 @@ struct TodayView: View {
 
     /// Today's cards, in the order a mode wants them. The raw values are the `-LeafScroll` names.
     enum CardKind: String, Hashable, CaseIterable {
-        case nudges, deck, leftOff = "leftoff", desk, times, forecast, week, year, pick, challenges, quote
+        case nudges, deck, leftOff = "leftoff", desk, times, forecast, teaWeek = "teaweek", week, year, pick, challenges, quote
     }
 
     private struct PinnedGreeting {
@@ -197,22 +197,20 @@ struct TodayView: View {
 
     // MARK: Tea
 
+    /// The reader's pick, else the book's pinned pairing when it suits the hour, else the cabinet's best for the
+    /// hour, else today's tea.
     private func chosenTea(_ brief: TodayBrief) -> Tea {
-        if let id = chosenTeaID, let tea = TeaCatalog.tea(id: id) { return tea }
+        if let id = chosenTeaID, let tea = store.tea(id: id) { return tea }
+        let offer = store.teaChoices(limit: 6)
+        if let pinned = brief.current?.item.pairedTeaID, let tea = offer.teas.first(where: { $0.id == pinned }) { return tea }
+        if offer.fromCabinet, let first = offer.teas.first { return first }
         return brief.tea
     }
 
     private func teaChoices(_ brief: TodayBrief) -> [Tea] {
-        let now = store.now
-        let calendar = store.calendar
-        var teas = TeaSuggester.ranked(
-            daypart: Daypart.of(now, calendar: calendar),
-            season: Season.of(now, calendar: calendar),
-            favoriteTeaID: store.preferences.favoriteTeaID,
-            seed: SeededGenerator.daySeed(now, calendar: calendar),
-            limit: 6
-        )
-        if !teas.contains(where: { $0.id == brief.tea.id }) { teas.insert(brief.tea, at: 0) }
+        var teas = store.teaChoices(limit: 6).teas
+        let chosen = chosenTea(brief)
+        if !teas.contains(where: { $0.id == chosen.id }) { teas.insert(chosen, at: 0) }
         return teas
     }
 
@@ -293,13 +291,13 @@ struct TodayView: View {
         var order: [CardKind]
         switch brief.mode {
         case .reading:
-            order = [.nudges, .leftOff, .times, .forecast, .desk, .week, .year, .pick, .challenges, .quote]
+            order = [.nudges, .leftOff, .times, .forecast, .teaWeek, .desk, .week, .year, .pick, .challenges, .quote]
         case .goalMet:
-            order = [.leftOff, .week, .forecast, .times, .desk, .year, .pick, .challenges, .quote, .nudges]
+            order = [.leftOff, .week, .forecast, .teaWeek, .times, .desk, .year, .pick, .challenges, .quote, .nudges]
         case .restDay:
-            order = [.week, .leftOff, .quote, .desk, .pick, .year, .challenges, .times, .nudges]
+            order = [.week, .leftOff, .teaWeek, .quote, .desk, .pick, .year, .challenges, .times, .nudges]
         case .betweenBooks:
-            order = [.deck, .week, .year, .challenges, .quote, .nudges, .times]
+            order = [.deck, .teaWeek, .week, .year, .challenges, .quote, .nudges, .times]
         case .brandNew:
             order = [.deck, .times]
         }
@@ -315,12 +313,18 @@ struct TodayView: View {
         case .desk: return !otherReading(brief).isEmpty
         case .times: return true
         case .forecast: return brief.forecastSentence != nil
+        case .teaWeek: return teaOfTheWeek != nil
         case .week: return brief.mode != .brandNew
         case .year: return brief.yearGoal != nil
         case .pick: return !brief.picks.isEmpty && [TodayMode.reading, .goalMet, .restDay].contains(brief.mode)
         case .challenges: return !brief.challenges.isEmpty
         case .quote: return brief.quote != nil
         }
+    }
+
+    /// The week's book and its tea, from the forecast and the pairing.
+    private var teaOfTheWeek: TeaAndBook? {
+        TeaOfTheWeek.pick(data: store.data, forecast: forecast.result, now: store.now, calendar: store.calendar)
     }
 
     private func otherReading(_ brief: TodayBrief) -> [LibraryItem] {
@@ -381,6 +385,22 @@ struct TodayView: View {
                     router.planSection = .forecast
                     router.tab = .plan
                 }
+            }
+        case .teaWeek:
+            if let pick = teaOfTheWeek {
+                let book = store.item(pick.bookID)?.book
+                TeaWeekCard(
+                    pick: pick,
+                    book: book,
+                    onSteep: {
+                        _ = ReadingSessionLauncher.beginRitual(
+                            bookID: pick.bookID, teaID: pick.tea.id, store: store, router: router,
+                            from: ReadingSessionLauncher.heroSource
+                        )
+                    },
+                    onOpen: { if let book { router.open(book) } },
+                    onCabinet: { router.teaPage = .cabinet }
+                )
             }
         case .week:
             WeekCard(days: brief.week, goalMinutes: brief.goalMinutes, streak: brief.streak, cupMinutes: brief.cupMinutes)

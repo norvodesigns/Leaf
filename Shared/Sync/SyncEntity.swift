@@ -35,6 +35,8 @@ enum SyncEntity: Equatable, Sendable {
     case dismissal(String)
     case challenge(ChallengeEnrollment)
     case tombstone(Tombstone)
+    case cabinetTea(CabinetTea)
+    case tasting(TastingNote)
 
     var name: SyncRecordName {
         switch self {
@@ -46,6 +48,8 @@ enum SyncEntity: Equatable, Sendable {
         case .dismissal(let id): return .dismissal(id)
         case .challenge(let enrollment): return .challenge(id: enrollment.id, year: enrollment.year)
         case .tombstone(let tombstone): return .tombstone(tombstone.kind, tombstone.key)
+        case .cabinetTea(let tea): return .cabinetTea(tea.id)
+        case .tasting(let note): return .tasting(note.id)
         }
     }
 
@@ -63,6 +67,8 @@ enum SyncEntity: Equatable, Sendable {
         case .dismissal: return nil
         case .challenge(let enrollment): return enrollment.joinedAt
         case .tombstone(let tombstone): return tombstone.deletedAt
+        case .cabinetTea(let tea): return tea.updatedAt
+        case .tasting(let note): return note.updatedAt
         }
     }
 
@@ -88,6 +94,8 @@ struct SyncSnapshot: Sendable {
         for id in data.dismissed { SyncSnapshot.add(.dismissal(id), to: &map) }
         for enrollment in data.challenges { SyncSnapshot.add(.challenge(enrollment), to: &map) }
         for tombstone in data.tombstones { SyncSnapshot.add(.tombstone(tombstone), to: &map) }
+        for tea in data.cabinet { SyncSnapshot.add(.cabinetTea(tea), to: &map) }
+        for note in data.tastings { SyncSnapshot.add(.tasting(note), to: &map) }
         SyncSnapshot.add(.preferences(data.preferences), to: &map)
         entities = map
     }

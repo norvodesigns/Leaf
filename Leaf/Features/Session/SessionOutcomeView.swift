@@ -66,6 +66,10 @@ struct SessionOutcomeView: View {
                 Text(teaLine)
                     .leafStyle(.caption)
             }
+            if let tea = store.tea(id: outcome.session.teaID) {
+                TastingCard(session: outcome.session, tea: tea)
+                    .padding(.vertical, Space.xs)
+            }
             if let paceLine {
                 Text(paceLine)
                     .leafStyle(.pullQuote)
@@ -108,7 +112,7 @@ struct SessionOutcomeView: View {
 
     /// "With a cup of Earl Grey."
     private var teaLine: String? {
-        guard let tea = outcome.session.teaID.flatMap({ TeaCatalog.tea(id: $0) }) else { return nil }
+        guard let tea = store.tea(id: outcome.session.teaID) else { return nil }
         return "With a cup of \(tea.name)."
     }
 

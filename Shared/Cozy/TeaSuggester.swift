@@ -18,10 +18,11 @@ enum TeaSuggester {
         }
     }
 
-    /// Every tea allowed at this hour, before fit and manners are weighed.
-    static func allowed(at daypart: Daypart) -> [Tea] {
+    /// Every tea allowed at this hour, before fit and manners are weighed. `candidates` is the catalog unless the
+    /// reader's own cabinet is being asked (TeaShelf); the caffeine rule is the same either way.
+    static func allowed(at daypart: Daypart, from candidates: [Tea] = TeaCatalog.all) -> [Tea] {
         let cap = caffeineCap(for: daypart)
-        return TeaCatalog.all.filter { $0.caffeine <= cap }
+        return candidates.filter { $0.caffeine <= cap }
     }
 
     /// The best tea for now.
@@ -45,9 +46,10 @@ enum TeaSuggester {
         lastTeaID: String? = nil,
         favoriteTeaID: String? = nil,
         seed: UInt64 = 0,
-        limit: Int = 5
+        limit: Int = 5,
+        from candidates: [Tea] = TeaCatalog.all
     ) -> [Tea] {
-        let scored = allowed(at: daypart).map { tea -> (tea: Tea, score: Double) in
+        let scored = allowed(at: daypart, from: candidates).map { tea -> (tea: Tea, score: Double) in
             var score = fit(tea, daypart: daypart, season: season, weather: weather)
             if tea.id == favoriteTeaID { score += favoriteNudge }
             if tea.id == lastTeaID { score -= repeatPenalty }

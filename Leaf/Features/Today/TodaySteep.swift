@@ -12,13 +12,17 @@ struct TeaSteepState: Codable, Equatable {
     var bookID: String?
     /// How strong it was poured; the cup's length comes from preferences.
     var strength: TeaStrength?
+    /// The tea as poured when it came from the reader's cabinet (a tea of their own, or their tin with its own
+    /// name and steep), so the pot reads right without the store. Nil for a catalog tea as it comes.
+    var ownTea: Tea?
 
-    init(teaID: String, steepSeconds: Int, startedAt: Date, bookID: String? = nil, strength: TeaStrength? = nil) {
+    init(teaID: String, steepSeconds: Int, startedAt: Date, bookID: String? = nil, strength: TeaStrength? = nil, ownTea: Tea? = nil) {
         self.teaID = teaID
         self.steepSeconds = steepSeconds
         self.startedAt = startedAt
         self.bookID = bookID
         self.strength = strength
+        self.ownTea = ownTea
     }
 
     var readyAt: Date { startedAt.addingTimeInterval(Double(steepSeconds)) }
@@ -27,7 +31,7 @@ struct TeaSteepState: Codable, Equatable {
 
     func isCold(at date: Date) -> Bool { date.timeIntervalSince(readyAt) > 30 * 60 }
 
-    var tea: Tea { TeaCatalog.tea(id: teaID) ?? TeaCatalog.earlGrey }
+    var tea: Tea { ownTea ?? TeaCatalog.tea(id: teaID) ?? TeaCatalog.earlGrey }
 
     private static let key = "leaf.today.steep"
 

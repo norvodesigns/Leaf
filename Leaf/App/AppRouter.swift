@@ -115,6 +115,10 @@ final class AppRouter {
     var bookStage: String?
     /// Settings staging (screenshots): the section to scroll to, "plan", "tea", "cloud".
     var settingsStage: String?
+    /// The tea cabinet or the tea history, as a sheet over the tabs.
+    var teaPage: TeaPage?
+    /// Tea page staging (screenshots): "add", "catalog", "edit".
+    var teaStage: String?
 
     /// Opens the full-screen session, zooming from `source`.
     func presentSession(from source: String) {

@@ -176,7 +176,11 @@ struct ChallengeProgressCard: View {
     private func evidenceName(_ evidence: String?) -> String? {
         guard let evidence else { return nil }
         if let book = store.item(evidence)?.book { return book.title }
-        if let tea = TeaCatalog.tea(id: evidence) { return tea.name }
+        if let tea = store.tea(id: evidence) { return tea.name }
+        // A family of tea (the Tasting Notebook) is named already.
+        if TeaFamily.allCases.contains(where: { $0.title == evidence }) { return evidence }
+        // A tasting note on a tea that has since left the cabinet keeps its name.
+        if let note = store.data.tastings.first(where: { $0.teaID == evidence }), !note.teaName.isEmpty { return note.teaName }
         return nil
     }
 

@@ -53,6 +53,8 @@ enum ChallengeEvaluator {
             outcome = eveningStreak(challenge, history, span: span, readingDays: data.preferences.readingDays, calendar: calendar)
         case .differentTeas:
             outcome = differentTeas(challenge, history)
+        case .tastingNotes:
+            outcome = tastingNotes(challenge, history)
         }
         return assemble(challenge, year: year, span: span, outcome: outcome, now: now, calendar: calendar)
     }
@@ -133,8 +135,15 @@ enum ChallengeEvaluator {
             var end: Date { start.addingTimeInterval(seconds) }
         }
 
+        struct Tasting {
+            var teaID: String
+            var family: TeaFamily?
+            var at: Date
+        }
+
         var finished: [Finished] = []
         var sittings: [Sitting] = []
+        var tastings: [Tasting] = []
 
         init(data: LeafData, span: ChallengeSpan) {
             var byBook: [String: Finished] = [:]
@@ -152,6 +161,11 @@ enum ChallengeEvaluator {
                 return Sitting(key: session.id.uuidString, start: session.startedAt, seconds: seconds, teaID: session.teaID)
             }
             .sorted { $0.start < $1.start || ($0.start == $1.start && $0.key < $1.key) }
+
+            tastings = data.tastings
+                .filter { span.contains($0.createdAt) }
+                .sorted { $0.createdAt < $1.createdAt || ($0.createdAt == $1.createdAt && $0.id.uuidString < $1.id.uuidString) }
+                .map { Tasting(teaID: $0.teaID, family: $0.family ?? TeaCatalog.tea(id: $0.teaID)?.family, at: $0.createdAt) }
         }
     }
 
@@ -362,6 +376,30 @@ enum ChallengeEvaluator {
     }
 
     // MARK: Tea tasting
+
+    /// Each different tea counts once, from its first note; a family counts from the first note on any tea in it.
+    private static func tastingNotes(_ challenge: Challenge, _ history: History) -> Outcome {
+        var teasSeen = Set<String>()
+        var teaFirsts: [(id: String, at: Date)] = []
+        var familiesSeen = Set<TeaFamily>()
+        var familyFirsts: [(family: TeaFamily, at: Date)] = []
+        for tasting in history.tastings {
+            if !tasting.teaID.isEmpty, teasSeen.insert(tasting.teaID).inserted { teaFirsts.append((tasting.teaID, tasting.at)) }
+            if let family = tasting.family, familiesSeen.insert(family).inserted { familyFirsts.append((family, tasting.at)) }
+        }
+        let states = challenge.tasks.map { task -> ChallengeTaskState in
+            switch task.goal {
+            case .tasted(let count) where count >= 1 && teaFirsts.count >= count:
+                return state(task, done: true, at: teaFirsts[count - 1].at, evidence: teaFirsts[count - 1].id)
+            case .tastedFamilies(let count) where count >= 1 && familyFirsts.count >= count:
+                return state(task, done: true, at: familyFirsts[count - 1].at, evidence: familyFirsts[count - 1].family.title)
+            default:
+                return state(task, done: false)
+            }
+        }
+        let done = states.filter(\.isComplete).count
+        return Outcome(states: states, current: done, target: challenge.tasks.count)
+    }
 
     private static func differentTeas(_ challenge: Challenge, _ history: History) -> Outcome {
         var seen = Set<String>()

@@ -126,6 +126,13 @@ for appearance in light dark; do
     shot 104-settings-plan 6 -LeafDemo YES -LeafScreen settings.plan
     shot 105-settings-tea 6 -LeafDemo YES -LeafScreen settings.tea
     shot 106-settings-cloud 6 -LeafDemo YES -LeafScreen settings.cloud
+    # Books and tea: a tea of your own, Leaf's teas, editing a tin, the history, a pairing, a tasting note.
+    shot 111-tea-add 6 -LeafDemo YES -LeafScreen tea.add
+    shot 112-tea-catalog 6 -LeafDemo YES -LeafScreen tea.catalog
+    shot 113-tea-edit 6 -LeafDemo YES -LeafScreen tea.edit
+    shot 114-tea-history 6 -LeafDemo YES -LeafScreen tea.history
+    shot 115-book-pairing 7 -LeafDemo YES -LeafScreen book.pairing
+    shot 116-session-tasting 5 -LeafDemo YES -LeafScreen session.tasting
     shot 88-insights-large-type 9 -LeafDemo YES -LeafScreen plan.insights -LeafScenario year -UIPreferredContentSizeCategoryName UICTContentSizeCategoryAccessibilityL
   fi
   shot "10-today$suffix" 5 -LeafDemo YES -LeafScreen today -LeafTime 20:30
@@ -150,6 +157,8 @@ for appearance in light dark; do
   shot "90-search-browse$suffix" 10 -LeafDemo YES -LeafScreen search
   shot "100-library-paused$suffix" 5 -LeafDemo YES -LeafScreen library.paused
   shot "107-library-toread$suffix" 5 -LeafDemo YES -LeafScreen library.toread
+  shot "110-tea-cabinet$suffix" 6 -LeafDemo YES -LeafScreen tea.cabinet
+  shot "117-today-teaweek$suffix" 7 -LeafDemo YES -LeafScreen today -LeafTime 20:30 -LeafScroll teaweek
 done
 xcrun simctl ui "$IOS_SIM" appearance light
 

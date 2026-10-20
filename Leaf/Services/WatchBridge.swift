@@ -143,6 +143,9 @@ extension LibraryStore {
         // The nook on the wrist: the greeting Today showed (or today's own line), the tea for the hour, each book's
         // forecast sentence and the year's pacing. A light brief: no catalog picks.
         let brief = TodayBriefBuilder.build(TodayBriefInput(data: data, plan: plan, now: now, calendar: calendar))
+        // The cabinet's best tea for the hour when the reader keeps one, so the wrist steeps what they have.
+        let offer = teaChoices(limit: 1)
+        let watchTea = offer.fromCabinet ? (offer.teas.first ?? brief.tea) : brief.tea
         let narrator = ForecastNarrator(now: now, calendar: calendar)
         let forecast = WatchBridge.shared.forecast
         let forecasts = watchBooks.compactMap { book -> WatchForecast? in
@@ -168,7 +171,7 @@ extension LibraryStore {
             hasOnboarded: hasOnboarded,
             greeting: WatchBridge.shared.greeting(on: now, calendar: calendar)
                 ?? WatchGreeting(headline: brief.greeting.headline, subline: brief.greeting.subline),
-            tea: WatchTea(id: brief.tea.id, name: brief.tea.name, steepSeconds: TeaSuggester.steepSeconds(for: brief.tea, strength: CozySettings.teaStrength)),
+            tea: WatchTea(id: watchTea.id, name: watchTea.name, steepSeconds: TeaSuggester.steepSeconds(for: watchTea, strength: CozySettings.teaStrength)),
             cupMinutes: preferences.cupMinutes,
             queue: toRead.prefix(5).map { item in
                 WatchBook(id: item.id, title: item.book.title, author: item.book.author, currentPage: item.currentPage, pages: item.book.pages, wordsPerPage: item.book.wordsPerPage, paletteSeed: item.book.paletteSeed, finish: plan.book(item.id)?.finish)

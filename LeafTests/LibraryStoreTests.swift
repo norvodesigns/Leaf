@@ -323,5 +323,76 @@ struct LibraryStoreTests {
         #expect(store.preferences.readingSlots.isEmpty)
         #expect(!store.preferences.reminderEnabled)
     }
+
+    // MARK: Tea
+
+    @Test func aCatalogTeaIsKeptOnceAndComesBackInStock() {
+        let store = makeStore()
+        let earl = TeaCatalog.earlGrey
+        let first = store.addCabinetTea(CabinetTea(tin: earl, now: store.now))
+        store.setOutOf(first.id, true)
+        #expect(store.teaChoices().fromCabinet == false)
+        let again = store.addCabinetTea(CabinetTea(tin: earl, now: store.now))
+        #expect(again.id == first.id)
+        #expect(store.data.cabinet.count == 1)
+        #expect(store.data.cabinet.first?.isOutOf == false)
+        #expect(store.hasInStock(earl.id))
+    }
+
+    @Test func editingAndRemovingATeaStampsAndLeavesATombstone() {
+        let store = makeStore()
+        let own = store.addCabinetTea(CabinetTea(name: "  Mountain mist ", family: .black, steepSeconds: 200))
+        #expect(store.data.cabinet.first?.name == "Mountain mist")
+        var edited = own
+        edited.name = "Mountain mist"
+        store.updateCabinetTea(edited)
+        #expect(store.data.cabinet.first?.updatedAt == own.updatedAt)
+        edited.rating = 4
+        store.updateCabinetTea(edited)
+        #expect(store.data.cabinet.first?.rating == 4)
+        #expect(store.tea(id: own.teaID)?.name == "Mountain mist")
+        store.removeCabinetTea(own.id)
+        #expect(store.data.cabinet.isEmpty)
+        #expect(store.data.tombstones.contains { $0.kind == .cabinetTea && $0.key == own.id.uuidString })
+    }
+
+    @Test func aTastingNoteIsOnePerCupAndKeepsTheTeasName() {
+        let store = makeStore()
+        let own = store.addCabinetTea(CabinetTea(name: "Autumn spice", family: .chai, steepSeconds: 300))
+        let session = UUID()
+        let note = store.saveTasting(sessionID: session, teaID: own.teaID, bookID: nil, strength: .light, aromas: [], rating: nil)
+        #expect(note.teaName == "Autumn spice")
+        #expect(note.family == .chai)
+        store.saveTasting(sessionID: session, teaID: own.teaID, bookID: nil, strength: .strong, aromas: ["spicy"], rating: 9)
+        #expect(store.data.tastings.count == 1)
+        #expect(store.tasting(forSession: session)?.strength == .strong)
+        #expect(store.tasting(forSession: session)?.rating == 5)
+        store.removeCabinetTea(own.id)
+        #expect(TeaHistory.build(data: store.data).teas.first?.name == "Autumn spice")
+        store.deleteTasting(note.id)
+        #expect(store.data.tastings.isEmpty)
+        #expect(store.data.tombstones.contains { $0.kind == .tasting && $0.key == note.id.uuidString })
+    }
+
+    @Test func pinningAPairingStampsTheBook() {
+        let store = makeStore()
+        store.add(book("a"), to: .toRead)
+        let before = store.item("a")?.updatedAt
+        store.setPairedTea("a", teaID: "sencha")
+        #expect(store.item("a")?.pairedTeaID == "sencha")
+        #expect(store.item("a")?.updatedAt != before)
+        store.setPairedTea("a", teaID: nil)
+        #expect(store.item("a")?.pairedTeaID == nil)
+    }
+
+    @Test func demoDataHasACabinetAndNotes() {
+        let store = makeStore()
+        store.replaceAll(with: DemoData.make())
+        #expect(store.data.cabinet.count >= 4)
+        #expect(store.data.cabinet.contains(where: \.isOutOf))
+        #expect(!store.data.tastings.isEmpty)
+        #expect(store.item(DemoData.hobbit.id)?.pairedTeaID == "earl-grey")
+        #expect(TeaOfTheWeek.pick(data: store.data, forecast: nil, now: store.now, calendar: store.calendar) != nil)
+    }
 }
 #endif

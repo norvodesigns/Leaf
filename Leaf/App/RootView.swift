@@ -150,6 +150,17 @@ struct RootView: View {
             router.searchPath.append(TasteRoute())
         case "settings":
             router.showSettings = true
+        case "tea.cabinet", "tea.add", "tea.catalog", "tea.edit":
+            router.tab = .today
+            if key != "tea.cabinet" { router.teaStage = String(key.dropFirst("tea.".count)) }
+            router.teaPage = .cabinet
+        case "tea.history":
+            router.tab = .today
+            router.teaPage = .history
+        case "book.pairing":
+            router.bookStage = "pairing"
+            router.tab = .library
+            router.libraryPath = [BookRoute(book: store.item(DemoData.hobbit.id)?.book ?? DemoData.hobbit)]
         case "settings.plan", "settings.tea", "settings.cloud":
             router.settingsStage = String(key.dropFirst("settings.".count))
             router.showSettings = true
@@ -174,8 +185,13 @@ struct RootView: View {
         case "session.ritual", "session.steeping", "session.ready":
             router.ritual = RitualRequest(bookID: DemoData.hobbit.id, teaID: TeaCatalog.earlGrey.id)
             router.showSession = true
-        case "session.outcome":
-            let session = ReadingSession(bookID: DemoData.hobbit.id, startedAt: Date().addingTimeInterval(-26 * 60), seconds: 26 * 60, fromPage: 142, toPage: 165)
+        case "session.outcome", "session.tasting":
+            let teaID: String? = key == "session.tasting" ? TeaCatalog.earlGrey.id : nil
+            let session = ReadingSession(bookID: DemoData.hobbit.id, startedAt: Date().addingTimeInterval(-26 * 60), seconds: 26 * 60, fromPage: 142, toPage: 165, teaID: teaID)
+            if let teaID {
+                // The card as it looks once the reader has tapped "Just right" and added a little more.
+                store.saveTasting(sessionID: session.id, teaID: teaID, bookID: DemoData.hobbit.id, strength: .justRight, aromas: ["citrus", "floral"], rating: 4)
+            }
             router.lastOutcome = SessionOutcome(session: session, bookID: DemoData.hobbit.id, finishedBook: false, reachedGoalNow: true, minutesToday: 38, oldWPM: 258, newWPM: 262)
         default:
             if key.hasPrefix("book:"), let item = store.item(String(key.dropFirst("book:".count))) {

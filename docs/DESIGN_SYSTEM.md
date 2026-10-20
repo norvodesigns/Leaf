@@ -371,6 +371,22 @@ Sheets: `router.planSheet` (`.finishLine(bookID:)`, `.smartOrder`, `.yearInBooks
 - **Staging** — `search.series|author|time|seasonal|seeall|undo|similar|taste`, `library.paused`,
   `book.journal|more|edition`, `settings.plan|tea|cloud`.
 
+## Books and tea (NEXT.md §6)
+
+- **Pairing** — `TeaPairingSection(book:)` on a book's page: the lead reason as a pull quote, three teas (swatch, name,
+  family · steep, "in your cabinet"), and a pin (`ribbon` when pinned) for the book's own tea. The ritual shows
+  "Pairs well with this book" (or "Your pairing for this book") above the chips, tap to choose it.
+- **Cabinet** — `TeaCabinetView` (a `Form` on paper like Settings): In the cabinet / Run out, swipe or long-press to
+  mark a tea run out or take it out; `TeaCatalogPicker` adds a tin in one tap; `TeaFormView` adds a tea of your own or
+  edits any (name, brand, family, steep stepper, `TeaLeafRating`, notes, run out).
+- **Tasting** — `TastingCard` after a session with tea: three strength chips (one tap saves), then `TeaAromaPicker`
+  (wrapping chips, `TeaFlowLayout`) and leaves. `TeaLeaves(rating:)` shows a rating read-only.
+- **History** — `TeaHistoryView`: most read with (cup in its liquor), the share of reading with a cup, your teas,
+  teas per book (chips, the first in `accent`), tasting notes (long-press to delete).
+- **Today** — `TeaWeekCard`, "Tea & book of the week", between the forecast and the desk (`-LeafScroll teaweek`).
+- `TeaSwatch(tea:size:)` is the round liquor swatch everywhere a tea is named in a list.
+- **Staging** — `tea.cabinet|add|catalog|edit|history`, `book.pairing`, `session.tasting`.
+
 ## Apple Watch (UI-6, NEXT.md §12)
 
 - **Palette** — `WatchTheme`: paper at night (`paper`, `inkSecondary`), the leaf accent and `accentDeep`, `ribbon` for

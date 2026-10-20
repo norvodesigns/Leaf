@@ -157,7 +157,7 @@ final class LiveActivityController {
             currentPage: page,
             state: state,
             line: line,
-            teaName: session.teaID.flatMap { TeaCatalog.tea(id: $0)?.name }
+            teaName: store.tea(id: session.teaID)?.name
         )
     }
 

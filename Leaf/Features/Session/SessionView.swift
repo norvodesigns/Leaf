@@ -175,7 +175,7 @@ struct SessionView: View {
                             .padding(.horizontal, Space.xxl)
                     }
                 VStack(spacing: Space.xs) {
-                    if let tea = session.teaID.flatMap({ TeaCatalog.tea(id: $0) }) {
+                    if let tea = store.tea(id: session.teaID) {
                         Text(cupLine(clock: clock, tea: tea))
                             .leafStyle(.eyebrow, color: clock.cupDone ? Color.accent : nil)
                             .contentTransition(.opacity)

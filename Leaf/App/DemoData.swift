@@ -254,6 +254,55 @@ enum DemoData {
             ChallengeEnrollment(id: "spooky-season", joinedAt: daysAgo(10), year: calendar.component(.year, from: now)),
         ]
         data.speedTests = [SpeedTestResult(date: daysAgo(30), passageID: "scandal", words: 302, seconds: 69, correct: 3, total: 3)]
+        addTeaCabinet(to: &data, daysAgo: daysAgo)
         return data
+    }
+
+    /// A tea of the reader's own in the demo cabinet, with a fixed id so screenshots match run to run.
+    static let autumnSpice = CabinetTea(
+        id: UUID(uuidString: "6A1C0E52-3F0B-4C8E-9C1D-2B7F5A0D4E11") ?? UUID(), name: "Autumn spice", brand: "Homemade",
+        family: .chai, notes: "Cinnamon, clove and a strip of orange peel.", steepSeconds: 300, rating: 4
+    )
+
+    /// The cabinet (tins, two teas of the reader's own, one run out), a pinned pairing, a sitting with the reader's
+    /// own tea, a few tasting notes and the Tasting Notebook.
+    private static func addTeaCabinet(to data: inout LeafData, daysAgo: (Int, Int) -> Date) {
+        func tin(_ id: String, brand: String = "", steep: Int? = nil, rating: Int? = nil, notes: String = "", out: Bool = false, days: Int) -> CabinetTea? {
+            guard let tea = TeaCatalog.tea(id: id) else { return nil }
+            var tin = CabinetTea(tin: tea, now: daysAgo(days, 12))
+            tin.id = UUID(uuidString: String(format: "00000000-7EA0-4000-8000-%012d", days)) ?? UUID()
+            tin.brand = brand
+            tin.steepSeconds = steep ?? tea.steepSeconds
+            tin.rating = rating
+            tin.notes = notes
+            tin.isOutOf = out
+            return tin
+        }
+        var spice = autumnSpice
+        spice.addedAt = daysAgo(28, 12)
+        spice.updatedAt = spice.addedAt
+        let bedtime = CabinetTea(
+            id: UUID(uuidString: "6A1C0E52-3F0B-4C8E-9C1D-2B7F5A0D4E12") ?? UUID(), name: "Bedtime blend", brand: "The market",
+            family: .herbal, notes: "Chamomile, lavender and lemon balm.", steepSeconds: 420, addedAt: daysAgo(26, 12)
+        )
+        data.cabinet = [
+            tin("earl-grey", brand: "Corner shop", rating: 5, notes: "With a slice of lemon after nine.", days: 40),
+            tin("sencha", brand: "Kyoto market", steep: 90, rating: 4, days: 38),
+            tin("english-breakfast", out: true, days: 36),
+            tin("rooibos", days: 30),
+        ].compactMap { $0 } + [spice, bedtime]
+
+        if let index = data.items.firstIndex(where: { $0.id == hobbit.id }) { data.items[index].pairedTeaID = "earl-grey" }
+        let spiceSession = ReadingSession(
+            id: UUID(uuidString: "6A1C0E52-3F0B-4C8E-9C1D-2B7F5A0D4E21") ?? UUID(),
+            bookID: circe.id, startedAt: daysAgo(6, 16), seconds: 24 * 60, fromPage: 74, toPage: 88, teaID: spice.teaID
+        )
+        data.sessions.append(spiceSession)
+        data.tastings = [
+            TastingNote(teaID: "earl-grey", teaName: "Earl Grey", family: .black, bookID: hobbit.id, strength: .justRight, aromas: ["citrus", "floral"], rating: 5, text: "Lovely with the rain on.", createdAt: daysAgo(4, 22)),
+            TastingNote(teaID: "sencha", teaName: "Sencha", family: .green, bookID: hobbit.id, strength: .strong, aromas: ["grassy"], rating: 3, text: "Too long in the pot. Ninety seconds next time.", createdAt: daysAgo(3, 22)),
+            TastingNote(teaID: spice.teaID, teaName: spice.name, family: .chai, bookID: circe.id, sessionID: spiceSession.id, strength: .justRight, aromas: ["spicy", "honeyed"], rating: 4, createdAt: daysAgo(6, 17)),
+        ]
+        data.challenges.append(ChallengeEnrollment(id: ChallengeCatalog.tastingNotebook.id, joinedAt: daysAgo(12, 12), year: nil))
     }
 }
