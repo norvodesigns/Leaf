@@ -6,8 +6,12 @@ Package: UI-5 (Search browsing, Library and book detail, Settings, onboarding)
 Status: done
 Commits pushed to main:
   3b38215 UI-5: a shop of rows, the Paused shelf, editions and journal, new Settings and first times
-  __FIXES__
-CI: __CI__
+  c40c6dd Insights: best-time rows wrap their two layouts in a Group (the compile error that held back UI-4/5/6)
+  04e34b4 Screenshot review: opaque watch session, Paused in view, instant Not for me, staging timing
+  7efa322 UI-5/UI-6 behaviour review fixes
+CI: 3b38215 never built on its own (the queue held it behind a UI-4 compile error). First green build with UI-5:
+  run 39284653017 (c40c6dd): build, unit tests, watch, unsigned archive, 132 screenshots. Run 39320560882 (04e34b4)
+  green. Last: __LASTRUN__
 Screens / states built (staging name -> screenshot file):
   Search front table: hero "Picked for you", jump bar, mood rows   -LeafScreen search          -> 90-search-browse(-dark)
   Series row as spines                                             -LeafScreen search.series   -> 91-search-series
@@ -45,8 +49,14 @@ Engine APIs I used, and any I needed but did not find or that behaved oddly:
   AmbiencePlayer.shared.setVolume.
   Missing: a stable shelf "kind" on BookCollection; I classify by id prefix (for-you, series-, author-, time-, ...)
   in SearchShelfKind. If the catalog renames an id family, that row falls back to the plain carousel.
+  Odd: Recommender.similar defaults every pick's reason to "Because you finished <book>"; the UI now passes a true
+  reason (finished / reading) or shows none. The cold-start "Loved by readers" row is kind .personal.
+  Added in the app (not Shared): LibraryStore.switchEdition (tested), LibraryStore.similarReason(for:),
+  CozySettings.reset(), Persistence.delete() also clears damaged copies.
 Changes I made outside Leaf/, LeafWatch/, LeafWidgets/, LiveActivityShared/ (engine fixes, project file):
-  scripts/ci_screenshots.sh (shots 90-106), docs/DESIGN_SYSTEM.md (UI-5 section). No Shared/ changes.
+  scripts/ci_screenshots.sh (shots 90-106), docs/DESIGN_SYSTEM.md (UI-5 section), LeafTests (switchEdition test),
+  docs/PRIVACY.md (now states the private iCloud copy and what deleting the app leaves; please check this wording,
+  it is the published policy). No Shared/ changes.
 Could not verify (device-only things):
   iCloud status and Sync now against a real account (simulator has no iCloud), Apple Intelligence greetings
   availability, ambience volume and sound cues by ear, Dynamic Type at the largest sizes on every new row.
@@ -57,7 +67,15 @@ Design decisions the owner should know about or veto:
   - "Not for me" hides at once and offers Undo for a few seconds; nothing is asked.
   - Search keeps every row lazy: rows are LazyVStack sections, covers inside LazyHStack, "See all" a LazyVGrid.
 Known issues / follow-ups, most important first:
-  __FOLLOWUPS__
+  - Erase with iCloud on: if clearing the iCloud zone fails, the phone no longer restarts sync straight away (which
+    restored the library), but the next launch still fetches the zone. A retry that survives relaunch belongs in
+    CloudSync (persist "zone deletion pending" and retry before creating the engine).
+  - Onboarding stamps preferences (minutes, days, times) while a first iCloud fetch may still be on its way, so a
+    restored library's preferences can lose to the fresh defaults. Stamp only once onboarding finishes (sync owner).
+  - "Read it again" now asks first, but a reread still replaces the earlier finish date: stats need a reads history.
+  - The weekly letter toggle says nothing when notifications are off (reading times do); add the same caption.
+  - "See all" grid cells lack the carousel's menu (add, More like this, Not for me).
+  - DEBUG staging writes the Today tea pot to the real UserDefaults on the simulator (developer-only).
 Next package you recommend: a device pass for iCloud sync status and the Settings copy with a real account.
 === END REPORT ===
 ```

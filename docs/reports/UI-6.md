@@ -3,13 +3,17 @@
 ```
 === REPORT FOR LEAD ===
 Package: UI-6 (Apple Watch: pages, session timer, extended runtime, complications, notifications)
-Status: __STATUS__
+Status: done (device-only behaviour unverified, see below)
 Commits pushed to main:
   0f6cff4 UI-6 part 1: the watch nook, focus-pull timer, crown screens, forecast, shelf and add
   5517f85 UI-6 part 2: watch complications and Smart Stack card
   3ceebd6 Watch reminders: leave the mirrored Snooze and Skip to the phone, handle Start on the wrist
-  __FIXES__
-CI: __CI__
+  429b7d5 Watch: TextFieldLink takes its label before onSubmit; reminder constants are nonisolated
+  04e34b4 Screenshot review: opaque watch session, Paused in view, instant Not for me, staging timing
+  7efa322 UI-5/UI-6 behaviour review fixes (phone sends the nook, runtime follows the phone, day rollover, ...)
+CI: first green build with the watch pages and the new extension: run 39284653017 (c40c6dd): iPhone build and
+  tests, watch simulator build, unsigned archive with LeafWatchWidgets.appex embedded in LeafWatch.app/PlugIns and
+  WKBackgroundModes = mindfulness checked, 16 watch screenshots. Run 39320560882 (04e34b4) green. Last: __LASTRUN__
 Screens / states built (staging name -> screenshot file, all with -LeafDemo YES):
   Today nook: greeting, cup ring, Steep and read, reading times  -LeafScreen today          -> w1-today
   Session: focus-pull countdown over bokeh                       -LeafScreen session        -> w2-session
@@ -45,6 +49,12 @@ Engine APIs I used, and any I needed but did not find or that behaved oddly:
   Missing: a SyncEvent for "skip today" from the watch, so Skip stays with the phone's mirrored notification (fine
   while the system routes background actions to the iPhone app; see below). WatchForecast has only a median, no range,
   so the Forecast page shows the phone's sentence rather than a drawn range.
+  Found by review: the phone never filled WatchSnapshot.greeting, tea, forecasts or yearGoal, so on a real watch the
+  nook would have had no greeting, no tea and no "Steep and read". LibraryStore.watchSnapshot() (Leaf/Services) now
+  fills them from a light TodayBrief (no catalog picks), the greeting Today last showed, and the latest forecast the
+  phone computed (Today's ForecastService or PlanDesk, kept on WatchBridge). Reading times are plan slots, so they are
+  empty once the day's goal is met; the face keeps its last known times until the protocol carries the reader's
+  reading times themselves.
 Changes I made outside Leaf/, LeafWatch/, LeafWidgets/, LiveActivityShared/ (engine fixes, project file):
   Leaf.xcodeproj: new target LeafWatchWidgets (app extension, watchOS, embedded in LeafWatch/PlugIns), new
   synchronized folders LeafWatchWidgets/ and WatchComplicationShared/, LeafWatch gets INFOPLIST_FILE and
@@ -75,7 +85,12 @@ Design decisions the owner should know about or veto:
   - Smart Stack relevance uses TimelineEntryRelevance (high 15 minutes before to 30 minutes after each reading time,
     and while reading; none once the goal is met).
 Known issues / follow-ups, most important first:
-  __FOLLOWUPS__
+  - Send the reader's reading times (not today's plan slots) in WatchSnapshot so the Smart Stack card is relevant on
+    goal-met and rest days without the watch-side carry-over.
+  - A `.backgroundTask(.watchConnectivity)` handler would let phone updates reach the face while the watch app is
+    not running; today the face catches up when the app next runs.
+  - The phone's mirrored Start opens the watch app and starts there; verify on a device that Snooze and Skip still
+    reach the phone when tapped on the wrist (background actions).
   - Enable the App Group on the two watch App IDs in the developer portal before the next TestFlight (TESTFLIGHT.md).
   - RelevanceKit (watchOS 26 relevant widgets) could replace TimelineEntryRelevance for the Smart Stack.
   - Not built from NEXT.md section 12: pace taps, the sleep timer, Mindful minutes (HealthKit, opt-in).
