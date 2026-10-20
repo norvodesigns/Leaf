@@ -13,8 +13,9 @@ Commits pushed to main:
   7efa322 UI-5/UI-6 behaviour review fixes (phone sends the nook, runtime follows the phone, day rollover, ...)
 CI: first green build with the watch pages and the new extension: run 39284653017 (c40c6dd): iPhone build and
   tests, watch simulator build, unsigned archive with LeafWatchWidgets.appex embedded in LeafWatch.app/PlugIns and
-  WKBackgroundModes = mindfulness checked, 16 watch screenshots. Run 39320560882 (04e34b4) green. Last: run 39374434109 (06d328a) green: build, unit tests (incl. switchEdition), watch build, unsigned
-  archive, 134 screenshots, reviewed in light and dark.
+  WKBackgroundModes = mindfulness checked, 16 watch screenshots. Run 39320560882 (04e34b4) green.
+  Last: run 39374434109 (06d328a) green: build, unit tests (incl. switchEdition), watch build, unsigned archive,
+  134 screenshots, reviewed in light and dark.
   Always-On now draws no bokeh (checked brightened); the session has an opaque background.
 Screens / states built (staging name -> screenshot file, all with -LeafDemo YES):
   Today nook: greeting, cup ring, Steep and read, reading times  -LeafScreen today          -> w1-today
@@ -78,7 +79,8 @@ Design decisions the owner should know about or veto:
   - The countdown counts to the cup's length for a tea-started session, else to what is left of today's goal; past it,
     it counts up. Digits are crisp for two thirds of each minute and soften towards the change (not blurry
     mid-minute), with exact mm:ss underneath; Reduce Motion turns the blur off.
-  - Only sessions the watch times start the runtime; a session mirrored from the phone keeps the old notification nudge.
+  - Only sessions the watch times start the runtime; for a session the phone is timing, the phone's own goal
+    notification does the tap (and the phone skips its nudge for sessions the watch times).
   - The wrist is tapped once at the goal: by the runtime while it runs, otherwise by the in-app celebration.
   - Crown screens are pushed views, never pages, so the crown cannot page the TabView mid-adjustment.
   - Reminders: the watch registers no category; the phone's mirrored Start / Snooze / Skip stay the phone's, and Start
