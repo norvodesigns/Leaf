@@ -120,7 +120,7 @@ struct RootView: View {
         case "plan.suggest":
             router.tab = .plan
             router.planSheet = .smartOrder
-        case "plan.insights", "plan.insights.time", "plan.insights.mix", "plan.insights.personality":
+        case "plan.insights", "plan.insights.time", "plan.insights.mix", "plan.insights.personality", "plan.insights.more":
             router.tab = .plan
             router.planSection = .insights
             if key != "plan.insights" { router.planStage = String(key.dropFirst("plan.insights.".count)) }
@@ -161,7 +161,26 @@ struct RootView: View {
             router.bookStage = "pairing"
             router.tab = .library
             router.libraryPath = [BookRoute(book: store.item(DemoData.hobbit.id)?.book ?? DemoData.hobbit)]
-        case "settings.plan", "settings.tea", "settings.cloud":
+        case "log", "log.finished", "log.search":
+            router.tab = .plan
+            router.planSection = .insights
+            if key != "log" { router.historyStage = String(key.dropFirst("log.".count)) }
+            router.planSheet = .readingLog
+        case "numbers", "numbers.range", "numbers.alltime":
+            router.tab = .plan
+            router.planSection = .insights
+            if key != "numbers" { router.historyStage = String(key.dropFirst("numbers.".count)) }
+            router.planSheet = .numbers
+        case "quote", "quote.style":
+            router.tab = .plan
+            router.planSection = .insights
+            if key == "quote.style" { router.historyStage = "style" }
+            router.planSheet = .quoteCard(entryID: nil)
+        case "book.timeline":
+            router.bookStage = "timeline"
+            router.tab = .library
+            router.libraryPath = [BookRoute(book: store.item(DemoData.hobbit.id)?.book ?? DemoData.hobbit)]
+        case "settings.plan", "settings.tea", "settings.cloud", "settings.data":
             router.settingsStage = String(key.dropFirst("settings.".count))
             router.showSettings = true
         case "book.journal", "book.more", "book.edition":

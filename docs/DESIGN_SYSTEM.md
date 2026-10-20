@@ -387,6 +387,25 @@ Sheets: `router.planSheet` (`.finishLine(bookID:)`, `.smartOrder`, `.yearInBooks
 - `TeaSwatch(tea:size:)` is the round liquor swatch everywhere a tea is named in a list.
 - **Staging** — `tea.cabinet|add|catalog|edit|history`, `book.pairing`, `session.tasting`.
 
+## Reading history (reads, log, numbers, quote cards)
+
+- **Timeline** — `BookTimelineView` (from a book's page, "The whole story, as a timeline"): a card per read-through,
+  newest first, with beads on a hairline (`BeadRow`: ink dots for sittings, larger accent dots for a start or a
+  finish, ribbon for notes and quotes, chai for tasting notes). The ellipsis rates or takes off an earlier read;
+  `EarlierReadSheet` adds a read from before Leaf.
+- **Reading log** — `ReadingLogView`: segmented Everything / Sittings / Finished, a range menu (`InsightsRange`),
+  search, rows by month (`LogRow`), export as CSV or Markdown through `ShareLink` (`ReadingLogCSV`,
+  `ReadingLogMarkdown`: files written only when shared).
+- **Your numbers** — `StatsDepthView`: range chips plus custom dates, `StatTileRow`, `DepthBar` rows (thin accent
+  capsule on `paperSunken`) for pace and authors and decades, runs, best weeks, set aside, year by year.
+- **Quote cards** — `QuoteCardSheet` and `QuoteCardImage` (the share poster size, `SharePoster.render`): Paper,
+  Matcha, Rooibos and Night (`QuoteCardStyle`), italic serif face sized to the quote, title, author and page, a tea
+  ring and the wordmark; Share and Save to Photos (add-only permission).
+- **Doors** — `MoreReadingCard` on Insights; "Your library" in Settings (`SettingsLibrarySection`: reading log,
+  backup, restore with a merge preview); `HistorySheet` wraps a page as a Plan sheet.
+- **Staging** — `book.timeline`, `log|log.finished|log.search`, `numbers|numbers.range|numbers.alltime`,
+  `quote|quote.style`, `settings.data`, `plan.insights.more`.
+
 ## Apple Watch (UI-6, NEXT.md §12)
 
 - **Palette** — `WatchTheme`: paper at night (`paper`, `inkSecondary`), the leaf accent and `accentDeep`, `ribbon` for

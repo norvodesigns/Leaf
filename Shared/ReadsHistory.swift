@@ -84,7 +84,9 @@ extension LibraryItem {
     var readThroughs: [ReadThrough] {
         var all = reads
         if shelf == .finished, let finishedAt {
-            let current = ReadThrough(bookID: id, startedAt: startedAt, finishedAt: finishedAt, rating: rating, updatedAt: updatedAt)
+            var current = ReadThrough(bookID: id, startedAt: startedAt, finishedAt: finishedAt, updatedAt: updatedAt)
+            // The book's own rating as it stands, unclamped: statistics decide what counts as a rating.
+            current.rating = rating
             // A stale copy that still shows the finish already kept in `reads` must not count it twice.
             let kept = all.contains { $0.id == current.id || abs($0.finishedAt.timeIntervalSince(finishedAt)) < 60 }
             if !kept { all.append(current) }

@@ -17,6 +17,7 @@ struct BookDetailView: View {
     @State private var confirmsRemoval = false
     @State private var confirmsReread = false
     @State private var showsAllSessions = false
+    @State private var showsTimeline = false
     /// Sittings or the journal, under the actions.
     @State private var lowerTab: LowerTab = .sittings
 
@@ -90,6 +91,9 @@ struct BookDetailView: View {
                 }
                 .accessibilityLabel("More")
             }
+        }
+        .navigationDestination(isPresented: $showsTimeline) {
+            BookTimelineView(bookID: book.id)
         }
         .sheet(isPresented: $showsPageSheet) {
             if let item {
@@ -554,6 +558,11 @@ struct BookDetailView: View {
         guard let stage = router.bookStage else { return }
         router.bookStage = nil
         if stage == "journal" { lowerTab = .journal }
+        if stage == "timeline" {
+            try? await Task.sleep(for: .milliseconds(500))
+            showsTimeline = true
+            return
+        }
         try? await Task.sleep(for: .milliseconds(stage == "more" ? 4_000 : 600))
         proxy.scrollTo(stage == "journal" ? "lower" : stage, anchor: .top)
     }
@@ -610,6 +619,26 @@ struct BookDetailView: View {
                     Text(journalTitle).tag(LowerTab.journal)
                 }
                 .pickerStyle(.segmented)
+                Button {
+                    Haptics.shared.tap()
+                    showsTimeline = true
+                } label: {
+                    HStack(spacing: Space.s) {
+                        Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
+                            .foregroundStyle(Color.accent)
+                            .accessibilityHidden(true)
+                        Text(timelineTitle(item))
+                            .leafStyle(.ui, color: .accent)
+                        Spacer(minLength: 0)
+                        Image(systemName: "chevron.right")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(Color.inkTertiary)
+                            .accessibilityHidden(true)
+                    }
+                    .frame(minHeight: Space.hitTarget)
+                    .contentShape(.rect)
+                }
+                .buttonStyle(.pressable)
                 switch lowerTab {
                 case .sittings:
                     if store.sessions(for: book.id).isEmpty {
@@ -624,6 +653,17 @@ struct BookDetailView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    /// "The whole story" for a book read once, "Both reads, and everything between" for a reread.
+    private func timelineTitle(_ item: LibraryItem) -> String {
+        // Finished read-throughs, and the one under way.
+        let reads = item.readThroughs.count + (item.shelf == .finished || item.startedAt == nil ? 0 : 1)
+        switch reads {
+        case ...1: return "The whole story, as a timeline"
+        case 2: return "Both reads, as a timeline"
+        default: return "Every read, as a timeline"
         }
     }
 

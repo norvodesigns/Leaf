@@ -34,6 +34,13 @@ struct InsightsPage: View {
                 TBRCard(depth: insights.tbr)
                 PersonalityCard(personality: insights.personality)
                     .id("personality")
+                MoreReadingCard(
+                    numbers: { router.planSheet = .numbers },
+                    log: { router.planSheet = .readingLog },
+                    quotes: { router.planSheet = .quoteCard(entryID: nil) },
+                    hasQuotes: store.data.journal.contains { $0.kind == .quote }
+                )
+                .id("more")
             }
         } else {
             ProgressView()
@@ -478,6 +485,56 @@ struct WeeklyLetterCard: View {
         }
         .contentShape(.rect)
         .onTapGesture(perform: open)
+    }
+}
+
+/// Doors to the deeper pages: the numbers, the reading log, and quote cards.
+struct MoreReadingCard: View {
+    let numbers: () -> Void
+    let log: () -> Void
+    let quotes: () -> Void
+    let hasQuotes: Bool
+
+    var body: some View {
+        TodayCard("More of your reading") {
+            VStack(spacing: 0) {
+                door("Your numbers", detail: "Pace by genre and hour, runs, best weeks, years", systemImage: "chart.bar", action: numbers)
+                Hairline()
+                door("Reading log", detail: "Every sitting and finish, to search and export", systemImage: "list.bullet.rectangle", action: log)
+                if hasQuotes {
+                    Hairline()
+                    door("Quote cards", detail: "A line you kept, as an image to share", systemImage: "quote.opening", action: quotes)
+                }
+            }
+        }
+    }
+
+    private func door(_ title: String, detail: String, systemImage: String, action: @escaping () -> Void) -> some View {
+        Button {
+            Haptics.shared.tap()
+            action()
+        } label: {
+            HStack(spacing: Space.m) {
+                Image(systemName: systemImage)
+                    .font(.body)
+                    .foregroundStyle(Color.accent)
+                    .frame(width: 28)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: Space.xxs) {
+                    Text(title).leafStyle(.uiBody)
+                    Text(detail).leafStyle(.caption)
+                }
+                Spacer(minLength: Space.s)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Color.inkTertiary)
+                    .accessibilityHidden(true)
+            }
+            .padding(.vertical, Space.s)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.pressable)
+        .accessibilityElement(children: .combine)
     }
 }
 

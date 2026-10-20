@@ -216,7 +216,11 @@ enum DemoData {
         ]
 
         data.items = [
-            LibraryItem(book: hobbit, shelf: .reading, currentPage: 142, order: 0, addedAt: daysAgo(30), startedAt: daysAgo(12)),
+            // Read once before, two winters ago: this is a reread.
+            LibraryItem(
+                book: hobbit, shelf: .reading, currentPage: 142, order: 0, addedAt: daysAgo(30), startedAt: daysAgo(12),
+                reads: [ReadThrough(bookID: hobbit.id, startedAt: daysAgo(712, hour: 20), finishedAt: daysAgo(694, hour: 22), rating: 5)]
+            ),
             LibraryItem(book: circe, shelf: .reading, currentPage: 88, order: 1, addedAt: daysAgo(40), startedAt: daysAgo(20)),
             LibraryItem(book: piranesi, shelf: .toRead, order: 0, addedAt: daysAgo(25)),
             LibraryItem(book: hailMary, shelf: .toRead, order: 1, addedAt: daysAgo(22)),
@@ -245,6 +249,7 @@ enum DemoData {
             data.sessions.append(ReadingSession(bookID: hobbit.id, startedAt: thisMorning, seconds: 12 * 60, fromPage: 133, toPage: 142))
         }
         data.journal = [
+            JournalEntry(bookID: hobbit.id, bookTitle: hobbit.title, bookAuthor: hobbit.author, kind: .quote, text: "There is nothing like looking, if you want to find something.", page: 76, isFavorite: true, createdAt: daysAgo(7)),
             JournalEntry(bookID: hobbit.id, bookTitle: hobbit.title, bookAuthor: hobbit.author, kind: .thought, text: "Bilbo is exactly as stubborn about comfort as I am about tea.", page: 61, isFavorite: true, createdAt: daysAgo(6)),
             JournalEntry(bookID: circe.id, bookTitle: circe.title, bookAuthor: circe.author, kind: .quote, text: "I thought: this is what it is to be alive.", page: 74, createdAt: daysAgo(9)),
             JournalEntry(bookID: klara.id, bookTitle: klara.title, bookAuthor: klara.author, kind: .thought, text: "Finished at 1am and sat there a while. Worth every page.", page: klara.pages, createdAt: daysAgo(14)),

@@ -69,6 +69,7 @@ struct BookJournalList: View {
     @Environment(LibraryStore.self) private var store
     @State private var showsCapture = false
     @State private var editing: JournalEntry?
+    @State private var cardEntry: JournalEntry?
 
     private var entries: [JournalEntry] { store.journal(for: book.id) }
 
@@ -90,6 +91,9 @@ struct BookJournalList: View {
         }
         .sheet(isPresented: $showsCapture) {
             JournalCaptureSheet(book: book, sessionID: nil, page: currentPage)
+        }
+        .sheet(item: $cardEntry) { entry in
+            QuoteCardSheet(initialEntryID: entry.id)
         }
     }
 
@@ -122,6 +126,13 @@ struct BookJournalList: View {
                 store.updateJournalEntry(entry.id, isFavorite: !entry.isFavorite)
             } label: {
                 Label(entry.isFavorite ? "Unfavourite" : "Favourite", systemImage: entry.isFavorite ? "heart.slash" : "heart")
+            }
+            if entry.kind == .quote {
+                Button {
+                    cardEntry = entry
+                } label: {
+                    Label("Make a quote card", systemImage: "quote.opening")
+                }
             }
             ShareLink(item: entry.kind == .quote ? "“\(entry.text)” — \(book.title), \(book.author)" : entry.text) {
                 Label("Share", systemImage: "square.and.arrow.up")

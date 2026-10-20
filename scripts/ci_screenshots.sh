@@ -133,6 +133,12 @@ for appearance in light dark; do
     shot 114-tea-history 6 -LeafDemo YES -LeafScreen tea.history
     shot 115-book-pairing 7 -LeafDemo YES -LeafScreen book.pairing
     shot 116-session-tasting 5 -LeafDemo YES -LeafScreen session.tasting
+    # Reading history: the log filtered, the numbers by dates, quote card styles, the library section in Settings.
+    shot 122-log-finished 6 -LeafDemo YES -LeafScreen log.finished -LeafScenario year
+    shot 124-numbers-range 8 -LeafDemo YES -LeafScreen numbers.range -LeafScenario year
+    shot 126-quote-style 6 -LeafDemo YES -LeafScreen quote.style
+    shot 127-settings-data 6 -LeafDemo YES -LeafScreen settings.data
+    shot 128-insights-more 9 -LeafDemo YES -LeafScreen plan.insights.more -LeafScenario year
     shot 88-insights-large-type 9 -LeafDemo YES -LeafScreen plan.insights -LeafScenario year -UIPreferredContentSizeCategoryName UICTContentSizeCategoryAccessibilityL
   fi
   shot "10-today$suffix" 5 -LeafDemo YES -LeafScreen today -LeafTime 20:30
@@ -159,6 +165,10 @@ for appearance in light dark; do
   shot "107-library-toread$suffix" 5 -LeafDemo YES -LeafScreen library.toread
   shot "110-tea-cabinet$suffix" 6 -LeafDemo YES -LeafScreen tea.cabinet
   shot "117-today-teaweek$suffix" 7 -LeafDemo YES -LeafScreen today -LeafTime 20:30 -LeafScroll teaweek
+  shot "120-book-timeline$suffix" 7 -LeafDemo YES -LeafScreen book.timeline
+  shot "121-log$suffix" 6 -LeafDemo YES -LeafScreen log -LeafScenario year
+  shot "123-numbers$suffix" 8 -LeafDemo YES -LeafScreen numbers.alltime -LeafScenario year
+  shot "125-quote-card$suffix" 6 -LeafDemo YES -LeafScreen quote
 done
 xcrun simctl ui "$IOS_SIM" appearance light
 

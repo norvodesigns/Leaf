@@ -19,6 +19,7 @@ struct TodayView: View {
     @State private var steep: TeaSteepState? = TeaSteepState.load()
     @State private var steepReady = false
     @State private var chosenTeaID: String?
+    @State private var quoteCardEntry: JournalEntry?
     /// The deck stays on Today while the reader is swiping, even once a kept book means they're no longer between books.
     @State private var keepsDeckOpen = false
     @State private var didStageScroll = false
@@ -134,6 +135,9 @@ struct TodayView: View {
             .onChange(of: router.showSession) { _, showing in
                 // A pot may have been poured, or the cup started, in the session screen.
                 if !showing { steep = TeaSteepState.load() }
+            }
+            .sheet(item: $quoteCardEntry) { entry in
+                QuoteCardSheet(initialEntryID: entry.id)
             }
             .onChange(of: brief?.mode) { old, new in
                 guard new == .goalMet, old == .reading, router.lastOutcome == nil, !router.showSession else { return }
@@ -436,7 +440,7 @@ struct TodayView: View {
             }
         case .quote:
             if let quote = brief.quote {
-                QuoteCard(entry: quote)
+                QuoteCard(entry: quote) { quoteCardEntry = quote }
             }
         }
     }

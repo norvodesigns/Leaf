@@ -28,6 +28,11 @@ enum PlanSheet: Identifiable, Hashable {
     case smartOrder
     case yearInBooks
     case weeklyLetter
+    case readingLog
+    /// The deeper numbers.
+    case numbers
+    /// Quote cards, opening on one quote or the newest.
+    case quoteCard(entryID: UUID?)
 
     var id: String {
         switch self {
@@ -35,6 +40,9 @@ enum PlanSheet: Identifiable, Hashable {
         case .smartOrder: "order"
         case .yearInBooks: "year"
         case .weeklyLetter: "letter"
+        case .readingLog: "log"
+        case .numbers: "numbers"
+        case .quoteCard(let entryID): "quote-\(entryID?.uuidString ?? "")"
         }
     }
 }
@@ -119,6 +127,8 @@ final class AppRouter {
     var teaPage: TeaPage?
     /// Tea page staging (screenshots): "add", "catalog", "edit".
     var teaStage: String?
+    /// Reading log, numbers and quote card staging (screenshots): "finished", "search", "range", "style".
+    var historyStage: String?
 
     /// Opens the full-screen session, zooming from `source`.
     func presentSession(from source: String) {

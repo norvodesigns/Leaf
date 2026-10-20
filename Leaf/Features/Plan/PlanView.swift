@@ -180,6 +180,13 @@ private struct PlanSheetHost: View {
             } else {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity).paperBackground()
             }
+        case .readingLog:
+            HistorySheet { ReadingLogView() }
+        case .numbers:
+            HistorySheet { StatsDepthView() }
+        case .quoteCard(let entryID):
+            QuoteCardSheet(initialEntryID: entryID)
+                .presentationDetents([.large])
         }
     }
 }

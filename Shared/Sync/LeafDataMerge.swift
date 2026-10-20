@@ -152,6 +152,11 @@ enum SyncMerge {
             if let deleted = deletedAt[SyncTombstoneKey(kind: .item, key: id)], deleted > item.updatedAt { continue }
             var merged = item
             merged.reads = newest(readsA[id] ?? [], readsB[id] ?? [], kind: .read, deletedAt: deletedAt, stamp: \.updatedAt, order: ReadThrough.isEarlier)
+            // A book deleted and then brought back keeps only the read-throughs kept after the deletion, in whatever
+            // order devices merge (a read-through is never newer than the copy of the book it came with).
+            if let deleted = deletedAt[SyncTombstoneKey(kind: .item, key: id)] {
+                merged.reads.removeAll { deleted > $0.updatedAt }
+            }
             out.append(raised(merged, toSessions: sessionsByBook[id] ?? []))
         }
         return out.sorted { lhs, rhs in

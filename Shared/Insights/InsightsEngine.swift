@@ -149,6 +149,8 @@ struct InsightsEngine: Sendable {
                 if let year, self.year(of: read.finishedAt) != year { continue }
                 out.append(item.asOf(read))
             }
+            // A book marked finished without a date is finished, but in no particular year.
+            if year == nil, item.shelf == .finished, item.finishedAt == nil { out.append(item) }
         }
         return out.sorted { lhs, rhs in
             let l = lhs.finishedAt ?? .distantPast

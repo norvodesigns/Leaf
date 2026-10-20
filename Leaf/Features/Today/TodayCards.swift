@@ -492,9 +492,14 @@ struct ChallengeCard: View {
 
 struct QuoteCard: View {
     let entry: JournalEntry
+    var onCard: (() -> Void)?
 
     var body: some View {
-        TodayCard(entry.kind == .quote ? "From your journal" : "A note you left") {
+        TodayCard(
+            entry.kind == .quote ? "From your journal" : "A note you left",
+            actionTitle: entry.kind == .quote && onCard != nil ? "Make a card" : nil,
+            action: entry.kind == .quote ? onCard : nil
+        ) {
             VStack(alignment: .leading, spacing: Space.s) {
                 Text("“\(entry.text)”")
                     .leafStyle(.pullQuote)

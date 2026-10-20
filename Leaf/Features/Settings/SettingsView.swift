@@ -35,6 +35,8 @@ struct SettingsView: View {
                     SettingsCloudSection()
                         .id("cloud")
                     aboutSection
+                    SettingsLibrarySection()
+                        .id("data")
                     dataSection
                     colophonSection
                 }

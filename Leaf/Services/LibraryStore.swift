@@ -585,6 +585,15 @@ final class LibraryStore {
         commit()
     }
 
+    // MARK: - Backups
+
+    /// Merges a backup in, by iCloud's rules: what's missing is added, anything newer here stays, and the live session
+    /// and this device's own settings are kept. The changes then sync like any other.
+    func importBackup(_ backup: LeafData) {
+        data = LeafBackup.merge(backup.withRecoveredReads(), into: data, now: stamp)
+        commit()
+    }
+
     // MARK: - Read-throughs
 
     /// Rates one read-through. The current one (a book on Finished) is the book's own rating.
