@@ -111,16 +111,26 @@ struct PlanSectionSwitcher: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        ScrollView(.horizontal) {
-            HStack(alignment: .top, spacing: Space.xl) {
-                ForEach(PlanSection.allCases) { section in
-                    tab(section)
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal) {
+                HStack(alignment: .top, spacing: Space.xl) {
+                    ForEach(PlanSection.allCases) { section in
+                        tab(section).id(section)
+                    }
+                }
+            }
+            .scrollIndicators(.hidden)
+            .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+            .scrollClipDisabled()
+            // At the largest sizes the chosen word slides fully into view rather than sitting cut at the edge.
+            .onChange(of: selection) { _, section in
+                withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
+                    proxy.scrollTo(section, anchor: .center)
                 }
             }
         }
-        .scrollIndicators(.hidden)
-        .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
-        .scrollClipDisabled()
+        // Words this big are headings already; past AX1 they only push "Challenges" off screen.
+        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
     }
 
     private func tab(_ section: PlanSection) -> some View {

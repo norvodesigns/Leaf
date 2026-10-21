@@ -213,6 +213,7 @@ struct WrappedStoryView: View {
                     Image(systemName: "xmark")
                         .font(.body.weight(.semibold))
                         .frame(width: Space.hitTarget, height: Space.hitTarget)
+                        .contentShape(.rect)
                 }
                 .accessibilityLabel("Close")
                 Spacer()
@@ -223,6 +224,7 @@ struct WrappedStoryView: View {
                         Image(systemName: "play.fill")
                             .font(.body.weight(.semibold))
                             .frame(width: Space.hitTarget, height: Space.hitTarget)
+                            .contentShape(.rect)
                     }
                     .accessibilityLabel("Play the story")
                     .accessibilityHint("Moves through the cards by itself. Tap to pause.")
@@ -235,6 +237,7 @@ struct WrappedStoryView: View {
                             Image(systemName: "square.and.arrow.up")
                                 .font(.body.weight(.semibold))
                                 .frame(width: Space.hitTarget, height: Space.hitTarget)
+                                .contentShape(.rect)
                         }
                         .accessibilityLabel("Share the cards")
                     }

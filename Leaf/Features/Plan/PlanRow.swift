@@ -62,7 +62,8 @@ struct PlanRow: View {
                 HStack(alignment: .firstTextBaseline, spacing: Space.s) {
                     Text(book.title)
                         .leafStyle(.headline)
-                        .lineLimit(1)
+                        // Long titles wrap once rather than losing their last word ("A Gentleman in Mosc…").
+                        .lineLimit(2)
                         .layoutPriority(1)
                     LeaderDots()
                     chip

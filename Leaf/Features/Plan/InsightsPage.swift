@@ -132,6 +132,14 @@ struct TeaRingHeatmap: View {
         }
         .scrollIndicators(.hidden)
         .defaultScrollAnchor(.trailing)
+        // Earlier weeks fade into the card's edge instead of stopping at half a ring and half a month name.
+        .mask {
+            HStack(spacing: 0) {
+                LinearGradient(colors: [.clear, .black], startPoint: .leading, endPoint: .trailing)
+                    .frame(width: Space.xl)
+                Rectangle()
+            }
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("The year as tea rings")
         .accessibilityValue(monthSummary)

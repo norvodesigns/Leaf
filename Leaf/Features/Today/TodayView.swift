@@ -22,6 +22,7 @@ struct TodayView: View {
     @State private var quoteCardEntry: JournalEntry?
     /// Where the scroll view's content begins below the screen's top edge, so the nook's light can reach up to it.
     @State private var topInset: CGFloat = 0
+    @State private var cardsUnderClock = false
     /// The year whose Wrapped offer was put off with "Not now".
     @AppStorage("wrapped.putOffYear") private var wrappedPutOff = 0
     /// The deck stays on Today while the reader is swiping, even once a kept book means they're no longer between books.
@@ -113,6 +114,23 @@ struct TodayView: View {
                 geometry.contentInsets.top
             } action: { _, inset in
                 topInset = inset
+            }
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentOffset.y + geometry.contentInsets.top > 160
+            } action: { _, scrolled in
+                withAnimation(.easeOut(duration: 0.2)) { cardsUnderClock = scrolled }
+            }
+            // Once the nook has scrolled away, a band of paper under the clock, so cards don't read through it.
+            .overlay(alignment: .top) {
+                VStack(spacing: 0) {
+                    Color.paper.frame(height: max(0, topInset - Space.xl))
+                    LinearGradient(colors: [Color.paper, Color.paper.opacity(0)], startPoint: .top, endPoint: .bottom)
+                        .frame(height: Space.xl * 2)
+                }
+                .ignoresSafeArea(edges: .top)
+                .opacity(cardsUnderClock ? 1 : 0)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
             }
             .paperBackground()
             .navigationBarTitleDisplayMode(.inline)

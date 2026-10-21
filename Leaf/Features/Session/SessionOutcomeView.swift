@@ -17,7 +17,9 @@ struct SessionOutcomeView: View {
 
     init(outcome: SessionOutcome) {
         self.outcome = outcome
-        _detent = State(initialValue: outcome.finishedBook ? PresentationDetent.large : PresentationDetent.medium)
+        // A cup of tea brings the tasting card, which doesn't fit at half height with Done over it.
+        let opensTall = outcome.finishedBook || outcome.session.teaID != nil
+        _detent = State(initialValue: opensTall ? PresentationDetent.large : PresentationDetent.medium)
     }
 
     private var book: Book? { store.item(outcome.bookID)?.book }
@@ -43,6 +45,11 @@ struct SessionOutcomeView: View {
             }
             .leafMargins()
             .padding(.vertical, Space.m)
+            .background {
+                // Paper behind Done, so what scrolls under it fades out instead of showing around the button.
+                LinearGradient(colors: [Color.paper.opacity(0), Color.paper, Color.paper], startPoint: .top, endPoint: .bottom)
+                    .ignoresSafeArea()
+            }
         }
         .paperBackground()
         .presentationDetents([.medium, .large], selection: $detent)

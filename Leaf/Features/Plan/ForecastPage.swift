@@ -722,7 +722,8 @@ struct WhatIfSummary: View {
                         HStack(alignment: .firstTextBaseline, spacing: Space.s) {
                             Text(titles(delta.bookID))
                                 .leafStyle(.headline)
-                                .lineLimit(1)
+                                .lineLimit(2)
+                                .layoutPriority(1)
                             LeaderDots()
                             DeltaChip(daysSooner: delta.medianDaysEarlier ?? 0)
                         }
