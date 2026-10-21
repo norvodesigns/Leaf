@@ -47,6 +47,12 @@ enum PlanSheet: Identifiable, Hashable {
     }
 }
 
+/// The What's new sheet, for these releases (newest first).
+struct WhatsNewRequest: Identifiable, Hashable {
+    let releaseIDs: [String]
+    var id: String { releaseIDs.joined(separator: ",") }
+}
+
 /// A pushed book detail. Carries the whole book so search results not yet in the library can open too.
 struct BookRoute: Hashable {
     let book: Book
@@ -135,6 +141,8 @@ final class AppRouter {
     var wrapped: WrappedRequest?
     /// Wrapped staging (screenshots): "offer" shows the December offer whatever the date.
     var wrappedStage: String?
+    /// What's new, after an update or from Settings.
+    var whatsNew: WhatsNewRequest?
 
     /// Opens the full-screen session, zooming from `source`.
     func presentSession(from source: String) {

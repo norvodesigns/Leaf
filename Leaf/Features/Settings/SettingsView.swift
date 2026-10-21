@@ -18,6 +18,7 @@ struct SettingsView: View {
     @AppStorage("settings.soundLab") private var soundLabUnlocked = false
     @State private var versionTaps = 0
     @State private var showsSoundLab = false
+    @State private var showsWhatsNew = false
 
     var body: some View {
         NavigationStack {
@@ -45,6 +46,7 @@ struct SettingsView: View {
                     colophonSection
                 }
                 .scrollContentBackground(.hidden)
+                .coachMarks(.settings, bottomClearance: 40)
                 .task {
                     guard let stage = router.settingsStage else { return }
                     router.settingsStage = nil
@@ -57,6 +59,11 @@ struct SettingsView: View {
                 }
                 .navigationDestination(isPresented: $showsSoundLab) {
                     SoundLabView()
+                }
+                .sheet(isPresented: $showsWhatsNew) {
+                    WhatsNewView(releases: WhatsNew.releases, build: WhatsNew.currentBuild) {
+                        startTour()
+                    }
                 }
             }
             .paperBackground()
@@ -288,6 +295,12 @@ struct SettingsView: View {
                 Text("Privacy")
                     .leafStyle(.uiBody)
             }
+            settingsLink("What’s new") {
+                showsWhatsNew = true
+            }
+            settingsLink("Replay the tour") {
+                startTour()
+            }
             SettingsValueRow(title: "Version", value: versionString)
                 .contentShape(.rect)
                 .onTapGesture {
@@ -317,6 +330,31 @@ struct SettingsView: View {
             header("About")
         }
         .settingsRows()
+    }
+
+    /// A plain row that does something, with a chevron.
+    private func settingsLink(_ title: String, action: @escaping () -> Void) -> some View {
+        Button {
+            Haptics.shared.tap()
+            action()
+        } label: {
+            HStack {
+                Text(title).leafStyle(.uiBody)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Color.inkTertiary)
+            }
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// The tour from the start, beginning on Today.
+    private func startTour() {
+        CoachTour.shared.start()
+        router.showSettings = false
+        router.tab = .today
     }
 
     private var showsSoundLabRow: Bool {

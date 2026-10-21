@@ -41,11 +41,34 @@ struct RootView: View {
                             if $0.onboardedAt == nil { $0.onboardedAt = Date() }
                         }
                     }
+                    // A new reader gets a quick look around each part of the app the first time they visit it.
+                    if !LaunchOptions.current.isScripted { CoachTour.shared.start() }
                 }
                 .transition(.opacity)
             }
         }
         .onAppear(perform: applyLaunchRoute)
+        .task { await offerWhatsNew() }
+    }
+
+    /// Once after an update: What's new, a moment after launch, when nothing else is on screen. A fresh install
+    /// remembers every release as seen, so a new reader meets onboarding, not news. Screenshot runs skip it.
+    private func offerWhatsNew() async {
+        guard !LaunchOptions.current.isScripted else { return }
+        let build = WhatsNew.currentBuild
+        let state = WhatsNew.loadState()
+        let onboarded = store.hasOnboarded
+        let ids = WhatsNewGate.releasesToShow(current: build, state: state, hasOnboarded: onboarded, releaseIDs: WhatsNew.releaseIDs)
+        guard !ids.isEmpty else {
+            WhatsNew.saveState(WhatsNewGate.remember(current: build, state: state, shown: [], hasOnboarded: onboarded, releaseIDs: WhatsNew.releaseIDs))
+            return
+        }
+        try? await Task.sleep(for: .seconds(1.2))
+        // Not over a session, a sheet or anything else the reader came to the app for; it waits for the next launch.
+        guard router.whatsNew == nil, !router.showSession, router.planSheet == nil, !router.showSettings,
+              router.positionRequest == nil, router.teaPage == nil, router.lastOutcome == nil, router.wrapped == nil else { return }
+        WhatsNew.saveState(WhatsNewGate.remember(current: build, state: state, shown: ids, hasOnboarded: onboarded, releaseIDs: WhatsNew.releaseIDs))
+        router.whatsNew = WhatsNewRequest(releaseIDs: ids)
     }
 
     @ViewBuilder
@@ -176,6 +199,22 @@ struct RootView: View {
             router.planSection = .insights
             if key == "quote.style" { router.historyStage = "style" }
             router.planSheet = .quoteCard(entryID: nil)
+        case "whatsnew":
+            router.tab = .today
+            router.whatsNew = WhatsNewRequest(releaseIDs: [WhatsNew.releaseIDs.first ?? ""])
+        case "tour.today", "tour.today.steep", "tour.library", "tour.plan", "tour.search", "tour.settings":
+            let first: [String: String] = [
+                "tour.today": "today.nook", "tour.today.steep": "today.steep", "tour.library": "library.shelves",
+                "tour.plan": "plan.forecast", "tour.search": "search.rows", "tour.settings": "settings.times",
+            ]
+            CoachTour.shared.stage(from: first[key] ?? "today.nook")
+            switch key {
+            case "tour.library": router.tab = .library
+            case "tour.plan": router.tab = .plan
+            case "tour.search": router.tab = .search
+            case "tour.settings": router.showSettings = true
+            default: router.tab = .today
+            }
         case "shelf", "shelf.slip", "shelf.poster":
             router.tab = .library
             router.libraryShelf = .finished

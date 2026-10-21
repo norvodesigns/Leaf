@@ -88,6 +88,15 @@ struct MainTabs: View {
         .fullScreenCover(item: $router.wrapped) { request in
             WrappedStoryView(request: request)
         }
+        .sheet(item: $router.whatsNew) { request in
+            WhatsNewView(
+                releases: request.releaseIDs.compactMap { WhatsNew.release(id: $0) },
+                build: WhatsNew.currentBuild
+            ) {
+                CoachTour.shared.start()
+                router.tab = .today
+            }
+        }
         .sheet(isPresented: $router.showSettings) {
             SettingsView()
                 .fullScreenCover(isPresented: speedTestOverSettings) {

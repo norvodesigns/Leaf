@@ -41,9 +41,11 @@ struct ForecastPage: View {
                 .padding(.top, Space.xl)
                 .inkIn(1)
             nowReading
+                .coachMarkAnchor("plan.forecast")
                 .inkIn(2)
             care
             whatIfSection
+                .coachMarkAnchor("plan.whatif")
                 .id("whatif")
             runningOrder
                 .id("order")

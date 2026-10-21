@@ -66,6 +66,7 @@ struct TodayNook: View {
                 .padding(.top, Space.xl)
                 .inkIn(1)
             stillLife
+                .coachMarkAnchor("today.nook")
                 .padding(.top, Space.xxl)
                 .inkIn(2)
             controls
@@ -294,6 +295,7 @@ struct TodayNook: View {
                     beginButton(prominent: prominent)
                 }
             }
+            .coachMarkAnchor("today.steep")
         }
     }
 

@@ -49,11 +49,13 @@ struct LibraryView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     ShelfSwitcher(selection: $router.libraryShelf)
+                        .coachMarkAnchor("library.shelves")
                         .padding(.top, Space.s)
                     if let caption {
                         Text(caption)
                             .leafStyle(.caption)
                             .fixedSize(horizontal: false, vertical: true)
+                            .coachMarkAnchor("library.hold")
                             .padding(.top, Space.s)
                             .contentTransition(.opacity)
                     }
@@ -65,6 +67,7 @@ struct LibraryView: View {
             }
             .scrollIndicators(.hidden)
             .scrollEdgeEffectStyle(.soft, for: .top)
+            .coachMarks(.library)
             .onAppear {
                 showSetAsideIfAsked(proxy)
                 if let stage = router.libraryStage {
