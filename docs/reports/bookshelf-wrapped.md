@@ -9,6 +9,7 @@ Commits pushed to main:
   4097528 Shelf wall: read a cover's colour on the main actor
   d254bcb Wrapped and shelf poster: rings clear of the words, taller spines on a short poster
   641e587 Shelf poster: the wordmark stays on the card (taller spines had pushed it off; at most two planks now)
+  5337dda Shelf poster: room for the favourites line under two planks
 CI: 15a2329 red (run 39507618834): one main-actor isolation error (a cover's colour read off the main actor), fixed in
   4097528. 4097528 green (run 39508027121): build, all unit tests, watch build, unsigned archive, screenshots reviewed
   in light and dark. d254bcb (two visual fixes) is green in run 39655925407 (a63477d),
