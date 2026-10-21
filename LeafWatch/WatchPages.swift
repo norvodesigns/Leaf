@@ -135,7 +135,7 @@ struct QuickLogView: View {
 
     private var caption: String {
         let pages = max(0, Int(page) - book.currentPage)
-        if Int(page) >= book.pages { return "The end!" }
+        if Int(page) >= book.pages { return "The end." }
         return "+\(pages) \(pages == 1 ? "page" : "pages") · tap a number"
     }
 
@@ -234,7 +234,7 @@ struct ForecastPage: View {
                     .accessibilityLabel("\(year.finished) of \(year.goal) books read in \(String(year.year)). \(year.sentence)")
                 }
                 if store.snapshot.forecasts.isEmpty {
-                    WatchPlaceholder(symbol: "calendar", text: "Forecasts appear once you've read a few times.")
+                    WatchPlaceholder(symbol: "calendar", text: "Forecasts appear once you’ve read a few times.")
                 } else {
                     ForEach(store.snapshot.forecasts) { forecast in
                         forecastRow(forecast)

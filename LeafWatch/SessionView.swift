@@ -173,7 +173,7 @@ struct PageEntryView: View {
     @State private var confirmsDiscard = false
 
     var body: some View {
-        // A book the watch doesn't know yet (the phone's list hasn't arrived) gets room to turn, and no "The end!".
+        // A book the watch doesn't know yet (the phone's list hasn't arrived) gets room to turn, and no "The end."
         let known = store.snapshot.book(session.bookID)
         let pages = known?.pages ?? session.startPage + 2_000
         let atEnd = known != nil && Int(page) >= pages
@@ -195,7 +195,7 @@ struct PageEntryView: View {
                     @unknown default: break
                     }
                 }
-            Text(atEnd ? "The end!" : (known == nil ? "" : "of \(pages) · ") + "+\(max(0, Int(page) - session.startPage)) pages")
+            Text(atEnd ? "The end." : (known == nil ? "" : "of \(pages) · ") + "+\(max(0, Int(page) - session.startPage)) pages")
                 .font(.system(size: 11))
                 .foregroundStyle(atEnd ? WatchTheme.accent : WatchTheme.inkSecondary)
 
@@ -232,7 +232,7 @@ struct PageEntryView: View {
             }
             Button("Keep reading", role: .cancel) {}
         } message: {
-            Text("Its minutes won't count, here or on your iPhone.")
+            Text("Its minutes won’t count, here or on your iPhone.")
         }
     }
 }
@@ -250,7 +250,7 @@ struct LoggedView: View {
                 .font(.system(size: 28))
                 .foregroundStyle(WatchTheme.accent)
                 .symbolEffect(.bounce, value: session.id)
-            Text(finished ? "Finished!" : "\(LeafFormat.duration(minutes: session.minutes)) read")
+            Text(finished ? "Finished." : "\(LeafFormat.duration(minutes: session.minutes)) read")
                 .font(WatchTheme.display(24))
                 .foregroundStyle(WatchTheme.paper)
             Text(finished ? (book?.title ?? "") : "\(session.pagesRead) pages · now on p. \(session.toPage)")

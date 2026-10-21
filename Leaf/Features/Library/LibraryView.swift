@@ -29,8 +29,8 @@ struct LibraryView: View {
         case .reading, .paused:
             let count = store.reading.count
             guard count > 0 else { return nil }
-            let open = count == 1 ? "The book you're reading now" : "The \(count) books you're reading now"
-            return pausedCount > 0 ? open + ". Books you've set aside wait below." : open + "."
+            let open = count == 1 ? "The book you’re reading now" : "The \(count) books you’re reading now"
+            return pausedCount > 0 ? open + ". Books you’ve set aside wait below." : open + "."
         case .toRead:
             let count = store.toRead.count
             guard count > 0 else { return nil }
@@ -39,7 +39,7 @@ struct LibraryView: View {
             let count = store.finished.count
             guard count > 0 else { return nil }
             if showsShelfWall { return "A shelf for every year, in the order you finished them. Hold a spine to see when." }
-            return count == 1 ? "The book you've finished." : "The \(count) books you've finished, newest first."
+            return count == 1 ? "The book you’ve finished." : "The \(count) books you’ve finished, newest first."
         }
     }
 

@@ -15,7 +15,7 @@ struct ProgressRing: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    init(progress: Double, diameter: CGFloat, lineWidth: CGFloat, showsHead: Bool = false, tint: Color = .accent, label: String = "Today's reading") {
+    init(progress: Double, diameter: CGFloat, lineWidth: CGFloat, showsHead: Bool = false, tint: Color = .accent, label: String = "Today’s reading") {
         self.progress = progress
         self.diameter = diameter
         self.lineWidth = lineWidth

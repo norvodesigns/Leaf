@@ -374,7 +374,7 @@ enum RecommendationReason: Hashable, Sendable {
     var text: String {
         switch self {
         case .becauseYouFinished(let title): return "Because you finished \(title)"
-        case .becauseYouAreReading(let title): return "Because you're reading \(title)"
+        case .becauseYouAreReading(let title): return "Because you’re reading \(title)"
         case .moreBy(let author, _): return "More from \(author)"
         case .sameSeries(let series, let because):
             return because.map { "Continues \(series), like \($0)" } ?? "From the world of \(series)"

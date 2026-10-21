@@ -149,7 +149,7 @@ struct CollectionBuilder {
 
         let picks = recommender.recommend(from: candidates, limit: rowSize, seed: seed)
         if !picks.isEmpty {
-            drafts.append(Draft(id: "for-you", title: "Picked for you", subtitle: "Chosen from what you've read and finished", kind: .personal,
+            drafts.append(Draft(id: "for-you", title: "Picked for you", subtitle: "Chosen from what you’ve read and finished", kind: .personal,
                                 candidates: picks.map(\.book), reasons: Dictionary(picks.map { ($0.book.id, $0.reason.text) }, uniquingKeysWith: { a, _ in a }), ordered: true))
         }
 
@@ -162,7 +162,7 @@ struct CollectionBuilder {
             // A weak match is worse than no row: skip books with too few features to compare.
             let similar = recommender.similar(to: anchor.book, in: candidates, limit: rowSize / 2 + 6, because: reason, minimumScore: 0.3)
             guard similar.count >= minimumBooks else { continue }
-            drafts.append(Draft(id: "because-\(anchor.book.id)", title: reading ? "Because you're reading \(anchor.book.title)" : "Because you finished \(anchor.book.title)",
+            drafts.append(Draft(id: "because-\(anchor.book.id)", title: reading ? "Because you’re reading \(anchor.book.title)" : "Because you finished \(anchor.book.title)",
                                 subtitle: "More in the same spirit", kind: .personal, candidates: similar.map(\.book),
                                 reasons: Dictionary(similar.map { ($0.book.id, $0.reason.text) }, uniquingKeysWith: { a, _ in a }), ordered: true))
         }
@@ -185,7 +185,7 @@ struct CollectionBuilder {
         for (author, _) in favouriteAuthors {
             let theirs = pool.filter { TasteProfile.normalizeAuthor($0.author) == author }
             guard theirs.count >= 3, let name = theirs.first?.author else { continue }
-            drafts.append(Draft(id: "author-fav-\(author)", title: "More from \(name)", subtitle: "You've liked their books", kind: .personal, candidates: theirs,
+            drafts.append(Draft(id: "author-fav-\(author)", title: "More from \(name)", subtitle: "You’ve liked their books", kind: .personal, candidates: theirs,
                                 reasons: Dictionary(theirs.map { ($0.id, "More from \(name)") }, uniquingKeysWith: { a, _ in a })))
         }
 
@@ -265,7 +265,7 @@ struct CollectionBuilder {
         Mood(id: "old-friends", title: "Old friends", subtitle: "Classics that feel like a warm coat",
              weights: ["g:classics": 2, "g:children": 1, "t:small town life": 1, "t:england": 0.8, "t:friendship": 0.8, "t:family life": 0.8, "t:coming of age": 0.6],
              avoid: ["t:dark & gritty", "g:horror", "t:war"], minimum: 2.5),
-        Mood(id: "page-turners", title: "Can't put it down", subtitle: "One more chapter, then sleep",
+        Mood(id: "page-turners", title: "Can’t put it down", subtitle: "One more chapter, then sleep",
              weights: ["g:thriller": 2, "t:psychological suspense": 1.5, "t:crime": 1, "t:murder": 1, "t:missing persons": 1.5, "t:secrets": 1, "t:spies": 1.2, "t:heists & cons": 1.2], minimum: 2.5),
         Mood(id: "big-feelings", title: "Big feelings", subtitle: "Keep a tissue nearby",
              weights: ["t:grief & loss": 2, "t:love stories": 1, "t:family life": 1, "t:mothers & daughters": 1, "t:fathers & sons": 1, "t:coming of age": 0.8, "t:identity & self-discovery": 1,
@@ -351,7 +351,7 @@ struct CollectionBuilder {
             add("morning", "With your morning cup", "Short, bright and easy to begin", weights: ["g:essays": 1.5, "g:humor": 1.5, "t:humor": 1.5, "g:short-stories": 1.5, "t:feel-good": 1.5, "g:self-help": 1], minimum: 1.5,
                 extra: { index.hours[$0] <= 5 ? 1.0 : 0 })
         case 11..<17:
-            add("tea-time", "Tea o'clock", "A pot, a biscuit and a good book", weights: ["t:tea & cafes": 3, "t:cozy": 2, "t:food & cooking": 1.5, "t:england": 0.8, "g:mystery": 1], minimum: 2.0)
+            add("tea-time", "Tea o’clock", "A pot, a biscuit and a good book", weights: ["t:tea & cafes": 3, "t:cozy": 2, "t:food & cooking": 1.5, "t:england": 0.8, "g:mystery": 1], minimum: 2.0)
         default:
             add("tonight", "For tonight", "A good book that fits one evening", weights: ["g:literary": 0.8, "g:classics": 0.8, "g:historical": 0.6, "t:feel-good": 1, "t:love stories": 0.6, "g:mystery": 0.8], minimum: 0.8,
                 extra: { index.hours[$0] <= 4 && index.percentile[$0] >= 0.5 ? 1.2 : 0 })
@@ -417,7 +417,7 @@ struct CollectionBuilder {
         ("vampires", "Vampires", "Old, elegant and hungry"),
         ("gothic", "Gothic", "Moors, manors and brooding"),
         ("detectives", "Detectives at work", "Magnifying glasses required"),
-        ("murder", "A little murder", "Cosy or cold, it's all in the clues"),
+        ("murder", "A little murder", "Cosy or cold, it’s all in the clues"),
         ("spies", "Spies and secrets", "Trust no one"),
         ("heists & cons", "Heists and cons", "Elaborate plans, clever crooks"),
         ("missing persons", "Gone without a trace", "Where did they go?"),
@@ -430,21 +430,21 @@ struct CollectionBuilder {
         ("friendship", "Friends for life", "Loyalty, loud and quiet"),
         ("coming of age", "Growing up", "The year everything changed"),
         ("school life", "Back to school", "Classrooms, campuses and boarding houses"),
-        ("siblings", "Brothers and sisters", "Family you didn't pick"),
+        ("siblings", "Brothers and sisters", "Family you didn’t pick"),
         ("mothers & daughters", "Mothers and daughters", "Complicated, close"),
         ("marriage", "Marriage", "Vows, ruts and reinventions"),
         ("enemies to lovers", "Enemies to lovers", "Sparks, snark and slow turns"),
         ("second chances", "Second chances", "Another try at love, life or both"),
         ("grief & loss", "For a hard season", "Books that sit with grief"),
         ("mental health", "Minds and moods", "Honest books about mental health"),
-        ("identity & self-discovery", "Finding yourself", "Who you are and who you'll be"),
+        ("identity & self-discovery", "Finding yourself", "Who you are and who you’ll be"),
         ("small town life", "Small-town stories", "Everyone knows everyone"),
         ("seaside & islands", "By the sea", "Salt, gulls and grey light"),
         ("gardens & nature", "In the garden", "Growing things and slow days"),
         ("food & cooking", "A taste of it", "Kitchens, recipes and long tables"),
         ("tea & cafes", "Tea and cafes", "Steam on the glass"),
         ("books about books", "For people who love books", "Libraries, bookshops and readers"),
-        ("letters & diaries", "Letters and diaries", "Other people's private pages"),
+        ("letters & diaries", "Letters and diaries", "Other people’s private pages"),
         ("cats", "Cat people", "Whiskers and warm laps"),
         ("dogs", "Good dogs", "Loyal friends"),
         ("animals", "Animal friends", "Creatures great and small"),
@@ -519,7 +519,7 @@ struct CollectionBuilder {
             row("evening", "Done in an evening", "Under three hours at your pace") { index.hours[$0] <= 3 },
             row("week", "Finish in a week", pace) { days($0) <= 7 && index.hours[$0] > 3 },
             row("fortnight", "About two weeks", pace) { days($0) > 7 && days($0) <= 14 },
-            row("month", "A month's companion", pace) { days($0) > 14 && days($0) <= 35 },
+            row("month", "A month’s companion", pace) { days($0) > 14 && days($0) <= 35 },
             row("epic", "Settle in for the season", "Big books for long evenings") { days($0) > 35 },
         ]
     }

@@ -58,7 +58,7 @@ struct TodayPage: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         } else {
-            WatchPlaceholder(symbol: "books.vertical", text: "Add a book in Leaf on your iPhone and it'll appear here.")
+            WatchPlaceholder(symbol: "books.vertical", text: "Add a book in Leaf on your iPhone and it’ll appear here.")
         }
     }
 
@@ -83,7 +83,7 @@ struct TodayPage: View {
         }
         .frame(width: 50, height: 50)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(left < 0.5 ? "Today's goal is done" : "\(Int(left.rounded(.up))) minutes left today")
+        .accessibilityLabel(left < 0.5 ? "Today’s goal is done" : "\(Int(left.rounded(.up))) minutes left today")
     }
 
     @ViewBuilder

@@ -594,7 +594,7 @@ struct TasteView: View {
             .prefix(6)
             .map { "series:" + $0.key.dropFirst(2) }
         if !worlds.isEmpty {
-            SectionHeader("Worlds you're in")
+            SectionHeader("Worlds you’re in")
             chips(worlds.map(Self.themeName))
         }
         if let hours = profile.logHoursMean.map({ exp($0) }) {

@@ -16,7 +16,7 @@ struct LeafComplication: Widget {
             ComplicationEntryView(entry: entry)
                 .containerBackground(ComplicationPalette.deep.gradient, for: .widget)
         }
-        .configurationDisplayName("Today's reading")
+        .configurationDisplayName("Today’s reading")
         .description("Minutes left today and the page to start from.")
         .supportedFamilies([.accessoryCircular, .accessoryCorner, .accessoryRectangular, .accessoryInline])
     }

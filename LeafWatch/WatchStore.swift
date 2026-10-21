@@ -316,7 +316,7 @@ final class WatchStore {
             guard granted else { return }
             let content = UNMutableNotificationContent()
             content.title = isCup ? "Your cup is done" : "\(minutes) minutes read"
-            content.body = isCup ? "Keep going, or log your page." : "That's today's goal. Keep going, or log your page."
+            content.body = isCup ? "Keep going, or log your page." : "That’s today’s goal. Keep going, or log your page."
             content.sound = .default
             let trigger = UNTimeIntervalNotificationTrigger(timeInterval: remaining, repeats: false)
             try? await center.add(UNNotificationRequest(identifier: "leaf.watch.goal", content: content, trigger: trigger))

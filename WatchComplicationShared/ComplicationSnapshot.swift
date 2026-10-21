@@ -48,7 +48,7 @@ struct ComplicationSnapshot: Codable, Hashable, Sendable {
         } else if isRestDay {
             parts.append("A rest day.")
         } else if isGoalMet {
-            parts.append("Today's reading goal is met.")
+            parts.append("Today’s reading goal is met.")
         } else {
             let left = Int(minutesLeft.rounded(.up))
             parts.append("\(left) \(left == 1 ? "minute" : "minutes") left today.")
