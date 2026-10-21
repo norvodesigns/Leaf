@@ -165,6 +165,20 @@ struct ReadingSlotsTests {
         #expect(SlotPlanner.next(in: plans, day: monday, now: night, calendar: calendar) == nil)
     }
 
+    @Test func nextSlotGoesByTheWallClockOnTheDayTheClocksChange() {
+        // New York springs forward at 2:00 on 8 March 2026, so that day is 23 hours long.
+        var newYork = Calendar(identifier: .gregorian)
+        newYork.timeZone = TimeZone(identifier: "America/New_York") ?? .current
+        guard let spring = newYork.date(from: DateComponents(year: 2026, month: 3, day: 8)),
+              let eightThirty = newYork.date(bySettingHour: 8, minute: 30, second: 0, of: spring) else {
+            Issue.record("calendar setup")
+            return
+        }
+        let plans = SlotPlanner.plan(day: PlanDay(date: spring, isReadingDay: true, assignments: [a("hobbit", minutes: 30, from: 1, to: 30)]), slots: [slot(8), slot(21)], calendar: newYork)
+        let next = SlotPlanner.next(in: plans, day: spring, now: eightThirty, calendar: newYork)
+        #expect(next?.slot.hour == 21, "8:00 has passed at 8:30, though fewer than 8 hours 30 minutes have gone since midnight")
+    }
+
     @Test func olderPreferencesKeepTheirSingleReminderTime() throws {
         var prefs = ReadingPreferences()
         #expect(prefs.effectiveReadingSlots.isEmpty, "reminders off, no slots")

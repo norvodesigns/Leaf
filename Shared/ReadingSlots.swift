@@ -140,7 +140,8 @@ enum SlotPlanner {
     static func next(in plans: [SlotPlan], day: Date, now: Date, calendar: Calendar = .current) -> SlotPlan? {
         let start = calendar.startOfDay(for: day)
         return plans.first { plan in
-            let when = calendar.date(byAdding: .minute, value: plan.slot.minuteOfDay, to: start) ?? start
+            // By the clock on the wall: minutes since midnight are an hour out on the days the clocks change.
+            let when = calendar.date(bySettingHour: plan.slot.hour, minute: plan.slot.minute, second: 0, of: start) ?? start
             return when >= now
         }
     }
