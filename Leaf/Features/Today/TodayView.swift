@@ -20,6 +20,8 @@ struct TodayView: View {
     @State private var steepReady = false
     @State private var chosenTeaID: String?
     @State private var quoteCardEntry: JournalEntry?
+    /// Where the scroll view's content begins below the screen's top edge, so the nook's light can reach up to it.
+    @State private var topInset: CGFloat = 0
     /// The year whose Wrapped offer was put off with "Not now".
     @AppStorage("wrapped.putOffYear") private var wrappedPutOff = 0
     /// The deck stays on Today while the reader is swiping, even once a kept book means they're no longer between books.
@@ -106,6 +108,11 @@ struct TodayView: View {
             }
             .scrollIndicators(.hidden)
             .scrollEdgeEffectStyle(.soft, for: .top)
+            .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                geometry.contentInsets.top
+            } action: { _, inset in
+                topInset = inset
+            }
             .paperBackground()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -175,7 +182,8 @@ struct TodayView: View {
                 findBook: { router.tab = .search },
                 openBook: { router.open($0) },
                 readingTimes: { router.showReadingTimes = true }
-            )
+            ),
+            topInset: topInset
         )
     }
 

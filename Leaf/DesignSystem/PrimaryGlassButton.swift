@@ -107,6 +107,56 @@ struct SecondaryGlassButton: View {
     }
 }
 
+/// A solid ink capsule (near black on light paper, cream on dark) with a `paper` label, the height of the glass
+/// buttons. It is the plain partner beside a glass button when two actions are a deliberate pair, as Today's
+/// "Steep and read" and "Begin reading" are. `outline` draws it as a ring of ink instead, for a quieter day.
+struct InkButton: View {
+    let title: String
+    var systemImage: String?
+    var isOutline: Bool
+    let action: () -> Void
+
+    @ScaledMetric(relativeTo: .headline) private var height: CGFloat = 54
+
+    init(_ title: String, systemImage: String? = nil, outline: Bool = false, action: @escaping () -> Void) {
+        self.title = title
+        self.systemImage = systemImage
+        isOutline = outline
+        self.action = action
+    }
+
+    var body: some View {
+        Button {
+            Haptics.shared.tap()
+            action()
+        } label: {
+            Group {
+                if let systemImage {
+                    Label(title, systemImage: systemImage)
+                } else {
+                    Text(title)
+                }
+            }
+            .font(.system(.headline, weight: .semibold))
+            .foregroundStyle(isOutline ? Color.ink : Color.paper)
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+            .padding(.horizontal, Space.l)
+            .frame(maxWidth: .infinity, minHeight: height)
+            .background {
+                if isOutline {
+                    Capsule().strokeBorder(Color.ink, lineWidth: 1.5)
+                } else {
+                    Capsule().fill(Color.ink)
+                }
+            }
+            .contentShape(.capsule)
+        }
+        .buttonStyle(.pressable)
+        .accessibilityLabel(title)
+    }
+}
+
 #Preview("Buttons") {
     @Previewable @State var loading = false
     VStack(spacing: Space.m) {

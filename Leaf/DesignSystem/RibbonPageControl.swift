@@ -84,8 +84,8 @@ struct RibbonPageControl: View {
                 .frame(width: 150, height: blockHeight)
                 .overlay(alignment: .topTrailing) {
                     // The ribbon hangs down the fore-edge to the page.
-                    PhysicalRibbon(length: ribbonLength, width: ribbonWidth, seed: 7, swaysOnAppear: true, isInteractive: false)
-                        .id(ribbonKick)
+                    // Setting a page nudges the ribbon that is already hanging there; it never starts over mid-swing.
+                    PhysicalRibbon(length: ribbonLength, width: ribbonWidth, seed: 7, swaysOnAppear: true, nudge: ribbonKick, isInteractive: false)
                         .frame(width: canvas.width, height: canvas.height, alignment: .top)
                         .offset(x: canvas.width / 2 - ribbonWidth * 0.2, y: -4)
                         .allowsHitTesting(false)

@@ -144,10 +144,11 @@ struct BookCover: View {
             length: length,
             width: width,
             seed: UInt64(truncatingIfNeeded: book.paletteSeed),
-            breathes: swaysRibbon,
             swaysOnAppear: swaysRibbon,
             isTucked: ribbonTucked,
-            grabFrom: size.height
+            grabFrom: size.height,
+            // A cover's ribbon is never a handle: covers sit in scrolling lists, and the drag would fight the scroll.
+            isInteractive: false
         )
         .offset(x: size.width * 0.70 + width / 2 - canvas.width / 2)
     }

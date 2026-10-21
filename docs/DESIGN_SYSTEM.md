@@ -115,7 +115,7 @@ Constants: `inkInStagger 0.05`, `inkInRise 8`, `inkInMaxItems 6`, `countUpDurati
   (also `BookCover(_ book:, size:, …)`). Generated cover underneath, Open Library scan (`?default=false`,
   `.large` for L/XL) fading in over 0.3 s, bad-scan handling, hinge finish, inner stroke, shadow.
   VoiceOver: "Cover of {title} by {author}". `ribbon` draws on M+ and hangs `size.ribbonTail` (0.12 h)
-  **below** the frame — leave room. The ribbon is a `PhysicalRibbon`: it follows tilt and can be tugged.
+  **below** the frame — leave room. The ribbon is a `PhysicalRibbon`: it hangs still and settles once when it appears.
   `swaysRibbon` sways it on appearance and lets it breathe a little before it sleeps (Today hero);
   `ribbonTucked` pulls it up behind the cover (a finished book).
   The frame is exactly the cover, so zoom straight from it:
@@ -264,12 +264,20 @@ pauses when its scene is still, the app is inactive, Reduce Motion is on or Low 
 - **Scenes** — `AtmosphereScene.swift`. `AtmosphereScene(kind: .bokeh | .rain | .steam, calm: 0...1, density: 1,
   tint: .amber, seed:)`: a `Canvas` at 15 fps drawn from `AtmosphereField`; as `calm` reaches 0 the clock eases to a
   stop and the timeline pauses. Put it over a background of your own; it is hidden from VoiceOver.
-- **Ribbon** — `PhysicalRibbon.swift`. `PhysicalRibbon(length:width:color: .ribbon, seed:breathes:swaysOnAppear:
-  isTucked:grabFrom:isInteractive:followsTilt:)`: `RibbonSimulation` drawn as a Catmull-Rom satin strip that tapers to
-  a swallowtail, with a highlight from curvature and a soft shadow. Tilt from `RibbonTilt.shared` (Core Motion, 30 Hz,
-  only while a ribbon is on screen, published only when gravity really changes). Drag below `grabFrom` to tug it
-  (rubber band, a continuous haptic that follows `stretch`), let go to flick. Its timeline stops when the ribbon
-  settles. Reduce Motion → `reducedMotionPose`. `PhysicalRibbon.canvasSize(length:width:)` is the room it draws in.
+- **Ribbon** — `PhysicalRibbon.swift`. `PhysicalRibbon(length:width:color: .ribbon, seed:swaysOnAppear:nudge:
+  isTucked:grabFrom:isInteractive:)`: `RibbonSimulation` drawn as a Catmull-Rom satin strip that tapers to a
+  swallowtail, with a highlight from curvature and a soft shadow. It does not follow the phone's tilt (TestFlight found
+  that gimmicky and jittery): at rest it hangs still. `swaysOnAppear` gives one gentle settle the first time it
+  appears, never again on coming back; changing `nudge` moves the running simulation (setting a page), never a restart.
+  Ribbons on covers are not draggable, so they never fight a scroll; where `isInteractive`, drag below `grabFrom` to
+  tug it (rubber band, a continuous haptic that follows `stretch`). Its timeline stops when the ribbon settles. Reduce
+  Motion → `reducedMotionPose`. `PhysicalRibbon.canvasSize(length:width:)` is the room it draws in.
+- **Parallax tilt** — `ParallaxTilt.shared` (Core Motion at 30 Hz through `TiltFilter`: low-pass, dead zone, clamp,
+  drifting back to how the phone is held, published only on a visible change). Only the shelf wall's shadows use it,
+  as a small offset; never under Reduce Motion or in Low Power Mode.
+- **Ink button** — `InkButton(_:systemImage:outline:action:)`: a solid ink capsule (cream on dark) the height of the
+  glass buttons, the plain partner in a deliberate pair (Today's "Steep and read" in glass, "Begin reading" in ink);
+  `outline` for a quieter day.
 - **Ribbon as progress control** — `RibbonPageControl(page:pages:startPage:)`: the ribbon hangs down a page block as
   thick as the book; drag down the block to set the page (`RibbonDepthMapping`: slow lands on pages, fast snaps to
   round numbers). Typed field and VoiceOver adjustable action always present.

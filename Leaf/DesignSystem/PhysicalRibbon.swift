@@ -1,53 +1,15 @@
-import CoreMotion
 import SwiftUI
-
-// MARK: - Tilt
-
-/// The phone's tilt for every ribbon on screen (NEXT.md section 8): device-motion gravity at 30 Hz, shared, running
-/// only while at least one ribbon wants it. `gravity` changes only when the direction moves by more than about half a
-/// degree, so a phone lying still causes no updates at all.
-@MainActor
-@Observable
-final class RibbonTilt {
-    static let shared = RibbonTilt()
-
-    /// The in-screen part of gravity, x to the right and y down: about (0, 1) when the phone is held upright.
-    private(set) var gravity = RibbonVector(x: 0, y: 1)
-
-    @ObservationIgnored private let manager = CMMotionManager()
-    @ObservationIgnored private var users = 0
-
-    private init() {}
-
-    func start() {
-        users += 1
-        guard users == 1, manager.isDeviceMotionAvailable, !ProcessInfo.processInfo.isLowPowerModeEnabled else { return }
-        manager.deviceMotionUpdateInterval = 1.0 / 30.0
-        manager.startDeviceMotionUpdates(to: .main) { [weak self] motion, _ in
-            guard let self, let g = motion?.gravity else { return }
-            let next = RibbonVector(x: g.x, y: -g.y)
-            if abs(next.x - self.gravity.x) + abs(next.y - self.gravity.y) > 0.012 {
-                self.gravity = next
-            }
-        }
-    }
-
-    func stop() {
-        users = max(0, users - 1)
-        if users == 0, manager.isDeviceMotionActive {
-            manager.stopDeviceMotionUpdates()
-        }
-    }
-}
 
 // MARK: - Ribbon
 
 /// A satin bookmark ribbon that behaves like cloth (NEXT.md section 8). `RibbonSimulation` does the physics; this only
-/// feeds it (tilt, a flick on appear, a drag) and draws its pose: a Catmull-Rom curve through the chain, a strip that
-/// tapers toward a swallowtail notch, a satin highlight that slides with the curvature, and a soft shadow.
+/// feeds it (one gentle settle the first time it appears, a nudge, a drag where it is a control) and draws its pose: a
+/// Catmull-Rom curve through the chain, a strip that tapers toward a swallowtail notch, a satin highlight that slides
+/// with the curvature, and a soft shadow.
 ///
-/// It sleeps: the `TimelineView` stops as soon as the ribbon has settled, and only an input wakes it. Reduce Motion
-/// draws the simulation's fixed resting curve and takes no input.
+/// It no longer follows the phone's tilt: on a real phone that read as a gimmick, and jittered. At rest it hangs
+/// still. It sleeps: the `TimelineView` stops as soon as the ribbon has settled, and only an input wakes it; a nudge
+/// moves the running simulation rather than starting a new one. Reduce Motion draws the fixed resting curve.
 struct PhysicalRibbon: View {
     /// Anchor to tail at rest, in points.
     var length: CGFloat
@@ -55,21 +17,21 @@ struct PhysicalRibbon: View {
     var width: CGFloat
     var color: Color = .ribbon
     var seed: UInt64 = 1
-    /// Breathes for a few seconds after waking instead of falling still at once (a hero cover).
-    var breathes = false
-    /// A small flick each time it appears.
+    /// One gentle settle the first time it appears (not every time it comes back on screen).
     var swaysOnAppear = false
+    /// Change it to give the ribbon a small nudge, as when a page is set.
+    var nudge = 0
     /// Slides up out of sight (behind the cover it hangs from), for a finished book.
     var isTucked = false
     /// Where a finger may take hold, in points below the anchor (the part not hidden by the cover).
     var grabFrom: CGFloat = 0
     var isInteractive = true
-    var followsTilt = true
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
     @State private var box: SimulationBox
     @State private var isAwake = false
+    @State private var hasSettled = false
     @State private var tuck: CGFloat
 
     /// The simulation lives in a reference so the timeline can step it while drawing without causing an update.
@@ -78,9 +40,9 @@ struct PhysicalRibbon: View {
         var lastTime: Double?
         var isHeld = false
 
-        init(seed: UInt64, breathes: Bool) {
+        init(seed: UInt64) {
             var configuration = RibbonConfiguration.standard
-            configuration.idle = breathes ? .breathesThenSleeps : .still
+            configuration.idle = .still
             simulation = RibbonSimulation(seed: seed, configuration: configuration)
         }
     }
@@ -89,21 +51,19 @@ struct PhysicalRibbon: View {
     static let swingRoom: CGFloat = 3
 
     init(
-        length: CGFloat, width: CGFloat, color: Color = .ribbon, seed: UInt64 = 1, breathes: Bool = false,
-        swaysOnAppear: Bool = false, isTucked: Bool = false, grabFrom: CGFloat = 0, isInteractive: Bool = true,
-        followsTilt: Bool = true
+        length: CGFloat, width: CGFloat, color: Color = .ribbon, seed: UInt64 = 1, swaysOnAppear: Bool = false,
+        nudge: Int = 0, isTucked: Bool = false, grabFrom: CGFloat = 0, isInteractive: Bool = true
     ) {
         self.length = length
         self.width = width
         self.color = color
         self.seed = seed
-        self.breathes = breathes
         self.swaysOnAppear = swaysOnAppear
+        self.nudge = nudge
         self.isTucked = isTucked
         self.grabFrom = grabFrom
         self.isInteractive = isInteractive
-        self.followsTilt = followsTilt
-        _box = State(initialValue: SimulationBox(seed: seed, breathes: breathes))
+        _box = State(initialValue: SimulationBox(seed: seed))
         _tuck = State(initialValue: isTucked ? 1 : 0)
     }
 
@@ -137,13 +97,10 @@ struct PhysicalRibbon: View {
         .gesture(dragGesture, including: isInteractive && !isStill ? .all : .none)
         .accessibilityHidden(true)
         .onAppear(perform: appear)
-        .onDisappear {
-            if followsTilt && !isStill { RibbonTilt.shared.stop() }
-        }
-        .onChange(of: RibbonTilt.shared.gravity) { _, gravity in
-            guard followsTilt, !isStill else { return }
-            box.simulation.setTilt(gravity)
-            if !box.simulation.isSettled { wake() }
+        .onChange(of: nudge) { _, _ in
+            guard !isStill else { return }
+            box.simulation.tap(atDepth: 1, direction: 1, strength: 0.45)
+            wake()
         }
         .onChange(of: isTucked) { _, tucked in
             withAnimation(reduceMotion ? Motion.fade : Motion.board) { tuck = tucked ? 1 : 0 }
@@ -157,12 +114,9 @@ struct PhysicalRibbon: View {
 
     private func appear() {
         guard !isStill else { return }
-        if followsTilt {
-            RibbonTilt.shared.start()
-            box.simulation.setTilt(RibbonTilt.shared.gravity)
-        }
-        if swaysOnAppear {
-            box.simulation.tap(atDepth: 1, direction: 1, strength: 0.7)
+        if swaysOnAppear && !hasSettled {
+            hasSettled = true
+            box.simulation.tap(atDepth: 1, direction: 1, strength: 0.45)
         }
         if !box.simulation.isSettled { wake() }
     }
@@ -336,7 +290,7 @@ private struct RibbonPreview: View {
                 BookCover(book: DemoData.hobbit, size: .l, ribbon: true, swaysRibbon: true)
                 BookCover(book: DemoData.circe, size: .m, ribbon: true, ribbonTucked: tucked)
             }
-            PhysicalRibbon(length: 220, width: 18, breathes: true, swaysOnAppear: true, isTucked: tucked)
+            PhysicalRibbon(length: 220, width: 18, swaysOnAppear: true, isTucked: tucked)
                 .frame(height: 260)
             Button(tucked ? "Untuck" : "Tuck away") { tucked.toggle() }
         }

@@ -93,6 +93,11 @@ struct NookAtmosphere: View {
         .accessibilityHidden(true)
     }
 
+    /// The colour along the scene's top edge, wash and all: what shows above it when Today is pulled down past the top.
+    static func edge(daypart: Daypart) -> some View {
+        NookEdge(daypart: daypart)
+    }
+
     /// Four soft panes of light falling across the wall from a window to the right.
     private func windowLight(size: CGSize) -> some View {
         let pane = CGSize(width: size.width * 0.16, height: size.height * 0.22)
@@ -160,4 +165,20 @@ struct NookAtmosphere: View {
     }
     .paperBackground()
     .preferredColorScheme(.dark)
+}
+
+/// The top edge of a nook's light, as a flat colour.
+private struct NookEdge: View {
+    let daypart: Daypart
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        let light = NookAtmosphere.light(for: daypart, dark: colorScheme == .dark)
+        ZStack {
+            Color.paper
+            light.wash.opacity(light.washOpacity)
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
 }

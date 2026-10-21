@@ -48,10 +48,15 @@ struct TodayNook: View {
     /// Books open in Reading, for "read instead" in the button's menu.
     let readingBooks: [LibraryItem]
     let actions: NookActions
+    /// How far the scroll view's content starts below the top of the screen (the status bar and the bar with the
+    /// gear). The nook's light reaches up behind them, so the top of Today is one scene, not a band of plain paper.
+    var topInset: CGFloat = 0
 
     @Environment(\.dynamicTypeSize) private var typeSize
 
     private var book: Book? { brief.current?.item.book }
+
+    private static let overscroll: CGFloat = 400
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -71,8 +76,15 @@ struct TodayNook: View {
         .padding(.top, Space.s)
         .padding(.bottom, Space.l)
         .background {
-            NookAtmosphere(daypart: daypart)
-                .ignoresSafeArea(edges: .top)
+            // The light fills the screen from its very top edge down to the table; above that, a stretch of the top
+            // colour, so a pull past the top never shows a seam.
+            VStack(spacing: 0) {
+                NookAtmosphere.edge(daypart: daypart)
+                    .frame(height: Self.overscroll)
+                NookAtmosphere(daypart: daypart)
+            }
+            .padding(.top, -(topInset + Self.overscroll))
+            .accessibilityHidden(true)
         }
     }
 
@@ -264,46 +276,48 @@ struct TodayNook: View {
         .accessibilityHint("Choose another tea")
     }
 
+    /// The tea, what steeping means today, then the two ways in as a pair: "Steep and read" in glass, "Begin
+    /// reading" in ink. Side by side when they fit, one above the other when the type is large.
     private func steepControls(prominent: Bool) -> some View {
-        VStack(alignment: .leading, spacing: Space.s) {
-            teaChip
-            Group {
-                if prominent {
-                    PrimaryGlassButton("Steep and read", systemImage: "cup.and.heat.waves") {
-                        actions.steep()
-                    }
-                } else {
-                    SecondaryGlassButton("Steep and read anyway", systemImage: "cup.and.heat.waves") {
-                        actions.steep()
-                    }
-                }
+        VStack(alignment: .leading, spacing: Space.m) {
+            VStack(alignment: .leading, spacing: Space.xxs) {
+                teaChip
+                ritualCaption
             }
-            .sessionZoomSource(ReadingSessionLauncher.heroSource)
-            .contextMenu { optionsMenu }
             ViewThatFits(in: .horizontal) {
-                HStack(alignment: .firstTextBaseline, spacing: Space.m) {
-                    ritualCaption
-                    Spacer(minLength: Space.s)
-                    withoutTeaLink
+                HStack(spacing: Space.s) {
+                    steepButton(prominent: prominent)
+                    beginButton(prominent: prominent)
                 }
-                VStack(alignment: .leading, spacing: 0) {
-                    ritualCaption
-                    withoutTeaLink
+                VStack(spacing: Space.s) {
+                    steepButton(prominent: prominent)
+                    beginButton(prominent: prominent)
                 }
             }
         }
+    }
+
+    private func steepButton(prominent: Bool) -> some View {
+        SecondaryGlassButton(prominent ? "Steep and read" : "Steep and read anyway", systemImage: "cup.and.heat.waves") {
+            actions.steep()
+        }
+        .sessionZoomSource(ReadingSessionLauncher.heroSource)
+        .contextMenu { optionsMenu }
+        .accessibilityHint("Steeps your tea first, then starts a cup of reading")
+    }
+
+    /// Reading straight away, no tea. A ring of ink on a rest day, so neither choice pushes.
+    private func beginButton(prominent: Bool) -> some View {
+        InkButton("Begin reading", outline: !prominent) {
+            actions.startWithoutTea()
+        }
+        .accessibilityHint("Starts reading now, without steeping tea")
     }
 
     private var ritualCaption: some View {
         Text("Steep \(SteepText.duration(seconds: steepSeconds)), then read a \(brief.cupMinutes)-minute cup.")
             .leafStyle(.caption)
             .fixedSize(horizontal: false, vertical: true)
-    }
-
-    private var withoutTeaLink: some View {
-        TextButton("Read without tea", color: .inkSecondary) {
-            actions.startWithoutTea()
-        }
     }
 
     private func steepingControls(_ state: TeaSteepState) -> some View {
@@ -358,7 +372,7 @@ struct TodayNook: View {
                 }
             }
         }
-        Button("Read without tea", systemImage: "book") {
+        Button("Begin reading without tea", systemImage: "book") {
             actions.startWithoutTea()
         }
         Button("Reading times", systemImage: "clock") {
