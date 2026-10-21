@@ -149,7 +149,8 @@ struct SessionRitualView: View {
                         .leafStyle(.timer, color: isReady ? Color.accent : Color.ink)
                         .contentTransition(.numericText(countsDown: true))
                         .animation(reduceMotion ? nil : .snappy(duration: 0.3), value: Int(remaining))
-                        .blur(radius: focusBlur(progress: progress))
+                        // Always sharp while it counts; "Ready" arrives soft and resolves (a moment, never a state).
+                        .canopyFocusIn(on: isReady)
                         .accessibilityLabel(isReady ? "Your tea is ready" : "Steeping, \(SteepText.spoken(seconds: Int(remaining.rounded(.up)))) left")
                     Text(steepCaption(pot))
                         .leafStyle(.caption)
@@ -169,12 +170,6 @@ struct SessionRitualView: View {
                     .leafStyle(.caption)
             }
         }
-    }
-
-    /// Soft while the tea steeps, sharp when it's ready. Never blurred under Reduce Motion or Reduce Transparency.
-    private func focusBlur(progress: Double) -> CGFloat {
-        guard !reduceMotion, !reduceTransparency, !isReady else { return 0 }
-        return CGFloat(2.2 * max(0, min(1, 1 - progress)))
     }
 
     private func steepCaption(_ pot: TeaSteepState) -> String {

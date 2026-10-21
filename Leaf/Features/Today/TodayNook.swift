@@ -300,7 +300,7 @@ struct TodayNook: View {
     }
 
     private func steepButton(prominent: Bool) -> some View {
-        SecondaryGlassButton(prominent ? "Steep and read" : "Steep and read anyway", systemImage: "cup.and.heat.waves") {
+        SecondaryGlassButton("Steep and read", systemImage: "cup.and.heat.waves") {
             actions.steep()
         }
         .sessionZoomSource(ReadingSessionLauncher.heroSource)

@@ -81,6 +81,8 @@ struct RootView: View {
 #if DEBUG
         if key == "gallery.posters" {
             SharePosterStage()
+        } else if key.hasPrefix("gallery.canopy") {
+            CanopyGallery(page: CanopyGallery.Page(rawValue: String(key.dropFirst("gallery.canopy.".count))) ?? .foundations)
         } else if let section = MotionGallery.Section(rawValue: String(key.dropFirst("gallery.".count))) {
             NavigationStack { MotionGallery(section: section) }
         } else {

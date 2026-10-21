@@ -215,6 +215,11 @@ for appearance in light dark; do
   shot "11-library$suffix" 5 -LeafDemo YES -LeafScreen library
   shot "15-book$suffix" 5 -LeafDemo YES -LeafScreen book:OL27482W
   shot "16-session$suffix" 5 -LeafDemo YES -LeafScreen session
+  # Canopy, the new design system (docs/design/DESIGN_SYSTEM.md): foundations, components, Today and Plan mock-ups.
+  shot "C0-canopy$suffix" 4 -LeafDemo YES -LeafScreen gallery.canopy
+  shot "C1-canopy-components$suffix" 4 -LeafDemo YES -LeafScreen gallery.canopy.components
+  shot "C2-canopy-today$suffix" 4 -LeafDemo YES -LeafScreen gallery.canopy.today
+  shot "C3-canopy-plan$suffix" 4 -LeafDemo YES -LeafScreen gallery.canopy.plan
   shot "62-gallery-blur$suffix" 6 -LeafDemo YES -LeafScreen gallery.blur
   shot "64-gallery-ribbon$suffix" 5 -LeafDemo YES -LeafScreen gallery.ribbon
   shot "65-gallery-scrub$suffix" 4 -LeafDemo YES -LeafScreen gallery.scrub

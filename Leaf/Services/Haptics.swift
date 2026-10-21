@@ -15,6 +15,12 @@ enum HapticMoment {
     case magnetSnap
     /// A scrub control pushing against its end: a dull knock.
     case boundsHit
+    /// A session paused: one soft, dull tap, like setting a book down.
+    case pauseSettle
+    /// The kettle poured for a steep: a short low rumble.
+    case steepPour
+    /// A reading time moved or a book swapped into it: a crisp click with a soft echo.
+    case planChanged
 }
 
 @MainActor
@@ -194,6 +200,9 @@ final class Haptics {
         case .deckStart: press()
         case .magnetSnap: rigid(0.9)
         case .boundsHit: soft(0.8)
+        case .pauseSettle: soft(0.5)
+        case .steepPour: soft(0.6)
+        case .planChanged: rigid(0.7)
         }
     }
 
@@ -257,6 +266,12 @@ final class Haptics {
             return [transient(0, intensity: 0.9 + 0.1 * h, sharpness: 0.85), transient(0.045, intensity: 0.35, sharpness: 0.6)]
         case .boundsHit:
             return [transient(0, intensity: 0.5 + 0.5 * h, sharpness: 0.22)]
+        case .pauseSettle:
+            return [transient(0, intensity: 0.5, sharpness: 0.15)]
+        case .steepPour:
+            return [continuous(0, duration: 0.35, intensity: 0.4, sharpness: 0.05), transient(0.36, intensity: 0.3, sharpness: 0.2)]
+        case .planChanged:
+            return [transient(0, intensity: 0.75, sharpness: 0.75), transient(0.07, intensity: 0.3, sharpness: 0.4)]
         }
     }
 
@@ -266,6 +281,7 @@ final class Haptics {
         case .bookFinished: return [curve([(0.30, 0.2), (0.55, 1), (0.75, 0.15)])]
         case .reorderLift: return [curve([(0.02, 1), (0.14, 0)])]
         case .deckKeep: return [curve([(0.03, 1), (0.15, 0)])]
+        case .steepPour: return [curve([(0, 0.6), (0.2, 1), (0.35, 0.3)])]
         default: return []
         }
     }
