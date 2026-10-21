@@ -15,6 +15,7 @@ final class AmbienceSynth: @unchecked Sendable {
     private static let monoMix: Float = 0.707_106_8
 
     let recipe: AmbienceRecipe
+    let version: AmbienceRecipe.Version
     let sampleRate: Double
 
     private struct Fade {
@@ -31,13 +32,14 @@ final class AmbienceSynth: @unchecked Sendable {
     private var pendingFade: Fade?
 
     /// `initialGain` is where the master gain starts (0 for silence that will be faded in, 1 for full level).
-    init(recipe: AmbienceRecipe, sampleRate: Double = 44_100, seed: UInt64 = 1, initialGain: Float = 1) {
+    init(recipe: AmbienceRecipe, sampleRate: Double = 44_100, seed: UInt64 = 1, initialGain: Float = 1, version: AmbienceRecipe.Version = .current) {
         let rate = AudioSampleRate.clamped(sampleRate)
         self.recipe = recipe
+        self.version = version
         self.sampleRate = rate
-        voice = recipe.makeVoice(sampleRate: rate, seed: seed)
+        voice = recipe.makeVoice(sampleRate: rate, seed: seed, version: version)
         ramp = AudioGainRamp(value: initialGain)
-        outputScale = recipe.rawToTarget
+        outputScale = recipe.rawToTarget(version)
         scratchLeft = UnsafeMutablePointer<Float>.allocate(capacity: AmbienceSynth.blockSize)
         scratchRight = UnsafeMutablePointer<Float>.allocate(capacity: AmbienceSynth.blockSize)
         scratchLeft.initialize(repeating: 0, count: AmbienceSynth.blockSize)

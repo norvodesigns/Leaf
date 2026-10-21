@@ -49,6 +49,8 @@ final class AmbiencePlayer {
     private(set) var isPlaying = false
     /// The last volume set, 0 to 1.
     private(set) var volume: Float = 0.5
+    /// Which generation of the recipes is sounding. Only the Sound lab ever asks for `.original`, to compare.
+    private(set) var version: AmbienceRecipe.Version = .current
 
     @ObservationIgnored private let engine = AVAudioEngine()
     @ObservationIgnored private var sourceNode: AVAudioSourceNode?
@@ -66,7 +68,7 @@ final class AmbiencePlayer {
 
     /// Starts `id` at `volume` (0 to 1), fading in over `fadeIn` seconds. If another ambience is playing it fades out
     /// first; if this one is already playing only the volume changes.
-    func play(_ id: String, volume: Float = 0.5, fadeIn: TimeInterval = 2) {
+    func play(_ id: String, volume: Float = 0.5, fadeIn: TimeInterval = 2, version: AmbienceRecipe.Version = .current) {
         guard let recipe = AmbienceRecipe(id: id) else {
             stop(fadeOut: 0.5)
             return
@@ -77,11 +79,12 @@ final class AmbiencePlayer {
         installObserversIfNeeded()
         wantsPlayback = true
 
-        if currentID == id, synth != nil {
+        if currentID == id, let synth, synth.version == version {
             resumeEngine()
             return
         }
         currentID = id
+        self.version = version
         if let outgoing = synth, engine.isRunning {
             outgoing.fade(to: 0, over: 0.25)
             transitionTask = Task { [weak self] in
@@ -147,7 +150,7 @@ final class AmbiencePlayer {
         }
         startCount += 1
         let seed = SeededGenerator.hash(recipe.rawValue) &+ startCount
-        let synth = AmbienceSynth(recipe: recipe, sampleRate: sampleRate, seed: seed, initialGain: 0)
+        let synth = AmbienceSynth(recipe: recipe, sampleRate: sampleRate, seed: seed, initialGain: 0, version: version)
         let node = Self.makeSourceNode(synth: synth, format: format)
         engine.attach(node)
         engine.connect(node, to: engine.mainMixerNode, format: format)

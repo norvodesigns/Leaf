@@ -14,6 +14,10 @@ struct SettingsView: View {
 
     @State private var confirmsErase = false
     @State private var watch = WatchStatus.current()
+    /// Seven taps on the version number reveal the Sound lab outside debug builds.
+    @AppStorage("settings.soundLab") private var soundLabUnlocked = false
+    @State private var versionTaps = 0
+    @State private var showsSoundLab = false
 
     var body: some View {
         NavigationStack {
@@ -44,8 +48,15 @@ struct SettingsView: View {
                 .task {
                     guard let stage = router.settingsStage else { return }
                     router.settingsStage = nil
+                    if stage == "soundlab" {
+                        showsSoundLab = true
+                        return
+                    }
                     try? await Task.sleep(for: .milliseconds(600))
                     proxy.scrollTo(stage, anchor: .top)
+                }
+                .navigationDestination(isPresented: $showsSoundLab) {
+                    SoundLabView()
                 }
             }
             .paperBackground()
@@ -278,10 +289,42 @@ struct SettingsView: View {
                     .leafStyle(.uiBody)
             }
             SettingsValueRow(title: "Version", value: versionString)
+                .contentShape(.rect)
+                .onTapGesture {
+                    versionTaps += 1
+                    if versionTaps >= 7 && !soundLabUnlocked {
+                        soundLabUnlocked = true
+                        Haptics.shared.success()
+                    }
+                }
+            if showsSoundLabRow {
+                Button {
+                    Haptics.shared.tap()
+                    showsSoundLab = true
+                } label: {
+                    HStack {
+                        Text("Sound lab").leafStyle(.uiBody)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(Color.inkTertiary)
+                    }
+                    .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+            }
         } header: {
             header("About")
         }
         .settingsRows()
+    }
+
+    private var showsSoundLabRow: Bool {
+        #if DEBUG
+        return true
+        #else
+        return soundLabUnlocked
+        #endif
     }
 
     private var versionString: String {

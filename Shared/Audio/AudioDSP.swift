@@ -442,3 +442,380 @@ final class AudioResonatorPool {
         }
     }
 }
+
+// MARK: - A general second-order filter
+
+/// A second-order filter in the cookbook's low-pass, high-pass or band-pass shape (the band-pass peaks at 0 dB), in
+/// transposed direct form II. Used where a one-pole is too gentle: the fire's roar, a room's distance, a voice's
+/// formants.
+struct AudioFilter: Sendable {
+    enum Shape: Sendable { case lowpass, highpass, bandpass }
+
+    private var b0: Float = 0
+    private var b1: Float = 0
+    private var b2: Float = 0
+    private var a1: Float = 0
+    private var a2: Float = 0
+    private var z1: Float = 0
+    private var z2: Float = 0
+
+    init(_ shape: Shape, frequency: Double, q: Double = 0.7071, sampleRate: Double) {
+        retune(shape, frequency: frequency, q: q, sampleRate: sampleRate)
+    }
+
+    mutating func retune(_ shape: Shape, frequency: Double, q: Double, sampleRate: Double) {
+        let rate = max(sampleRate, 1)
+        let hz = min(max(frequency.isNaN ? 1_000 : frequency, 10), rate * 0.45)
+        let w0 = 2 * Double.pi * hz / rate
+        let cosine = cos(w0)
+        let alpha = sin(w0) / (2 * max(q, 0.1))
+        let a0 = 1 + alpha
+        let numerator: (Double, Double, Double)
+        switch shape {
+        case .lowpass: numerator = ((1 - cosine) / 2, 1 - cosine, (1 - cosine) / 2)
+        case .highpass: numerator = ((1 + cosine) / 2, -(1 + cosine), (1 + cosine) / 2)
+        case .bandpass: numerator = (alpha, 0, -alpha)
+        }
+        b0 = Float(numerator.0 / a0)
+        b1 = Float(numerator.1 / a0)
+        b2 = Float(numerator.2 / a0)
+        a1 = Float(-2 * cosine / a0)
+        a2 = Float((1 - alpha) / a0)
+    }
+
+    mutating func process(_ input: Float) -> Float {
+        let output = b0 * input + z1
+        z1 = b1 * input - a1 * output + z2
+        z2 = b2 * input - a2 * output
+        return output
+    }
+}
+
+// MARK: - Noise bursts
+
+/// One burst of noise ringing out through a broad band: a crackle, a paper crinkle, a scuff.
+struct AudioBurst {
+    var random = AudioRandom(seed: 1)
+    var level: Float = 0
+    var decay: Float = 0
+    var filter = AudioFilter(.bandpass, frequency: 1_000, q: 1, sampleRate: 44_100)
+    var gainLeft: Float = 0
+    var gainRight: Float = 0
+    var delay: Int = 0
+    var remaining: Int = 0
+    var isActive = false
+}
+
+/// Short bursts of noise through a broad band-pass, made up front and reused. Unlike `AudioResonatorPool`, nothing
+/// here rings at a pitch: a burst is noise whose level falls away in a fraction of a millisecond to a few
+/// milliseconds, and the band (Q of about 1) only colours it. That is what a crackle is; a ringing sine is a drip.
+/// Each burst draws its noise from its own generator, so the sound is the same however rendering is split into blocks.
+final class AudioBurstPool {
+    let capacity: Int
+    private let voices: UnsafeMutablePointer<AudioBurst>
+    private let sampleRate: Double
+    private let seed: UInt64
+    private let stream: UInt64
+    /// Every burst gets its own noise, numbered in the order they were struck (never by the slot it lands in, which
+    /// can depend on how rendering was split).
+    private var struck: UInt64 = 0
+
+    init(capacity: Int, sampleRate: Double, seed: UInt64, stream: UInt64) {
+        self.capacity = max(1, capacity)
+        self.sampleRate = max(sampleRate, 1)
+        self.seed = seed
+        self.stream = stream
+        voices = UnsafeMutablePointer<AudioBurst>.allocate(capacity: self.capacity)
+        voices.initialize(repeating: AudioBurst(), count: self.capacity)
+    }
+
+    deinit {
+        voices.deinitialize(count: capacity)
+        voices.deallocate()
+    }
+
+    var activeCount: Int {
+        var count = 0
+        for index in 0..<capacity where voices[index].isActive { count += 1 }
+        return count
+    }
+
+    /// Starts a burst `delay` frames into the next render. `decay` is the noise's time constant in seconds;
+    /// `amplitude` is its starting level.
+    func strike(frequency: Float, q: Float, decay: Float, amplitude: Float, pan: Float, delay: Int = 0) {
+        let tau = Double(max(decay, 0.00005))
+        let (left, right) = AudioPan.gains(pan)
+        var slot = 0
+        var quietest = Int.max
+        for index in 0..<capacity {
+            if !voices[index].isActive {
+                slot = index
+                break
+            }
+            if voices[index].remaining < quietest {
+                quietest = voices[index].remaining
+                slot = index
+            }
+        }
+        var voice = voices[slot]
+        struck &+= 1
+        voice.random = AudioRandom(seed: seed &+ stream &* 0x1000_0000, stream: struck)
+        voice.level = amplitude
+        voice.decay = Float(exp(-1 / (tau * sampleRate)))
+        voice.filter = AudioFilter(.bandpass, frequency: Double(frequency), q: Double(q), sampleRate: sampleRate)
+        voice.gainLeft = left
+        voice.gainRight = right
+        voice.delay = max(0, delay)
+        // Nine time constants of noise, then a little for the band to settle.
+        voice.remaining = Int(min(tau * sampleRate * 9, 10_000_000)) + 64
+        voice.isActive = true
+        voices[slot] = voice
+    }
+
+    func render(addingTo left: UnsafeMutablePointer<Float>, _ right: UnsafeMutablePointer<Float>, frames: Int) {
+        guard frames > 0 else { return }
+        for index in 0..<capacity where voices[index].isActive {
+            var voice = voices[index]
+            var frame = 0
+            while frame < frames {
+                if voice.delay > 0 {
+                    let skip = min(voice.delay, frames - frame)
+                    voice.delay -= skip
+                    frame += skip
+                    continue
+                }
+                let excitation = voice.random.signed() * voice.level
+                voice.level *= voice.decay
+                let output = voice.filter.process(excitation)
+                left[frame] += output * voice.gainLeft
+                right[frame] += output * voice.gainRight
+                voice.remaining -= 1
+                if voice.remaining <= 0 {
+                    voice.isActive = false
+                    break
+                }
+                frame += 1
+            }
+            voices[index] = voice
+        }
+    }
+}
+
+// MARK: - Bubbles
+
+/// One bubble: a sine that dies away in a few milliseconds while its pitch rises, as a real bubble's does when it
+/// nears the surface.
+struct AudioBubble {
+    var phase: Float = 0
+    var step: Float = 0
+    var chirp: Float = 1
+    var level: Float = 0
+    var decay: Float = 0
+    var gainLeft: Float = 0
+    var gainRight: Float = 0
+    var delay: Int = 0
+    var remaining: Int = 0
+    var isActive = false
+}
+
+/// Bubbles for the kettle, made up front and reused. Short and rising, they read as bubbling where a fixed-pitch ring
+/// reads as a drip.
+final class AudioBubblePool {
+    let capacity: Int
+    private let voices: UnsafeMutablePointer<AudioBubble>
+    private let sampleRate: Float
+
+    init(capacity: Int, sampleRate: Double) {
+        self.capacity = max(1, capacity)
+        self.sampleRate = Float(max(sampleRate, 1))
+        voices = UnsafeMutablePointer<AudioBubble>.allocate(capacity: self.capacity)
+        voices.initialize(repeating: AudioBubble(), count: self.capacity)
+    }
+
+    deinit {
+        voices.deinitialize(count: capacity)
+        voices.deallocate()
+    }
+
+    var activeCount: Int {
+        var count = 0
+        for index in 0..<capacity where voices[index].isActive { count += 1 }
+        return count
+    }
+
+    /// A bubble at `frequency` that fades with time constant `decay` (seconds) and rises by `rise` (0.3 is 30
+    /// percent) over three time constants.
+    func strike(frequency: Float, decay: Float, rise: Float, amplitude: Float, pan: Float, delay: Int = 0) {
+        let tau = max(decay, 0.0003)
+        let hz = min(max(frequency, 40), 0.4 * sampleRate)
+        let (left, right) = AudioPan.gains(pan)
+        var slot = 0
+        var quietest = Int.max
+        for index in 0..<capacity {
+            if !voices[index].isActive {
+                slot = index
+                break
+            }
+            if voices[index].remaining < quietest {
+                quietest = voices[index].remaining
+                slot = index
+            }
+        }
+        let lifetime = tau * sampleRate * 7
+        var voice = AudioBubble()
+        voice.step = 2 * Float.pi * hz / sampleRate
+        voice.chirp = 1 + max(0, rise) / max(3 * tau * sampleRate, 1)
+        voice.level = amplitude
+        voice.decay = exp(-1 / (tau * sampleRate))
+        voice.gainLeft = left
+        voice.gainRight = right
+        voice.delay = max(0, delay)
+        voice.remaining = Int(min(lifetime, 10_000_000)) + 1
+        voice.isActive = true
+        voices[slot] = voice
+    }
+
+    func render(addingTo left: UnsafeMutablePointer<Float>, _ right: UnsafeMutablePointer<Float>, frames: Int) {
+        guard frames > 0 else { return }
+        let ceilingStep = 2 * Float.pi * 0.45
+        for index in 0..<capacity where voices[index].isActive {
+            var voice = voices[index]
+            var frame = 0
+            while frame < frames {
+                if voice.delay > 0 {
+                    let skip = min(voice.delay, frames - frame)
+                    voice.delay -= skip
+                    frame += skip
+                    continue
+                }
+                voice.phase += voice.step
+                if voice.phase > 2 * Float.pi { voice.phase -= 2 * Float.pi }
+                voice.step = min(voice.step * voice.chirp, ceilingStep)
+                let output = sin(voice.phase) * voice.level
+                voice.level *= voice.decay
+                left[frame] += output * voice.gainLeft
+                right[frame] += output * voice.gainRight
+                voice.remaining -= 1
+                if voice.remaining <= 0 {
+                    voice.isActive = false
+                    break
+                }
+                frame += 1
+            }
+            voices[index] = voice
+        }
+    }
+}
+
+// MARK: - A room
+
+/// A small room around the sounds that are meant to be across it (Freeverb's shape: four damped combs into two
+/// all-passes per side, the right side a little longer). Fed one mono send, it returns a diffuse stereo tail, so
+/// distant voices, pages and footsteps arrive with the room around them instead of dry in the ear. Its memory is made
+/// in `init`.
+final class AudioRoom {
+    private static let combs = [1_116, 1_188, 1_277, 1_356]
+    private static let allpasses = [556, 441]
+    private static let spread = 23
+
+    private let lengths: [Int]
+    private let buffers: UnsafeMutablePointer<Float>
+    private let starts: [Int]
+    private let total: Int
+    private var positions: [Int]
+    private var damping: [Float]
+    private let feedback: Float
+    private let damp: Float
+
+    /// `size` scales the delay lengths (1 is Freeverb's); `feedback` is how long the tail is (0.7 to 0.85);
+    /// `damp` how quickly its highs fade.
+    init(sampleRate: Double, size: Double, feedback: Float, damp: Float) {
+        let scale = max(sampleRate, 8_000) / 44_100 * max(size, 0.2)
+        var lengths: [Int] = []
+        for side in 0..<2 {
+            for delay in AudioRoom.combs { lengths.append(max(1, Int(Double(delay + side * AudioRoom.spread) * scale))) }
+        }
+        for side in 0..<2 {
+            for delay in AudioRoom.allpasses { lengths.append(max(1, Int(Double(delay + side * AudioRoom.spread) * scale))) }
+        }
+        var starts: [Int] = []
+        var offset = 0
+        for length in lengths {
+            starts.append(offset)
+            offset += length
+        }
+        self.lengths = lengths
+        self.starts = starts
+        total = offset
+        buffers = UnsafeMutablePointer<Float>.allocate(capacity: offset)
+        buffers.initialize(repeating: 0, count: offset)
+        positions = [Int](repeating: 0, count: lengths.count)
+        damping = [Float](repeating: 0, count: 8)
+        self.feedback = min(0.95, max(0, feedback))
+        self.damp = min(0.95, max(0, damp))
+    }
+
+    deinit {
+        buffers.deinitialize(count: total)
+        buffers.deallocate()
+    }
+
+    /// One sample of send in, one stereo sample of room out.
+    func process(_ input: Float) -> (left: Float, right: Float) {
+        var out: (Float, Float) = (0, 0)
+        for side in 0..<2 {
+            var sum: Float = 0
+            for comb in 0..<4 {
+                let line = side * 4 + comb
+                let at = starts[line] + positions[line]
+                let delayed = buffers[at]
+                damping[line] = delayed * (1 - damp) + damping[line] * damp
+                buffers[at] = input + damping[line] * feedback
+                positions[line] += 1
+                if positions[line] >= lengths[line] { positions[line] = 0 }
+                sum += delayed
+            }
+            for pass in 0..<2 {
+                let line = 8 + side * 2 + pass
+                let at = starts[line] + positions[line]
+                let delayed = buffers[at]
+                let output = delayed - sum
+                buffers[at] = sum + delayed * 0.5
+                positions[line] += 1
+                if positions[line] >= lengths[line] { positions[line] = 0 }
+                sum = output
+            }
+            if side == 0 { out.0 = sum * 0.25 } else { out.1 = sum * 0.25 }
+        }
+        return out
+    }
+}
+
+// MARK: - Scratch space
+
+/// Buffers made once for a voice that mixes in more than one pass, freed with it. (Voices are value types, so they
+/// can't free memory themselves.)
+final class AudioScratch {
+    let capacity: Int
+    private let buffers: [UnsafeMutablePointer<Float>]
+
+    init(count: Int, capacity: Int) {
+        self.capacity = max(1, capacity)
+        var made: [UnsafeMutablePointer<Float>] = []
+        for _ in 0..<max(1, count) {
+            let buffer = UnsafeMutablePointer<Float>.allocate(capacity: self.capacity)
+            buffer.initialize(repeating: 0, count: self.capacity)
+            made.append(buffer)
+        }
+        buffers = made
+    }
+
+    deinit {
+        for buffer in buffers {
+            buffer.deinitialize(count: capacity)
+            buffer.deallocate()
+        }
+    }
+
+    subscript(index: Int) -> UnsafeMutablePointer<Float> { buffers[index] }
+}

@@ -10,46 +10,60 @@ enum AmbienceRecipe: String, CaseIterable, Sendable {
     case cafe
     case library
 
+    /// The generations of the recipes. `.original` is the first TestFlight's fireplace, kettle, cafe and library,
+    /// kept only so the Sound lab and the audio previews can play them beside `.current`. Rain is the same in both.
+    enum Version: String, CaseIterable, Sendable {
+        case original
+        case current
+    }
+
     /// The recipe for a stored ambience id. Nil for silence ("none"), for nil, and for anything unrecognised.
     init?(id: String?) {
         guard let id, let recipe = AmbienceRecipe(rawValue: id) else { return nil }
         self = recipe
     }
 
-    /// How loud the recipe is at full volume, as RMS in dBFS. Beds sit well below the -3 dBFS ceiling so crackles,
-    /// pops and clinks have room to stand out; the library is meant to be almost not there.
-    var targetLevel: Double {
+    /// How loud the current recipe is at full volume, in LUFS as `AudioMeasure.loudness` reads it (K-weighted and
+    /// ungated, over a long stretch). Every sound sits at the same loudness, so switching between them at one volume
+    /// keeps the room the same; the library is a hush by design, eight below. The kettle is measured once it has
+    /// come up to the simmer.
+    var targetLoudness: Double {
         switch self {
-        case .rain: return -18
-        case .fireplace: return -19
-        case .kettle: return -21
-        case .cafe: return -20
-        case .library: return -32
+        case .rain, .fireplace, .kettle, .cafe: return AmbienceRecipe.sharedLoudness
+        case .library: return AmbienceRecipe.sharedLoudness - 8
         }
     }
 
-    /// `targetLevel` as a linear RMS.
-    var targetRMS: Float { Float(pow(10, targetLevel / 20)) }
+    static let sharedLoudness = -17.0
 
-    /// Gain that takes the voice's raw mix to `targetRMS` (measured over many seeds at 44.1 kHz; the tests hold it
-    /// to within 1.5 dB).
-    var rawToTarget: Float {
-        switch self {
-        case .rain: return 0.1957
-        case .fireplace: return 0.1143
-        case .kettle: return 0.1642
-        case .cafe: return 0.1987
-        case .library: return 0.0271
+    /// Gain that takes a voice's raw mix to its target loudness (measured over several seeds at 44.1 kHz; the tests
+    /// hold it to within 1.5 LU).
+    func rawToTarget(_ version: Version = .current) -> Float {
+        switch (self, version) {
+        case (.rain, .original): return 0.1957
+        case (.rain, .current): return 0.1294
+        case (.fireplace, .original): return 0.1143
+        case (.fireplace, .current): return 0.741
+        case (.kettle, .original): return 0.1642
+        case (.kettle, .current): return 0.537
+        case (.cafe, .original): return 0.1987
+        case (.cafe, .current): return 9.0
+        case (.library, .original): return 0.0271
+        case (.library, .current): return 1.047
         }
     }
 
-    func makeVoice(sampleRate: Double, seed: UInt64) -> any AmbienceVoice {
-        switch self {
-        case .rain: return AmbienceRainVoice(sampleRate: sampleRate, seed: seed)
-        case .fireplace: return AmbienceFireVoice(sampleRate: sampleRate, seed: seed)
-        case .kettle: return AmbienceKettleVoice(sampleRate: sampleRate, seed: seed)
-        case .cafe: return AmbienceCafeVoice(sampleRate: sampleRate, seed: seed)
-        case .library: return AmbienceLibraryVoice(sampleRate: sampleRate, seed: seed)
+    func makeVoice(sampleRate: Double, seed: UInt64, version: Version = .current) -> any AmbienceVoice {
+        switch (self, version) {
+        case (.rain, _): return AmbienceRainVoice(sampleRate: sampleRate, seed: seed)
+        case (.fireplace, .original): return AmbienceFireVoiceOriginal(sampleRate: sampleRate, seed: seed)
+        case (.fireplace, .current): return AmbienceFireVoice(sampleRate: sampleRate, seed: seed)
+        case (.kettle, .original): return AmbienceKettleVoiceOriginal(sampleRate: sampleRate, seed: seed)
+        case (.kettle, .current): return AmbienceKettleVoice(sampleRate: sampleRate, seed: seed)
+        case (.cafe, .original): return AmbienceCafeVoiceOriginal(sampleRate: sampleRate, seed: seed)
+        case (.cafe, .current): return AmbienceCafeVoice(sampleRate: sampleRate, seed: seed)
+        case (.library, .original): return AmbienceLibraryVoiceOriginal(sampleRate: sampleRate, seed: seed)
+        case (.library, .current): return AmbienceLibraryVoice(sampleRate: sampleRate, seed: seed)
         }
     }
 }

@@ -111,9 +111,10 @@ private func audioRender(
     seed: UInt64 = 1,
     block: Int = 512,
     initialGain: Float = 1,
+    version: AmbienceRecipe.Version = .current,
     configure: ((AmbienceSynth) -> Void)? = nil
 ) -> (left: [Float], right: [Float]) {
-    let synth = AmbienceSynth(recipe: recipe, sampleRate: sampleRate, seed: seed, initialGain: initialGain)
+    let synth = AmbienceSynth(recipe: recipe, sampleRate: sampleRate, seed: seed, initialGain: initialGain, version: version)
     configure?(synth)
     let frames = Int(seconds * sampleRate)
     var left = [Float](repeating: 0, count: frames)
@@ -131,6 +132,15 @@ private func audioRender(
     }
     return (left, right)
 }
+
+/// LUFS of a stereo render (K-weighted, ungated), from `from` seconds on.
+private func audioLoudness(_ render: (left: [Float], right: [Float]), from seconds: Double = 0, sampleRate: Double = 44_100) -> Double {
+    let start = min(render.left.count, Int(seconds * sampleRate))
+    return AudioMeasure.loudness(left: Array(render.left[start...]), right: Array(render.right[start...]), sampleRate: sampleRate)
+}
+
+/// How long to render a recipe to hear it properly, and where its steady sound begins (the kettle needs its rise).
+private func audioSettle(_ recipe: AmbienceRecipe) -> Double { recipe == .kettle ? 32 : 0 }
 
 private func audioNoise(_ color: AudioNoiseColor, count: Int, sampleRate: Double = 44_100, seed: UInt64 = 5) -> [Float] {
     var source = AudioNoiseSource(color: color, seed: seed, sampleRate: sampleRate)
@@ -454,82 +464,77 @@ struct AmbienceSynthTests {
         #expect(AmbienceRecipe(id: "") == nil)
         #expect(AmbienceRecipe(id: "Rain") == nil)
         for recipe in AmbienceRecipe.allCases {
-            #expect(recipe.targetLevel < -12 && recipe.targetLevel > -45)
-            #expect(recipe.targetRMS > 0 && recipe.targetRMS < AudioLimiter.ceiling / 4)
-            #expect(recipe.rawToTarget > 0)
+            #expect(recipe.targetLoudness < -12 && recipe.targetLoudness > -35)
+            for version in AmbienceRecipe.Version.allCases {
+                #expect(recipe.rawToTarget(version) > 0)
+            }
         }
-        #expect(AmbienceRecipe.library.targetLevel == AmbienceRecipe.allCases.map(\.targetLevel).min())
+        let quietest: Double = AmbienceRecipe.allCases.map { $0.targetLoudness }.min() ?? 0
+        #expect(AmbienceRecipe.library.targetLoudness == quietest)
     }
 
     @Test(arguments: AmbienceRecipe.allCases)
     func thirtySecondsStayFiniteUnderTheCeilingAndOnTarget(recipe: AmbienceRecipe) {
         let rate = 44_100.0
-        let (left, right) = audioRender(recipe, seconds: 30, sampleRate: rate, seed: 7)
-        #expect(left.count == Int(30 * rate))
+        let settle = audioSettle(recipe)
+        let render = audioRender(recipe, seconds: 30 + settle, sampleRate: rate, seed: 7)
+        let left = render.left
+        let right = render.right
         #expect(audioAllFinite(left) && audioAllFinite(right), "\(recipe)")
 
         let peak = max(audioPeak(left), audioPeak(right))
         #expect(peak <= AudioLimiter.ceiling, "\(recipe) peak \(peak)")
-        #expect(peak < 1)
-        #expect(peak > recipe.targetRMS, "\(recipe) is not flat: peak \(peak)")
 
-        let rms = audioRMS(left, right)
-        let offTarget = audioDecibels(rms) - recipe.targetLevel
-        #expect(abs(offTarget) < 1.5, "\(recipe) is \(offTarget) dB from its target")
+        let loudness = audioLoudness(render, from: settle)
+        let offTarget = loudness - recipe.targetLoudness
+        #expect(abs(offTarget) < 1.5, "\(recipe) is \(offTarget) LU from its target (\(loudness) LUFS)")
 
         // No stuck DC offset, and the two ears hear different things.
         #expect(abs(left.reduce(0.0) { $0 + Double($1) } / Double(left.count)) < 0.01)
         #expect(left != right)
 
-        // Never dead air: every two-second stretch has sound, and none is wildly louder than the rest.
+        // Never dead air, and no two-second stretch wildly louder than the whole.
         let window = Int(2 * rate)
-        for start in stride(from: 0, to: left.count - window, by: window) {
+        let whole = audioRMS(Array(left[Int(settle * rate)...]))
+        for start in stride(from: Int(settle * rate), to: left.count - window, by: window) {
             let local = audioRMS(left[start..<(start + window)])
-            #expect(local > Double(recipe.targetRMS) * 0.3 && local < Double(recipe.targetRMS) * 3, "\(recipe) at \(start)")
-        }
-
-        // Each recipe sounds like itself: where its energy sits, and how peaky it is.
-        let bright = audioHighShare(left, cutoff: 3_000, sampleRate: rate)
-        let deep = audioLowShare(left, cutoff: 300, sampleRate: rate)
-        let crest = Double(audioPeak(left)) / max(audioRMS(left), 1e-9)
-        switch recipe {
-        case .rain:
-            // Bright patter over a wash; no deep rumble.
-            #expect(bright > 0.15 && deep < 0.4, "rain bright \(bright) deep \(deep)")
-        case .fireplace:
-            // A deep rumble with pops and crackles standing out of it.
-            #expect(deep > 0.6 && bright < 0.05 && crest > 3.5, "fire deep \(deep) bright \(bright) crest \(crest)")
-        case .kettle:
-            // A mid-low hush with a steady level.
-            #expect(deep > 0.2 && deep < 0.7 && crest < 6, "kettle deep \(deep) crest \(crest)")
-        case .cafe:
-            // A murmur: mid-range, not bright, not rumbling.
-            #expect(bright < 0.25 && deep < 0.4, "cafe bright \(bright) deep \(deep)")
-        case .library:
-            // Nearly silent, and what there is sits low.
-            #expect(deep > 0.6 && audioRMS(left) < 0.04, "library deep \(deep)")
+            #expect(local > 1e-4, "\(recipe) is silent at \(start)")
+            #expect(local < whole * 4, "\(recipe) jumps at \(start)")
         }
     }
 
     @Test(arguments: AmbienceRecipe.allCases)
     func levelHoldsAcrossSeeds(recipe: AmbienceRecipe) {
+        let settle = audioSettle(recipe)
+        // The library's events are sparse, so it needs longer to average out.
+        let seconds: Double = recipe == .library ? 30 : 10
         for seed in [2, 3] as [UInt64] {
-            let (left, right) = audioRender(recipe, seconds: 8, seed: seed)
-            let offTarget = audioDecibels(audioRMS(left, right)) - recipe.targetLevel
-            #expect(abs(offTarget) < 2.2, "\(recipe) seed \(seed): \(offTarget) dB")
+            let render = audioRender(recipe, seconds: settle + seconds, seed: seed)
+            let offTarget = audioLoudness(render, from: settle) - recipe.targetLoudness
+            #expect(abs(offTarget) < 2.2, "\(recipe) seed \(seed): \(offTarget) LU")
         }
     }
 
     @Test(arguments: AmbienceRecipe.allCases)
     func otherSampleRatesStayFiniteAndRoughlyOnTarget(recipe: AmbienceRecipe) {
         for rate in [22_050.0, 48_000.0] {
-            let (left, right) = audioRender(recipe, seconds: 5, sampleRate: rate, seed: 5)
-            #expect(left.count == Int(5 * rate))
-            #expect(audioAllFinite(left) && audioAllFinite(right))
-            #expect(max(audioPeak(left), audioPeak(right)) <= AudioLimiter.ceiling)
-            let offTarget = audioDecibels(audioRMS(left, right)) - recipe.targetLevel
-            #expect(abs(offTarget) < 3, "\(recipe) at \(rate): \(offTarget) dB")
+            let render = audioRender(recipe, seconds: 6, sampleRate: rate, seed: 5)
+            #expect(render.left.count == Int(6 * rate))
+            #expect(audioAllFinite(render.left) && audioAllFinite(render.right))
+            #expect(max(audioPeak(render.left), audioPeak(render.right)) <= AudioLimiter.ceiling)
+            // The kettle is still coming up and the library's six seconds may hold no event; the rest are steady.
+            guard recipe != .kettle && recipe != .library else { continue }
+            let offTarget = audioLoudness(render, sampleRate: rate) - recipe.targetLoudness
+            #expect(abs(offTarget) < 3, "\(recipe) at \(rate): \(offTarget) LU")
         }
+    }
+
+    @Test(arguments: AmbienceRecipe.allCases)
+    func theOriginalRecipesStillPlayForComparison(recipe: AmbienceRecipe) {
+        let render = audioRender(recipe, seconds: 3, seed: 8, version: .original)
+        #expect(audioAllFinite(render.left) && audioAllFinite(render.right))
+        #expect(max(audioPeak(render.left), audioPeak(render.right)) <= AudioLimiter.ceiling)
+        #expect(audioRMS(render.left) > 1e-4)
     }
 
     @Test(arguments: AmbienceRecipe.allCases)
@@ -714,41 +719,172 @@ struct AmbienceSynthTests {
         #expect(audioAllFinite(low.left) && audioPeak(low.left) <= AudioLimiter.ceiling)
     }
 
-    @Test func kettleBubblesBuildWithoutGettingLouder() {
-        let rate = 44_100.0
-        let kettle = audioRender(.kettle, seconds: 25, seed: 12).left
-        let early = audioRMS(kettle[0..<Int(4 * rate)])
-        let rolling = audioRMS(kettle[Int(21 * rate)..<Int(25 * rate)])
-        #expect(abs(audioDecibels(early) - audioDecibels(rolling)) < 2.5, "the simmer keeps its loudness")
-
-        // The bubbling starts slow, rises smoothly, then levels off at a rolling simmer.
+    @Test func theKettleComesUpToASimmerAndStaysThere() {
         let rise = AmbienceKettleVoice.riseSeconds
-        #expect(rise > 5 && rise < 60)
-        #expect(AmbienceKettleVoice.bubbleRate(atSeconds: 0, rolling: 0) == 2.5)
-        #expect(AmbienceKettleVoice.bubbleRate(atSeconds: rise, rolling: 0) == 24.5)
-        #expect(AmbienceKettleVoice.bubbleRate(atSeconds: rise * 10, rolling: 0) == 24.5)
-        var previous = AmbienceKettleVoice.bubbleRate(atSeconds: 0, rolling: 0)
+        #expect(rise > 10 && rise < 60)
+        // The bubbling starts with the odd bubble, rises smoothly, then levels off at a rolling simmer.
+        let first: Float = AmbienceKettleVoice.bubbleRate(atSeconds: 0, rolling: 0)
+        let settled: Float = AmbienceKettleVoice.bubbleRate(atSeconds: rise * 1.3, rolling: 0)
+        let later: Float = AmbienceKettleVoice.bubbleRate(atSeconds: rise * 10, rolling: 0)
+        #expect(first < 1)
+        #expect(settled > 60)
+        #expect(later == settled)
+        var previous = first
         var worstJump: Float = 0
-        for step in 0...400 {
-            let rate = AmbienceKettleVoice.bubbleRate(atSeconds: Float(step) * rise / 400, rolling: 0)
+        for step in 0...600 {
+            let rate = AmbienceKettleVoice.bubbleRate(atSeconds: Float(step) * rise * 1.5 / 600, rolling: 0)
             #expect(rate >= previous)
             worstJump = max(worstJump, rate - previous)
             previous = rate
         }
-        #expect(worstJump < 0.3)
-        // Rolling only swells or eases the simmer a little, and bad input cannot push it out of bounds.
-        let swell = AmbienceKettleVoice.bubbleRate(atSeconds: rise, rolling: 1)
-        let ease = AmbienceKettleVoice.bubbleRate(atSeconds: rise, rolling: -1)
-        #expect(ease < 24.5 && swell > 24.5 && swell < 40)
-        #expect(AmbienceKettleVoice.bubbleRate(atSeconds: rise, rolling: 50) == swell)
+        #expect(worstJump < 1)
+        // Rolling only swells or eases the simmer, and bad input cannot push it out of bounds.
+        let swell = AmbienceKettleVoice.bubbleRate(atSeconds: rise * 2, rolling: 1)
+        let ease = AmbienceKettleVoice.bubbleRate(atSeconds: rise * 2, rolling: -1)
+        #expect(ease < later && swell > later)
+        #expect(AmbienceKettleVoice.bubbleRate(atSeconds: rise * 2, rolling: 50) == swell)
 
-        // As bubbles multiply they get quieter, so the energy they carry (rate times loudness squared) holds steady.
-        let slow = AmbienceKettleVoice.bubbleRate(atSeconds: 0, rolling: 0)
-        let busy = AmbienceKettleVoice.bubbleRate(atSeconds: rise, rolling: 0)
-        #expect(AmbienceKettleVoice.bubbleLoudness(forRate: busy) < AmbienceKettleVoice.bubbleLoudness(forRate: slow))
-        let slowEnergy = slow * AmbienceKettleVoice.bubbleLoudness(forRate: slow) * AmbienceKettleVoice.bubbleLoudness(forRate: slow)
-        let busyEnergy = busy * AmbienceKettleVoice.bubbleLoudness(forRate: busy) * AmbienceKettleVoice.bubbleLoudness(forRate: busy)
-        #expect(abs(slowEnergy - busyEnergy) < 0.01)
+        // Once simmering, more bubbles means quieter bubbles: the energy (rate times loudness squared) holds.
+        let busy: Float = AmbienceKettleVoice.bubbleLoudness(forRate: 80, simmer: 1)
+        let fewer: Float = AmbienceKettleVoice.bubbleLoudness(forRate: 20, simmer: 1)
+        let busyEnergy: Float = 80 * busy * busy
+        let fewerEnergy: Float = 20 * fewer * fewer
+        #expect(abs(busyEnergy - fewerEnergy) < 0.01)
+        // While the water is coming up, bubbles are small.
+        #expect(AmbienceKettleVoice.bubbleLoudness(forRate: 4, simmer: 0) < AmbienceKettleVoice.bubbleLoudness(forRate: 4, simmer: 1))
+    }
+}
+
+// MARK: - What each sound is like
+
+/// Checks that hold each ambience to what its real counterpart is like, measured rather than heard. Several also show
+/// that the first TestFlight's recipe fails them, which is how its fire came to sound like a drip and its library like
+/// static.
+struct AmbienceCharacterTests {
+    private let rate = 44_100.0
+
+    private func mono(_ recipe: AmbienceRecipe, seconds: Double, seed: UInt64 = 7, version: AmbienceRecipe.Version = .current) -> [Float] {
+        let render = audioRender(recipe, seconds: seconds, seed: seed, version: version)
+        return AudioMeasure.mono(render.left, render.right)
+    }
+
+    @Test func fireCracklesAreNoiseNotDrips() {
+        let fire = mono(.fireplace, seconds: 15)
+        let onsets = AudioMeasure.onsets(fire, sampleRate: rate)
+        #expect(onsets.count > 20)
+        let ringing: Double = AudioMeasure.ringing(fire, onsets: onsets, sampleRate: rate)
+        #expect(ringing < 0.35, "crackles ring at a pitch: \(ringing)")
+
+        // The first fire's pops were pitched rings, and the measure says so.
+        // Its crackles barely cleared its own hiss, so it takes longer to find enough of them.
+        let original = mono(.fireplace, seconds: 30, version: .original)
+        let originalRinging: Double = AudioMeasure.ringing(original, onsets: AudioMeasure.onsets(original, sampleRate: rate), sampleRate: rate)
+        #expect(originalRinging > ringing + 0.1, "original \(originalRinging), now \(ringing)")
+    }
+
+    @Test func fireCracklesComeInSpells() {
+        let fire = mono(.fireplace, seconds: 20, seed: 9)
+        let spacing = AudioMeasure.spacing(AudioMeasure.onsets(fire, sampleRate: rate), seconds: 20, sampleRate: rate)
+        #expect(spacing.rate > 2 && spacing.rate < 30, "crackles a second: \(spacing.rate)")
+        // Bursty: far less even than chance, with many crackles close behind another.
+        #expect(spacing.variation > 1.2, "gap variation \(spacing.variation)")
+        #expect(spacing.closeShare > 0.15, "close gaps \(spacing.closeShare)")
+    }
+
+    @Test func fireIsAWarmRoarWithoutHiss() {
+        let fire = mono(.fireplace, seconds: 15)
+        let hiss: Double = AudioMeasure.quietHiss(fire, sampleRate: rate)
+        let balance: Double = AudioMeasure.bandBalance(fire, low: 2_000, high: 8_000, sampleRate: rate)
+        #expect(hiss < -24, "hiss between crackles: \(hiss) dB")
+        #expect(balance < -6, "highs against the roar: \(balance) dB")
+        let original = mono(.fireplace, seconds: 15, version: .original)
+        let originalHiss: Double = AudioMeasure.quietHiss(original, sampleRate: rate)
+        #expect(originalHiss > hiss + 4, "original \(originalHiss), now \(hiss)")
+    }
+
+    @Test func theLibraryIsAQuietRoomNotStatic() {
+        let library = mono(.library, seconds: 45)
+        let hiss: Double = AudioMeasure.quietHiss(library, sampleRate: rate)
+        let contrast: Double = AudioMeasure.phoneBandContrast(library, sampleRate: rate)
+        #expect(hiss < -35, "hiss in the quiet: \(hiss) dB")
+        #expect(contrast > 8, "events against the room in a phone speaker's band: \(contrast) dB")
+        let onsets = AudioMeasure.onsets(library, sampleRate: rate)
+        if onsets.count >= 5 {
+            let ringing: Double = AudioMeasure.ringing(library, onsets: onsets, sampleRate: rate)
+            #expect(ringing < 0.35, "library events ring: \(ringing)")
+        }
+
+        // The first library was a constant hiss, so nothing stood out of it.
+        let original = mono(.library, seconds: 45, version: .original)
+        let originalHiss: Double = AudioMeasure.quietHiss(original, sampleRate: rate)
+        let originalContrast: Double = AudioMeasure.phoneBandContrast(original, sampleRate: rate)
+        #expect(originalHiss > -28, "original hiss \(originalHiss)")
+        #expect(originalContrast < 4, "original contrast \(originalContrast)")
+    }
+
+    @Test func theCafeIsShapedLikeSpeech() {
+        let cafe = mono(.cafe, seconds: 12)
+        let peak: Double = AudioMeasure.spectralPeak(cafe, low: 80, high: 4_000, sampleRate: rate)
+        let syllables: Double = AudioMeasure.syllableModulation(cafe, sampleRate: rate)
+        let highs: Double = AudioMeasure.decibels(AudioMeasure.meanSquare(AudioMeasure.band(cafe, low: 4_000, high: 10_000, sampleRate: rate)))
+            - AudioMeasure.decibels(AudioMeasure.meanSquare(cafe))
+        // Speech carries most of its power between about 250 Hz and 1 kHz, moves at the rate of syllables, and a few
+        // tables away has little left above 4 kHz.
+        #expect(peak > 250 && peak < 1_000, "spectral peak \(peak) Hz")
+        #expect(syllables > 0.25, "syllable-rate movement \(syllables)")
+        #expect(highs < -18, "above 4 kHz: \(highs) dB")
+    }
+
+    @Test func theKettleRisesWithoutAWhistle() {
+        let kettle = mono(.kettle, seconds: 45, seed: 12)
+        let early = AudioMeasure.meanSquare(Array(kettle[0..<Int(6 * rate)]))
+        let simmer = Array(kettle[Int(35 * rate)...])
+        let late = AudioMeasure.meanSquare(simmer)
+        let rise: Double = AudioMeasure.decibels(late) - AudioMeasure.decibels(early)
+        #expect(rise > 8, "rise from the first seconds to the simmer: \(rise) dB")
+        let tonal: Double = AudioMeasure.tonalPeak(simmer, sampleRate: rate)
+        #expect(tonal < 8, "a narrow peak (a whistle) \(tonal) dB above its neighbours")
+    }
+
+    @Test func noSteadySoundHumsOrWhistles() {
+        for recipe in [AmbienceRecipe.rain, .fireplace] {
+            let sound = mono(recipe, seconds: 20)
+            let tonal: Double = AudioMeasure.tonalPeak(sound, sampleRate: rate)
+            #expect(tonal < 8, "\(recipe): \(tonal) dB")
+        }
+    }
+
+    @Test func theSoundsMatchInLoudness() {
+        var levels: [Double] = []
+        for recipe in [AmbienceRecipe.rain, .fireplace, .kettle, .cafe] {
+            let settle = audioSettle(recipe)
+            levels.append(audioLoudness(audioRender(recipe, seconds: settle + 12, seed: 4), from: settle))
+        }
+        let loudest: Double = levels.max() ?? 0
+        let quietest: Double = levels.min() ?? 0
+        #expect(loudest - quietest < 2.5, "loudness spread \(levels)")
+    }
+}
+
+// MARK: - Loops
+
+struct AudioLoopTests {
+    @Test func aCrossfadedLoopJoinsWithoutAClick() {
+        // Noise riding on a slow ramp: as a plain loop it jumps from the top of the ramp back to the bottom.
+        var noise = AudioNoiseSource(color: .pink, seed: 3, sampleRate: 44_100)
+        var recording: [Float] = []
+        for index in 0..<88_200 {
+            recording.append(noise.next() * 0.1 + Float(index) / 88_200 * 0.8)
+        }
+        let plain: Double = AudioLoop.seamJump(recording)
+        let loop = AudioLoop.seamless(recording, crossfade: 4_410)
+        let joined: Double = AudioLoop.seamJump(loop)
+        #expect(plain > 5, "the plain loop clicks: \(plain)")
+        #expect(joined < 1.5, "the crossfaded loop: \(joined)")
+        #expect(loop.count == recording.count - 4_410)
+        // Nothing to fade leaves it alone; an absurd fade is limited to half the recording.
+        #expect(AudioLoop.seamless(recording, crossfade: 0) == recording)
+        #expect(AudioLoop.seamless(recording, crossfade: 1_000_000).count == recording.count / 2)
     }
 }
 
@@ -839,6 +975,26 @@ struct CozyCueTests {
         let brightThunk = audioHighShare(Array(thunkPart), cutoff: 2_000, sampleRate: rate)
         #expect(brightClick > brightThunk, "click \(brightClick) thunk \(brightThunk)")
         #expect(audioRMS(click.suffix(Int(0.1 * rate))) < audioRMS(thunkPart) * 0.2)
+    }
+
+    @Test(arguments: CozyCue.allCases)
+    func cuesAreSoftNotSharp(cue: CozyCue) {
+        let samples = CozyCueSynth.render(cue)
+        // Little above 6 kHz, where a cue turns from soft to sharp, and its centre of brightness low.
+        let above: Double = AudioMeasure.meanSquare(AudioMeasure.band(samples, low: 6_000, high: 16_000, sampleRate: 44_100))
+        let all: Double = AudioMeasure.meanSquare(samples)
+        let share: Double = above / max(all, 1e-20)
+        #expect(share < 0.1, "\(cue): \(share) of its energy above 6 kHz")
+        let power = AudioMeasure.spectrum(samples, size: 1_024)
+        var weighted = 0.0
+        var total = 0.0
+        for bin in power.indices {
+            weighted += Double(bin) * 44_100 / 1_024 * power[bin]
+            total += power[bin]
+        }
+        let centroid: Double = weighted / max(total, 1e-20)
+        #expect(centroid < 2_500, "\(cue): brightness centre \(centroid) Hz")
+        #expect(CozyCueSynth.peak(of: cue) <= 0.3)
     }
 
     @Test func sequencesAreOrderedAndDoNotOverlapTheirNeighbours() {

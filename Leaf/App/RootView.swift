@@ -196,7 +196,7 @@ struct RootView: View {
             router.bookStage = "timeline"
             router.tab = .library
             router.libraryPath = [BookRoute(book: store.item(DemoData.hobbit.id)?.book ?? DemoData.hobbit)]
-        case "settings.plan", "settings.tea", "settings.cloud", "settings.data":
+        case "settings.plan", "settings.tea", "settings.cloud", "settings.data", "settings.soundlab":
             router.settingsStage = String(key.dropFirst("settings.".count))
             router.showSettings = true
         case "book.journal", "book.more", "book.edition":

@@ -9,7 +9,8 @@ struct Ambience: Codable, Hashable, Identifiable, Sendable {
     var blurb: String
     /// An SF Symbol name for the picker.
     var symbol: String
-    /// Where the volume starts, 0 to 1.
+    /// Where the volume starts, 0 to 1. The sounds are made to one loudness (the library a little under), so they
+    /// all start in the same place.
     var defaultVolume: Double
     /// Whether the sound can run for as long as the reader likes without a seam. Every sound the procedural engine
     /// makes is endless, so they are all true today; a future recorded loop that clicks at its join would be false,
@@ -40,25 +41,25 @@ enum AmbienceCatalog {
 
     static let fireplace = Ambience(
         id: "fireplace", name: "Fireplace", blurb: "Embers settling and the odd crackle, close enough to warm your feet.",
-        symbol: "flame", defaultVolume: 0.45, loopSafe: true,
+        symbol: "flame", defaultVolume: 0.5, loopSafe: true,
         seasons: [.autumn, .winter], dayparts: [.teaTime, .dusk, .evening, .late, .smallHours], weathers: [.cold, .snow, .rain, .fog]
     )
 
     static let kettle = Ambience(
         id: "kettle", name: "Kettle on", blurb: "A kettle coming up to a simmer in the next room.",
-        symbol: "cup.and.saucer", defaultVolume: 0.4, loopSafe: true,
+        symbol: "cup.and.saucer", defaultVolume: 0.5, loopSafe: true,
         seasons: [.autumn, .winter, .spring], dayparts: [.dawn, .morning, .afternoon, .teaTime, .dusk], weathers: [.cold, .cloudy, .clear]
     )
 
     static let cafe = Ambience(
         id: "cafe", name: "Café murmur", blurb: "Low voices, cups on saucers and nobody who needs anything from you.",
-        symbol: "person.2", defaultVolume: 0.35, loopSafe: true,
+        symbol: "person.2", defaultVolume: 0.5, loopSafe: true,
         seasons: [.spring, .summer, .autumn], dayparts: [.morning, .lunch, .afternoon, .teaTime], weathers: [.clear, .cloudy, .hot]
     )
 
     static let library = Ambience(
-        id: "library", name: "Library hush", blurb: "Distant pages, a clock somewhere, the comfort of other readers.",
-        symbol: "books.vertical", defaultVolume: 0.25, loopSafe: true,
+        id: "library", name: "Library hush", blurb: "Pages turning across the room, someone passing, the hush of a big quiet space.",
+        symbol: "books.vertical", defaultVolume: 0.5, loopSafe: true,
         seasons: Season.allCases, dayparts: [.dawn, .morning, .lunch, .afternoon, .dusk, .evening, .late, .smallHours], weathers: [.clear, .cloudy, .hot, .fog]
     )
 

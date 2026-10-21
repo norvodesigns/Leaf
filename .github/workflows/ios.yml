@@ -49,6 +49,30 @@ jobs:
             CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO \
             test 2>&1 | tee build-ios.log | xcbeautify --quieter || { echo "::group::Errors"; grep -E "error:|failed|Failing tests|✘" build-ios.log | sort -u | head -300; echo "::endgroup::"; exit 1; }
 
+      # The ambience previews, rendered with the app's own synthesis, go to a hidden ref like the screenshots:
+      # `git fetch origin refs/ci/audio` (see docs/AUDIO_SOURCES.md).
+      - name: Render ambience previews
+        if: success()
+        timeout-minutes: 10
+        run: bash scripts/render_ambience_previews.sh audio-previews
+
+      - name: Publish ambience previews to refs/ci/audio
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ls audio-previews/*.m4a >/dev/null 2>&1 || { echo "no previews to publish"; exit 0; }
+          cat audio-previews/MEASURES.md
+          dir=$(mktemp -d)
+          cp audio-previews/* "$dir/"
+          cd "$dir"
+          git init -q
+          git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "Ambience previews of ${GITHUB_SHA} (run ${GITHUB_RUN_ID})"
+          git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/ci/audio \
+            && echo "published previews to refs/ci/audio" || echo "could not publish previews"
+
       - name: Build watch app for the watch simulator
         if: env.WATCH_SIM != ''
         run: |

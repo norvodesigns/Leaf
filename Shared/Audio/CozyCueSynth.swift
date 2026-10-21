@@ -44,10 +44,10 @@ enum CozyCueSynth {
     /// The loudest sample, before the player's own volume. Cues are small on purpose.
     static func peak(of cue: CozyCue) -> Float {
         switch cue {
-        case .kettleClick: return 0.30
-        case .pour: return 0.30
-        case .steepReady: return 0.38
-        case .pageTurn: return 0.24
+        case .kettleClick: return 0.26
+        case .pour: return 0.26
+        case .steepReady: return 0.30
+        case .pageTurn: return 0.22
         }
     }
 
@@ -67,15 +67,11 @@ enum CozyCueSynth {
     // MARK: Recipes
 
     private static func kettleClick(_ buffer: inout CueBuffer, seed: UInt64) {
-        // The switch itself: a sharp, dry click.
-        buffer.addPing(start: 0.003, frequency: 3_000, decay: 0.0035, amplitude: 1.0)
-        buffer.addPing(start: 0.003, frequency: 5_200, decay: 0.002, amplitude: 0.5)
-        buffer.addNoise(start: 0.003, seconds: 0.0012, amplitude: 0.6, seed: seed, stream: 1)
-        // Then the body of the kettle answers with a soft thunk.
-        buffer.addPing(start: 0.037, frequency: 430, decay: 0.03, amplitude: 0.9)
-        buffer.addPing(start: 0.037, frequency: 1_150, decay: 0.014, amplitude: 0.45)
-        buffer.addPing(start: 0.037, frequency: 2_100, decay: 0.008, amplitude: 0.2)
-        buffer.addNoise(start: 0.037, seconds: 0.005, amplitude: 0.25, seed: seed, stream: 2)
+        // The switch: a short, dry tick of plastic. Noise through a broad band, so nothing rings or stings.
+        buffer.addBurst(start: 0.003, decay: 0.0008, frequency: 2_200, q: 0.9, amplitude: 1.0, seed: seed, stream: 1)
+        // Then the body of the kettle answers with a soft, low knock: mostly noise, with only a breath of pitch.
+        buffer.addBurst(start: 0.035, decay: 0.012, frequency: 320, q: 0.8, amplitude: 2.2, seed: seed, stream: 2)
+        buffer.addPing(start: 0.035, frequency: 260, decay: 0.012, amplitude: 0.25, attack: 0.002)
     }
 
     private static func pour(_ buffer: inout CueBuffer, seed: UInt64) {
@@ -90,7 +86,7 @@ enum CozyCueSynth {
             if index % 64 == 0 {
                 // The cup fills, so the note of the water climbs.
                 let filled = min(1, time / seconds)
-                band.retune(bandpass: 520 + 1_100 * pow(filled, 1.3), q: 2.2, sampleRate: rate)
+                band.retune(bandpass: 520 + 900 * pow(filled, 1.3), q: 2.0, sampleRate: rate)
             }
             let attack = smooth(min(1, time / 0.18))
             let release = smooth(min(1, (seconds - time) / 0.5))
@@ -106,7 +102,7 @@ enum CozyCueSynth {
         // twin (a slow shimmer) and a few quickly fading overtones.
         let notes: [(start: Double, frequency: Double, level: Float)] = [(0, 659.25, 1.0), (0.34, 880.0, 0.85)]
         let partials: [(ratio: Double, level: Float, decay: Double)] = [
-            (1.0, 1.0, 0.7), (1.004, 0.45, 0.65), (2.0, 0.28, 0.45), (2.99, 0.10, 0.3), (4.16, 0.04, 0.18),
+            (1.0, 1.0, 0.7), (1.004, 0.45, 0.65), (2.0, 0.18, 0.4), (2.99, 0.05, 0.25), (4.16, 0.015, 0.15),
         ]
         for note in notes {
             for partial in partials {
@@ -115,7 +111,7 @@ enum CozyCueSynth {
                     frequency: note.frequency * partial.ratio,
                     decay: partial.decay,
                     amplitude: note.level * partial.level,
-                    attack: 0.004
+                    attack: 0.012
                 )
             }
         }
@@ -124,9 +120,11 @@ enum CozyCueSynth {
     private static func pageTurn(_ buffer: inout CueBuffer, seed: UInt64) {
         let rate = buffer.sampleRate
         var lift = AudioNoiseSource(color: .white, seed: seed, stream: 5, sampleRate: rate)
-        var liftBand = AudioBiquad(bandpass: 1_500, q: 1.0, sampleRate: rate)
+        var liftBand = AudioBiquad(bandpass: 1_200, q: 1.0, sampleRate: rate)
         var swish = AudioNoiseSource(color: .white, seed: seed, stream: 6, sampleRate: rate)
-        var swishBand = AudioBiquad(bandpass: 3_600, q: 0.9, sampleRate: rate)
+        var swishBand = AudioBiquad(bandpass: 2_600, q: 0.8, sampleRate: rate)
+        // Paper heard from a chair, not with an ear to it: the top taken off.
+        var soften = AudioFilter(.lowpass, frequency: 5_000, sampleRate: rate)
         var crinkle = AudioEventClock(seed: seed, stream: 7, rate: 70, sampleRate: rate)
         var crinkleLevel: Float = 0
         let crinkleDecay = Float(exp(-1 / (0.006 * rate)))
@@ -146,16 +144,15 @@ enum CozyCueSynth {
             if time >= 0.10 && time < 0.38 {
                 let u = (time - 0.10) / 0.28
                 if index % 32 == 0 {
-                    swishBand.retune(bandpass: 3_600 - 2_300 * u, q: 0.9, sampleRate: rate)
+                    swishBand.retune(bandpass: 2_600 - 1_500 * u, q: 0.8, sampleRate: rate)
                 }
                 let bump = 4 * u * (1 - u)
-                sample += swishBand.process(swish.next()) * Float(bump * bump) * (0.35 + crinkleLevel) * 1.6
+                sample += swishBand.process(swish.next()) * Float(bump * bump) * (0.45 + 0.6 * min(crinkleLevel, 1)) * 1.6
             }
-            buffer.samples[index] += sample
+            buffer.samples[index] += soften.process(sample)
         }
-        // The settle: the page lands with a soft tap.
-        buffer.addPing(start: 0.40, frequency: 880, decay: 0.01, amplitude: 0.12)
-        buffer.addNoise(start: 0.40, seconds: 0.004, amplitude: 0.15, seed: seed, stream: 8)
+        // The settle: the page lands with a soft, low pat.
+        buffer.addBurst(start: 0.40, decay: 0.006, frequency: 260, q: 0.8, amplitude: 0.5, seed: seed, stream: 8)
     }
 
     private static func smooth(_ x: Double) -> Double {
@@ -185,6 +182,22 @@ private struct CueBuffer {
             let t = Double(index - first) / sampleRate
             let envelope = exp(-t / decay) * min(1, t / attack)
             samples[index] += amplitude * Float(envelope * sin(step * Double(index - first)))
+        }
+    }
+
+    /// Noise that dies away with time constant `decay`, through a broad band at `frequency`: a tick, a knock or a pat
+    /// that has a colour but no pitch.
+    mutating func addBurst(start: Double, decay: Double, frequency: Double, q: Double, amplitude: Float, seed: UInt64, stream: UInt64) {
+        let first = Int(start * sampleRate)
+        let count = Int(decay * 9 * sampleRate) + 64
+        guard first < samples.count, decay > 0 else { return }
+        var random = AudioRandom(seed: seed, stream: stream)
+        var band = AudioFilter(.bandpass, frequency: frequency, q: q, sampleRate: sampleRate)
+        let fall = Float(exp(-1 / (decay * sampleRate)))
+        var level = amplitude
+        for offset in 0..<count where first + offset < samples.count {
+            samples[first + offset] += band.process(random.signed() * level)
+            level *= fall
         }
     }
 

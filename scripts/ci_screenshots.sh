@@ -147,6 +147,7 @@ for appearance in light dark; do
     shot 137-wrapped-quoted 7 -LeafDemo YES -LeafScreen wrapped.5 -LeafScenario year
     shot 138-wrapped-personality 7 -LeafDemo YES -LeafScreen wrapped.6 -LeafScenario year
     shot 140-insights-wrapped-offer 8 -LeafDemo YES -LeafScreen plan.insights.wrapped -LeafScenario year
+    shot 142-settings-soundlab 6 -LeafDemo YES -LeafScreen settings.soundlab
     shot 88-insights-large-type 9 -LeafDemo YES -LeafScreen plan.insights -LeafScenario year -UIPreferredContentSizeCategoryName UICTContentSizeCategoryAccessibilityL
   fi
   shot "10-today$suffix" 5 -LeafDemo YES -LeafScreen today -LeafTime 20:30

@@ -28,6 +28,8 @@ final class CozySounds {
     private var idleTask: Task<Void, Never>?
     /// Bumped by `cancelPending()` so cues that were scheduled for later do not play.
     private var generation = 0
+    /// True while a cue the reader asked to hear is starting.
+    private var auditioning = false
 
     private init() {}
 
@@ -58,6 +60,17 @@ final class CozySounds {
             guard let self, self.generation == token else { return }
             self.start(cue)
         }
+    }
+
+    /// Plays a cue because the reader asked to hear it (the Sound lab): whatever the sound setting, and through the
+    /// silent switch, as a tapped button should.
+    func audition(_ cue: CozyCue) {
+        let wasEnabled = isEnabled
+        isEnabled = true
+        auditioning = true
+        start(cue)
+        auditioning = false
+        isEnabled = wasEnabled
     }
 
     /// Plays a group of cues with their delays, such as `CozyCueSequence.brewStart`.
@@ -127,7 +140,7 @@ final class CozySounds {
         idleTask?.cancel()
         idleTask = nil
         // Ambience already overrides the silent switch; a lone cue should not.
-        guard LeafAudioSession.activate(overridingSilentSwitch: AmbiencePlayer.shared.isPlaying) else { return }
+        guard LeafAudioSession.activate(overridingSilentSwitch: auditioning || AmbiencePlayer.shared.isPlaying) else { return }
         if !engine.isRunning {
             // A stopped engine drops whatever was queued, so every voice is free again.
             busy = Array(repeating: false, count: Self.voiceCount)
