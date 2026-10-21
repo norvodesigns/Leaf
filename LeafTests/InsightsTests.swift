@@ -185,7 +185,9 @@ struct InsightsHeatmapTests {
         let utc = InsightsEngine(data: data, now: fx.now, calendar: utcFx.calendar).heatmap(year: 2026)
         #expect(ny.first { $0.didRead }?.date == fx.date(2026, 3, 10, 0))
         #expect(utc.first { $0.didRead }?.date == utcFx.date(2026, 3, 11, 0))
-        #expect(ny.map(\.minutes).reduce(0, +) == utc.map(\.minutes).reduce(0, +))
+        let nyMinutes: Double = ny.reduce(0) { $0 + $1.minutes }
+        let utcMinutes: Double = utc.reduce(0) { $0 + $1.minutes }
+        #expect(nyMinutes == utcMinutes)
     }
 
     @Test func ringGrowsWithMinutesAndStaysInRange() {
@@ -1092,7 +1094,8 @@ struct InsightsYearTests {
         let year = fx.engine(busyYear()).yearInBooks(year: 2026)
         let monthTotal: Double = year.months.map(\.minutes).reduce(0, +)
         #expect(abs(monthTotal - year.minutes) < 1e-9)
-        #expect(year.months.map(\.booksFinished).reduce(0, +) == year.booksFinished)
+        let monthly: Int = year.months.reduce(0) { $0 + $1.booksFinished }
+        #expect(monthly == year.booksFinished)
         #expect(year.months[2].ring == 1)
         #expect(year.months[0].ring == 0 && year.months[3].ring == 0)
         #expect(year.months.allSatisfy { $0.ring == 0 || ($0.ring >= 0.1 && $0.ring <= 1) })
