@@ -241,14 +241,14 @@ struct CollectionBuilder {
 
     // MARK: Moods (the cozy heart of it)
 
-    private struct Mood {
+    struct Mood {
         var id: String, title: String, subtitle: String
         var weights: [String: Double]
         var avoid: Set<String> = []
         var minimum: Double
     }
 
-    private static let moods: [Mood] = [
+    static let moods: [Mood] = [
         Mood(id: "cozy", title: "Cozy corners", subtitle: "Tea, cats, small towns and kind people",
              weights: ["t:cozy": 3, "t:tea & cafes": 2, "t:small town life": 1, "t:food & cooking": 1.2, "t:books about books": 1.5, "t:cats": 1.2, "t:gardens & nature": 1,
                        "t:feel-good": 2, "t:seaside & islands": 1, "t:crafts & making": 1.2, "t:found family": 1.5, "t:christmas": 0.6, "t:friendship": 0.6, "t:humor": 0.4],
