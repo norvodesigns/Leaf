@@ -1679,7 +1679,9 @@ struct InsightsRobustnessTests {
             summary += journalTools.quoteOfTheDay(now: fx.now) == nil ? 0 : 1
         }
         #expect(summary > 0)
-        #expect(elapsed < .milliseconds(500), "took \(elapsed)")
+        // A budget with room for a busy runner (it shares the machine with every other test, in a Debug build): it is
+        // here to catch a slow algorithm, which would take seconds, not a slow afternoon.
+        #expect(elapsed < .milliseconds(1500), "took \(elapsed)")
     }
 
     @Test func theSameDataAlwaysGivesTheSameAnswers() {

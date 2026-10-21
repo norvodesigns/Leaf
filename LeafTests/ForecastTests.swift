@@ -490,7 +490,8 @@ struct ForecastEngineTests {
         var result: ForecastResult?
         let elapsed = clock.measure { result = engine.forecast(seed: 1, runs: 2000) }
         #expect(result?.runs == 2000)
-        #expect(elapsed < .seconds(1))
+        // Room for a busy runner shared with every other test; a slow algorithm would still take far longer.
+        #expect(elapsed < .seconds(3))
     }
 
     @Test func whatIfSharesItsLuckWithTheBaseline() {

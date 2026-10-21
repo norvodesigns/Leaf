@@ -18,7 +18,8 @@ The product brief is [`BRIEF.md`](BRIEF.md).
   `LiveActivityShared/` (app and extension) is part of its target automatically. Only a new
   target, entitlement or build setting needs `Leaf.xcodeproj`; edit it by hand carefully and run
   `python3 scripts/check_pbxproj.py` (CI runs it first). See `docs/PLATFORM.md`.
-- Logic tests for `Shared/` run anywhere with a Swift toolchain: `scripts/linux_tests.sh`.
+- Logic tests for `Shared/` run anywhere with a Swift toolchain: `scripts/linux_tests.sh`. With no toolchain but a
+  running Docker, the script runs itself in the official `swift:6.1-noble` image (useful where swift.org is blocked).
   Keep expressions inside `#expect(...)` simple (annotate intermediate `Double`/`Int` values):
   the Xcode compiler gives up on long chained expressions that the Linux one accepts.
 - Look at the macOS CI build (errors, screenshots) from anywhere with `python3 scripts/ci.py`.
