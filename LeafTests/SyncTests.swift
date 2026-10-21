@@ -1143,8 +1143,8 @@ struct SyncMergeTests {
         let first = SyncFixtures.session("a", start: -30 * day, seconds: 3_600, from: 0, to: 300)
         let restarted = SyncFixtures.item("a", shelf: .reading, page: 10, updated: 5, started: 0)
         let recovered = SyncFixtures.data(items: [restarted], sessions: [first]).withRecoveredReads()
-        let readID = try? #require(recovered.items.first?.reads.first?.id)
-        #expect(readID != nil)
+        let readID = recovered.items.first?.reads.first?.id
+        #expect(readID != nil, "the first read-through is recovered from its sessions")
         var data = SyncFixtures.data(items: [restarted], sessions: [first])
         data.tombstones = [SyncFixtures.tomb(.read, readID?.uuidString ?? "", 10)]
         let reloaded = data.withRecoveredReads()
