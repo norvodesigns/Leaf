@@ -27,8 +27,13 @@ final class Reminders: NSObject {
     private weak var store: LibraryStore?
     private var refreshTask: Task<Void, Never>?
 
-    /// Called when someone taps "Start reading" on a reminder.
-    var onStartReading: ((String?) -> Void)?
+    /// Called when someone taps "Start reading" on a reminder. A tap that arrives before the screens are up (Leaf was
+    /// opened by the tap) is held until this is set.
+    var onStartReading: ((String?) -> Void)? {
+        didSet { deliverPendingStart() }
+    }
+    /// A "Start reading" tap waiting for `onStartReading`, with the book it was for (which may be nil).
+    private var pendingStart: String??
     /// Called when someone opens the Sunday note about their week.
     var onOpenWeeklyLetter: (() -> Void)?
 
@@ -65,6 +70,10 @@ final class Reminders: NSObject {
         guard let store else { return }
         let existing = await center.pendingNotificationRequests().map(\.identifier)
         center.removePendingNotificationRequests(withIdentifiers: existing.filter { $0.hasPrefix(ReminderID.dailyPrefix) || $0 == ReminderID.goal })
+        // A snoozed reminder has nothing left to say once today's reading is done or under way.
+        if store.goalMetToday || store.activeSession != nil {
+            center.removePendingNotificationRequests(withIdentifiers: [ReminderID.snooze])
+        }
 
         let status = await authorizationStatus()
         guard status == .authorized || status == .provisional || status == .ephemeral else { return }
@@ -168,7 +177,22 @@ final class Reminders: NSObject {
         return NotificationCopy.reminder(for: context, seed: seed, previousID: previousID)
     }
 
-    static func dayKey(_ date: Date, calendar: Calendar) -> String {
+    /// Hands a "Start reading" tap to the app, or holds it until the app is ready for it.
+    func startReading(bookID: String?) {
+        if let onStartReading {
+            onStartReading(bookID)
+        } else {
+            pendingStart = .some(bookID)
+        }
+    }
+
+    private func deliverPendingStart() {
+        guard let onStartReading, let pending = pendingStart else { return }
+        pendingStart = nil
+        onStartReading(pending)
+    }
+
+    nonisolated static func dayKey(_ date: Date, calendar: Calendar) -> String {
         let c = calendar.dateComponents([.year, .month, .day], from: date)
         return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
     }
@@ -185,7 +209,7 @@ extension Reminders: UNUserNotificationCenterDelegate {
         let bookID = content.userInfo[ReminderID.bookKey] as? String
         switch response.actionIdentifier {
         case ReminderID.startAction:
-            await MainActor.run { Reminders.shared.onStartReading?(bookID) }
+            await MainActor.run { Reminders.shared.startReading(bookID: bookID) }
         case ReminderID.snoozeAction:
             // Same words, thirty minutes later.
             let again = UNMutableNotificationContent()
@@ -197,10 +221,15 @@ extension Reminders: UNUserNotificationCenterDelegate {
             let trigger = UNTimeIntervalNotificationTrigger(timeInterval: TimeInterval(ReminderID.snoozeMinutes * 60), repeats: false)
             try? await center.add(UNNotificationRequest(identifier: ReminderID.snooze, content: again, trigger: trigger))
         case ReminderID.skipAction:
-            // Quiet for the rest of today: drop a pending snooze and remember not to schedule one again.
-            center.removePendingNotificationRequests(withIdentifiers: [ReminderID.snooze])
+            // Quiet for the rest of today: drop a pending snooze and today's later reading times, and remember not to
+            // schedule them again.
+            let today = Reminders.dayKey(Date(), calendar: .current)
+            let pending = await center.pendingNotificationRequests().map(\.identifier)
+            center.removePendingNotificationRequests(withIdentifiers: pending.filter {
+                $0 == ReminderID.snooze || $0.hasPrefix(ReminderID.dailyPrefix + today + ".")
+            })
             await MainActor.run {
-                UserDefaults.standard.set(Reminders.dayKey(Date(), calendar: .current), forKey: ReminderID.skippedDayKey)
+                UserDefaults.standard.set(today, forKey: ReminderID.skippedDayKey)
             }
         default:
             if content.userInfo[ReminderID.weeklyKey] != nil {
