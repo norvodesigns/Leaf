@@ -13,7 +13,10 @@ final class WatchBridge: NSObject {
     var onRemoteOutcome: ((SessionOutcome) -> Void)?
     /// The latest forecast the phone worked out (Today and Plan both run one), for the wrist's Forecast page.
     var forecast: ForecastResult? {
-        didSet { schedulePush() }
+        didSet {
+            schedulePush()
+            WidgetFeed.shared.schedule()
+        }
     }
     /// The greeting Today last showed and the day it showed it, so the wrist says the same thing.
     private var shownGreeting: (day: String, greeting: WatchGreeting)?

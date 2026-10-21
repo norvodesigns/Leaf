@@ -38,10 +38,12 @@ struct LeafApp: App {
         WatchBridge.shared.activate(store: store)
         AppReadingIntents.shared.connect(store: store, router: router)
         LiveActivityController.shared.configure(store: store)
+        WidgetFeed.shared.configure(store: store)
         store.onChange = { [weak store] in
             Reminders.shared.scheduleRefresh()
             WatchBridge.shared.schedulePush()
             LiveActivityController.shared.sync()
+            WidgetFeed.shared.schedule()
             if let level = store?.preferences.hapticsLevel { Haptics.shared.level = level }
         }
         Haptics.shared.level = store.preferences.hapticsLevel
@@ -91,14 +93,17 @@ struct LeafApp: App {
                         store.refreshDay(LaunchOptions.current.now())
                         Haptics.shared.prepare()
                         LiveActivityController.shared.sync()
+                        WidgetFeed.shared.schedule()
                     case .background:
                         store.flush()
+                        WidgetFeed.shared.publish()
                     default:
                         break
                     }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
                     store.refreshDay(LaunchOptions.current.now())
+                    WidgetFeed.shared.schedule()
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataDidBecomeAvailableNotification)) { _ in
                     loadDeferredLibrary()
