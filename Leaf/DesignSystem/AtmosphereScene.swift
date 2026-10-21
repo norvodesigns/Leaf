@@ -20,6 +20,8 @@ struct AtmosphereScene: View {
     var density: Int?
     var tint: Color = .amber
     var seed: UInt64 = 0x5EED
+    /// Draws one still frame and never runs a timeline (a picker's preview card).
+    var holdsStill = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -46,7 +48,7 @@ struct AtmosphereScene: View {
 
     /// Motion is allowed at all.
     private var mayMove: Bool {
-        !reduceMotion && !lowPower && scenePhase == .active
+        !holdsStill && !reduceMotion && !lowPower && scenePhase == .active
     }
 
     /// Paused once the scene is held still and the clock has caught up, so a still scene does no per-frame work.

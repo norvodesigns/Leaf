@@ -246,6 +246,14 @@ Warm tints for atmosphere only; ink and the one green accent still do the work, 
   the afternoon, the lamp and a few soft bokeh lights from dusk, a small pool of lamplight late. Fades into paper at
   the bottom. Reduce Transparency → flat tint; Reduce Motion / Low Power / inactive → still.
   `NookAtmosphere.light(for:dark:)` returns the recipe.
+- `NookSceneBackdrop(scene: NookScene, calm:, isLive:)` — the session's scene, full bleed: `.lamp` (the original
+  paper mesh with the lamp), `.rain` (a window at dusk, rain clipped to the glass), `.hearth` (firelight from below
+  that breathes with `AtmosphereField.flicker`, a few `embers`), `.library` (shelves drawn once and blurred once, a
+  corner lamp, five slow bokeh). A paper pool behind the timer keeps ink legible. Static parts never redraw; moving
+  parts run at 15 fps in small areas and stop at `calm` 0 (a paused session), Reduce Motion, Low Power, inactive.
+  Light only: the scene never starts a sound; ambience stays its own opt-in choice. Device-local choice in
+  `@AppStorage(NookScene.storageKey)`, picked in `NookSceneSheet` (the session's "Scene" capsule) or Settings.
+  `NookSceneThumbnail(scene:isSelected:)` is a still card (no timelines).
 
 ## Motion language (UI-3, NEXT.md §7–9)
 
