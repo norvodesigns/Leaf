@@ -17,6 +17,9 @@ final class WatchBridge: NSObject {
     }
     /// The greeting Today last showed and the day it showed it, so the wrist says the same thing.
     private var shownGreeting: (day: String, greeting: WatchGreeting)?
+    /// What the watch sent before the library could be read (the iPhone not yet unlocked since it restarted): a
+    /// session logged then would find no book to log against. Applied by `applyHeldEvents()` once it can.
+    private var heldEvents: [SyncEvent] = []
 
     func noteGreeting(_ greeting: Greeting, now: Date, calendar: Calendar) {
         let line = WatchGreeting(headline: greeting.headline, subline: greeting.subline)
@@ -48,7 +51,8 @@ final class WatchBridge: NSObject {
     }
 
     func push() {
-        guard WCSession.isSupported(), let store else { return }
+        // Until the library is read, the store holds an empty stand-in; the watch keeps what it last had instead.
+        guard WCSession.isSupported(), let store, !store.isLoadDeferred else { return }
         let session = WCSession.default
         guard session.activationState == .activated, session.isPaired, session.isWatchAppInstalled else { return }
         let payload = SyncCodec.encode(store.watchSnapshot(), key: SyncCodec.snapshotKey)
@@ -58,7 +62,19 @@ final class WatchBridge: NSObject {
         }
     }
 
+    /// Applies what the watch sent while the library couldn't be read yet. Call it once the store has loaded.
+    func applyHeldEvents() {
+        guard let store, !store.isLoadDeferred, !heldEvents.isEmpty else { return }
+        let events = heldEvents
+        heldEvents = []
+        events.forEach(receive)
+    }
+
     private func receive(_ event: SyncEvent) {
+        if store?.isLoadDeferred == true {
+            heldEvents.append(event)
+            return
+        }
         if case .addBook(let query) = event {
             addDictatedBook(query)
             return

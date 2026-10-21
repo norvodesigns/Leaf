@@ -67,7 +67,8 @@ final class Reminders: NSObject {
     }
 
     func reschedule() async {
-        guard let store else { return }
+        // Until the library is read, the store holds an empty stand-in that would clear every reminder.
+        guard let store, !store.isLoadDeferred else { return }
         let existing = await center.pendingNotificationRequests().map(\.identifier)
         center.removePendingNotificationRequests(withIdentifiers: existing.filter { $0.hasPrefix(ReminderID.dailyPrefix) || $0 == ReminderID.goal })
         // A snoozed reminder has nothing left to say once today's reading is done or under way.

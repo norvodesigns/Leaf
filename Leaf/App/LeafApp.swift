@@ -62,8 +62,9 @@ struct LeafApp: App {
 
     /// After a launch before the first unlock, reads the library as soon as it can be read.
     private func loadDeferredLibrary() {
-        guard store.loadIfDeferred(), !LaunchOptions.current.isScripted else { return }
-        Self.startSyncIfReady(store)
+        guard store.loadIfDeferred() else { return }
+        WatchBridge.shared.applyHeldEvents()
+        if !LaunchOptions.current.isScripted { Self.startSyncIfReady(store) }
     }
 
     private var colorScheme: ColorScheme? {
