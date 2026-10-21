@@ -373,6 +373,11 @@ struct AmbienceCafeVoice: AmbienceVoice {
         let gainRight: Float
         let send: Float
         let sampleRate: Double
+        /// The throat's pulse is low-passed then differenced, which scales its level with the square of the sample
+        /// rate; this undoes that, so the café sounds the same at 22 kHz (Low Power Mode) as at 44.1.
+        let pulseHeight: Float
+        /// White noise holds its level per hertz at any rate, as `AudioNoiseSource` does.
+        let noiseScale: Float
         var phase: Float = 0
         var glottis: AudioFilter
         var previous: Float = 0
@@ -405,6 +410,9 @@ struct AmbienceCafeVoice: AmbienceVoice {
             send = 1.4 - gain
             (gainLeft, gainRight) = AudioPan.gains(random.signed() * 0.9)
             self.sampleRate = sampleRate
+            let ratio = sampleRate / 44_100
+            pulseHeight = Float(ratio * ratio)
+            noiseScale = Float(ratio.squareRoot())
             glottis = AudioFilter(.lowpass, frequency: 700, q: 0.6, sampleRate: sampleRate)
             let vowel = AmbienceCafeVoice.vowel(random.unit())
             current = (vowel.0 * scale, vowel.1 * scale, vowel.2 * scale)
@@ -486,16 +494,16 @@ struct AmbienceCafeVoice: AmbienceVoice {
             var pulse: Float = 0
             if phase >= 1 {
                 phase -= 1
-                pulse = 1
+                pulse = pulseHeight
             }
             let flow = glottis.process(pulse)
-            let source = (flow - previous) * 30 + random.signed() * 0.02
+            let source = (flow - previous) * 30 + random.signed() * 0.02 * noiseScale
             previous = flow
             var voice = first.process(source) + 0.5 * second.process(source) + 0.25 * third.process(source)
             voice *= level
             hiss *= hissDecay
             if speaking && hiss > 1e-4 {
-                let noise = random.signed()
+                let noise = random.signed() * noiseScale
                 voice += (noise - consonant.lowpass(noise)) * hiss * 0.03
             }
             return distanceB.lowpass(distanceA.lowpass(voice)) * gain

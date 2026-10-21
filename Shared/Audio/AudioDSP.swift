@@ -516,6 +516,8 @@ final class AudioBurstPool {
     private let sampleRate: Double
     private let seed: UInt64
     private let stream: UInt64
+    /// Keeps a burst's noise at the same level per hertz at any sample rate, as `AudioNoiseSource` does.
+    private let noiseScale: Float
     /// Every burst gets its own noise, numbered in the order they were struck (never by the slot it lands in, which
     /// can depend on how rendering was split).
     private var struck: UInt64 = 0
@@ -525,6 +527,7 @@ final class AudioBurstPool {
         self.sampleRate = max(sampleRate, 1)
         self.seed = seed
         self.stream = stream
+        noiseScale = Float((self.sampleRate / 44_100).squareRoot())
         voices = UnsafeMutablePointer<AudioBurst>.allocate(capacity: self.capacity)
         voices.initialize(repeating: AudioBurst(), count: self.capacity)
     }
@@ -560,7 +563,7 @@ final class AudioBurstPool {
         var voice = voices[slot]
         struck &+= 1
         voice.random = AudioRandom(seed: seed &+ stream &* 0x1000_0000, stream: struck)
-        voice.level = amplitude
+        voice.level = amplitude * noiseScale
         voice.decay = Float(exp(-1 / (tau * sampleRate)))
         voice.filter = AudioFilter(.bandpass, frequency: Double(frequency), q: Double(q), sampleRate: sampleRate)
         voice.gainLeft = left
