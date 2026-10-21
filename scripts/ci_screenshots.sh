@@ -126,6 +126,10 @@ for appearance in light dark; do
     shot 97-search-taste 8 -LeafDemo YES -LeafScreen search.taste -LeafScenario year
     shot 98-search-first-use 10 -LeafDemo YES -LeafScreen search -LeafScenario new
     shot 99-search-undo 10 -LeafDemo YES -LeafScreen search.undo
+    # Fast book adding: the toast after an add, the hand form prefilled, a typed ISBN.
+    shot a02-add-added 11 -LeafDemo YES -LeafScreen search.added
+    shot a04-add-manual 11 -LeafDemo YES -LeafScreen search.manual
+    shot a05-add-isbn 9 -LeafDemo YES -LeafScreen search.isbn
     shot 101-book-journal 7 -LeafDemo YES -LeafScreen book.journal
     shot 102-book-more 9 -LeafDemo YES -LeafScreen book.more
     shot 103-book-edition 7 -LeafDemo YES -LeafScreen book.edition
@@ -210,6 +214,8 @@ for appearance in light dark; do
   shot "80-year-in-books$suffix" 9 -LeafDemo YES -LeafScreen plan.year -LeafScenario year
   shot "82-challenges$suffix" 8 -LeafDemo YES -LeafScreen plan.challenges -LeafScenario year
   shot "90-search-browse$suffix" 10 -LeafDemo YES -LeafScreen search
+  shot "a01-add-quick$suffix" 11 -LeafDemo YES -LeafScreen search.quickadd
+  shot "a03-add-scan$suffix" 11 -LeafDemo YES -LeafScreen search.scan
   shot "100-library-paused$suffix" 5 -LeafDemo YES -LeafScreen library.paused
   shot "107-library-toread$suffix" 5 -LeafDemo YES -LeafScreen library.toread
   shot "110-tea-cabinet$suffix" 6 -LeafDemo YES -LeafScreen tea.cabinet

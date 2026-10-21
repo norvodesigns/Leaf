@@ -4,7 +4,8 @@ import SwiftUI
 
 /// One search result (DESIGN.md §6): cover S, title, author, "1937 · 310 pp", and how long it takes at the
 /// reader's pace. The text opens the book; the glass `plus` on the right adds it, and turns into a
-/// `checkmark` once it is on a shelf.
+/// `checkmark` once it is on a shelf. With `onQuickAdd` the `plus` opens the quick-add sheet (one tap to a big
+/// choice) and the menu moves to a long press; without it the `plus` is the menu.
 struct SearchResultRow: View {
     let book: Book
     let wpm: Double
@@ -12,6 +13,8 @@ struct SearchResultRow: View {
     let shelf: Shelf?
     /// Add (or move) the book: the shelf, and whether it goes to the front of that shelf.
     let onAdd: (Shelf, Bool) -> Void
+    /// Opens the quick-add sheet for this book.
+    var onQuickAdd: (() -> Void)?
 
     @Environment(\.dynamicTypeSize) private var typeSize
 
@@ -31,7 +34,24 @@ struct SearchResultRow: View {
             .accessibilityLabel(spokenLabel)
             .accessibilityHint("Opens the book")
 
-            SearchAddMenu(book: book, shelf: shelf, onAdd: onAdd)
+            if let onQuickAdd {
+                Button {
+                    Haptics.shared.tap()
+                    onQuickAdd()
+                } label: {
+                    GlassIcon(systemImage: shelf == nil ? "plus" : "checkmark", diameter: 40)
+                        .contentTransition(.symbolEffect(.replace))
+                        .frame(minWidth: Space.hitTarget, minHeight: Space.hitTarget)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(shelf == nil ? "Add \(book.title)" : "\(book.title), \(SearchShelfName.status(shelf)). Change shelf")
+                .contextMenu {
+                    SearchAddActions(shelf: shelf, onAdd: onAdd)
+                }
+            } else {
+                SearchAddMenu(book: book, shelf: shelf, onAdd: onAdd)
+            }
         }
         .padding(.vertical, Space.s)
     }
@@ -79,7 +99,7 @@ struct SearchResultRow: View {
 
 // MARK: - Add menu
 
-/// The 36 pt glass `plus` with its menu: "Start reading", "Add to top of To read", "Add to end of To read".
+/// The 40 pt glass `plus` (a 44 pt target) with its menu: "Start reading", "Add to top of To read", "Add to end of To read".
 /// Once the book is in the library the same button shows a `checkmark`, and its menu offers to move it.
 struct SearchAddMenu: View {
     let book: Book
@@ -90,9 +110,9 @@ struct SearchAddMenu: View {
         Menu {
             SearchAddActions(shelf: shelf, onAdd: onAdd)
         } label: {
-            GlassIcon(systemImage: shelf == nil ? "plus" : "checkmark", diameter: 36)
+            GlassIcon(systemImage: shelf == nil ? "plus" : "checkmark", diameter: 40)
                 .contentTransition(.symbolEffect(.replace))
-                .padding(4)
+                .frame(minWidth: Space.hitTarget, minHeight: Space.hitTarget)
                 .contentShape(.rect)
         }
         .accessibilityLabel(spokenLabel)

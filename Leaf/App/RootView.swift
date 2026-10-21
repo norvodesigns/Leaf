@@ -166,7 +166,11 @@ struct RootView: View {
         case "search.query":
             router.tab = .search
             router.searchQuery = "dune"
-        case "search.series", "search.author", "search.time", "search.seasonal", "search.seeall", "search.undo":
+        case "search.isbn":
+            router.tab = .search
+            router.searchQuery = "9780441172719"
+        case "search.series", "search.author", "search.time", "search.seasonal", "search.seeall", "search.undo",
+             "search.quickadd", "search.added", "search.scan", "search.manual":
             router.tab = .search
             router.searchStage = String(key.dropFirst("search.".count))
         case "search.similar":

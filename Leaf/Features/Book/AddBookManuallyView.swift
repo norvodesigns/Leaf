@@ -2,7 +2,9 @@ import SwiftUI
 
 /// Adds a book by hand (DESIGN.md §6): Title, Author, Pages and an optional Year under a live
 /// generated cover that updates as you type, then "Start reading" or "Add to To read".
-/// Presented as a sheet; it carries its own navigation bar with Cancel.
+/// Presented as a sheet; it carries its own navigation bar with Cancel. It opens with whatever is already known
+/// (what was typed in Search, or what a barcode found) and the cursor in the first empty field, so most books
+/// need only a page count.
 struct AddBookManuallyView: View {
     @Environment(LibraryStore.self) private var store
     @Environment(AppRouter.self) private var router
@@ -21,7 +23,19 @@ struct AddBookManuallyView: View {
         case title, author, pages, year
     }
 
-    init() {}
+    init(draft: ManualBookDraft = ManualBookDraft()) {
+        _title = State(initialValue: draft.title)
+        _author = State(initialValue: draft.author)
+        _pagesText = State(initialValue: draft.pages.map { String($0) } ?? "")
+        _yearText = State(initialValue: draft.year.map { String($0) } ?? "")
+    }
+
+    /// The first field still empty; the year is optional, so it never asks for focus.
+    private var firstEmptyField: Field {
+        if trimmedTitle.isEmpty { return .title }
+        if trimmedAuthor.isEmpty { return .author }
+        return .pages
+    }
 
     // MARK: Parsed input
 
@@ -95,6 +109,11 @@ struct AddBookManuallyView: View {
             }
             .safeAreaInset(edge: .bottom) {
                 buttons
+            }
+            .task {
+                // Wait for the sheet to settle, or the keyboard fights the presentation.
+                try? await Task.sleep(for: .milliseconds(450))
+                if focus == nil { focus = firstEmptyField }
             }
             .onChange(of: pagesText) { _, new in
                 let digits = Self.digits(new, limit: 5)

@@ -98,13 +98,31 @@ struct LibraryView: View {
                 }
             }
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    Haptics.shared.tap()
-                    showsAddSheet = true
+                Menu {
+                    Button {
+                        router.beginAddingBook(.search)
+                    } label: {
+                        Label("Search the catalog", systemImage: "magnifyingglass")
+                    }
+                    Button {
+                        router.beginAddingBook(.scan)
+                    } label: {
+                        Label("Scan a barcode", systemImage: "barcode.viewfinder")
+                    }
+                    Button {
+                        Haptics.shared.tap()
+                        showsAddSheet = true
+                    } label: {
+                        Label("Add by hand", systemImage: "square.and.pencil")
+                    }
                 } label: {
                     Image(systemName: "plus")
+                } primaryAction: {
+                    // The tab change plays its own selection haptic.
+                    router.beginAddingBook(.search)
                 }
-                .accessibilityLabel("Add a book by hand")
+                .accessibilityLabel("Add a book")
+                .accessibilityHint("Opens Search. Touch and hold to scan a barcode or add one by hand.")
             }
         }
         .sheet(isPresented: $showsAddSheet) {

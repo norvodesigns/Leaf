@@ -84,6 +84,11 @@ struct RitualRequest: Hashable {
     var teaID: String?
 }
 
+/// How the reader wants to add a book, from the Library's `plus`: search for it, scan it, or type it in.
+enum AddBookIntent: Hashable {
+    case search, scan, manual
+}
+
 /// App-wide navigation state.
 @MainActor
 @Observable
@@ -127,7 +132,10 @@ final class AppRouter {
     var planSheet: PlanSheet?
     /// A what-if or scroll position to stage on the Plan tab (screenshots): "whatif", "care", "mix", "stamps"…
     var planStage: String?
-    /// Search staging once its rows exist (screenshots): "series", "author", "time", "seasonal", "seeall", "undo".
+    /// Opens the Search tab ready to add a book (the Library's `plus`); Search consumes it.
+    var addBookIntent: AddBookIntent?
+    /// Search staging once its rows exist (screenshots): "series", "author", "time", "seasonal", "seeall", "undo",
+    /// and for adding: "quickadd", "added", "scan", "manual".
     var searchStage: String?
     /// Book detail staging (screenshots): "journal", "more", "edition".
     var bookStage: String?
@@ -152,6 +160,12 @@ final class AppRouter {
     func presentSession(from source: String) {
         sessionSource = source
         showSession = true
+    }
+
+    /// Goes to Search ready to add a book.
+    func beginAddingBook(_ intent: AddBookIntent = .search) {
+        tab = .search
+        addBookIntent = intent
     }
 
     /// Asks "Where are you?" for a book.

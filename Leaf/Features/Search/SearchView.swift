@@ -3,6 +3,10 @@ import SwiftUI
 /// Search (DESIGN.md §6). With nothing typed, themed rows of covers to browse. While typing, books on this
 /// device appear at once and Open Library results merge in after a short pause. If Open Library can't be
 /// reached the list quietly stays local.
+///
+/// Adding is the fast path: the `plus` on a result opens the quick-add sheet, a typed ISBN is looked up directly,
+/// the barcode button scans the back cover, and "Add it by hand" opens the form already holding what was typed.
+/// Every add can be undone from the toast for a few seconds.
 struct SearchView: View {
     @Environment(LibraryStore.self) private var store
     @Environment(AppRouter.self) private var router
@@ -18,7 +22,18 @@ struct SearchView: View {
     @State private var collections: [BookCollection] = []
     /// The rows have been built at least once, so an empty list means "nothing to browse", not "not yet".
     @State private var collectionsBuilt = false
-    @State private var showsManualAdd = false
+    /// The hand-add form, opened with whatever is already known.
+    @State private var manualDraft: ManualBookDraft?
+    @State private var quickAdd: QuickAddRequest?
+    @State private var showsScanner = false
+    /// What the scanner found, presented once its sheet has gone.
+    @State private var scanOutcome: ISBNScanOutcome?
+    /// A typed ISBN that Open Library knows without a page count, so the form can start from it.
+    @State private var isbnMatch: OpenLibrary.ISBNMatch?
+    /// The search field has focus (the Library's "Add a book" opens Search ready to type).
+    @State private var searchActive = false
+    /// The book just added, while it can still be taken back.
+    @State private var lastAdd: AddedNote?
     /// The error haptic plays once per stretch offline, not on every keystroke.
     @State private var hasBuzzedOffline = false
     /// The book just marked "Not for me", while it can still be taken back.
@@ -27,6 +42,23 @@ struct SearchView: View {
     /// Where the Open Library half of a search stands.
     private enum RemotePhase {
         case idle, loading, live, offline
+    }
+
+    /// An add that can be undone: the book, where it was before (nil if it was not in the library), and where it went.
+    private struct AddedNote: Identifiable, Equatable {
+        let id = UUID()
+        let book: Book
+        let previous: Shelf?
+        let shelf: Shelf
+
+        var message: String {
+            switch shelf {
+            case .reading: return "“\(book.title)” is on your Reading shelf."
+            case .toRead: return "“\(book.title)” is on your To read list."
+            case .finished: return "“\(book.title)” is on your Finished shelf."
+            case .paused: return "“\(book.title)” is paused."
+            }
+        }
     }
 
     private struct SearchKey: Hashable {
@@ -70,7 +102,18 @@ struct SearchView: View {
             }
         }
         .safeAreaInset(edge: .bottom) {
-            if let book = undoBook {
+            if let note = lastAdd {
+                UndoToast(message: note.message) {
+                    undoAdd(note)
+                }
+                .padding(.bottom, Space.s)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .task(id: note.id) {
+                    try? await Task.sleep(for: .seconds(5))
+                    guard !Task.isCancelled, lastAdd?.id == note.id else { return }
+                    withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) { lastAdd = nil }
+                }
+            } else if let book = undoBook {
                 UndoToast(message: "“\(book.title)” won’t be suggested.") {
                     withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
                         store.undismiss(book.id)
@@ -97,6 +140,15 @@ struct SearchView: View {
         }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    Haptics.shared.tap()
+                    showsScanner = true
+                } label: {
+                    Image(systemName: "barcode.viewfinder")
+                }
+                .accessibilityLabel("Scan a book’s barcode")
+            }
+            ToolbarItem(placement: .topBarTrailing) {
                 NavigationLink(value: TasteRoute()) {
                     Image(systemName: "heart.text.square")
                 }
@@ -109,7 +161,7 @@ struct SearchView: View {
         .paperBackground()
         .navigationTitle("Search")
         .navigationBarTitleDisplayMode(.large)
-        .searchable(text: $query, prompt: "Title or author")
+        .searchable(text: $query, isPresented: $searchActive, prompt: "Title, author or ISBN")
         .autocorrectionDisabled()
         .task(id: SearchKey(text: trimmedQuery, catalogReady: catalog.isLoaded)) {
             await runSearch(trimmedQuery)
@@ -117,12 +169,32 @@ struct SearchView: View {
         .task(id: collectionsKey) {
             await rebuildCollections()
         }
-        .onAppear(perform: consumeRouterQuery)
+        .onAppear {
+            consumeRouterQuery()
+            consumeAddIntent()
+        }
         .onChange(of: router.searchQuery) { _, newValue in
             if newValue != nil { consumeRouterQuery() }
         }
-        .sheet(isPresented: $showsManualAdd) {
-            AddBookManuallyView()
+        .onChange(of: router.addBookIntent) { _, newValue in
+            if newValue != nil { consumeAddIntent() }
+        }
+        .sheet(item: $manualDraft) { draft in
+            AddBookManuallyView(draft: draft)
+        }
+        .sheet(item: $quickAdd) { request in
+            QuickAddSheet(
+                request: request,
+                shelf: store.shelf(of: request.book.id),
+                wpm: store.wpm,
+                onChoose: { choice in applyQuickAdd(request.book, choice) },
+                onOpen: { router.searchPath.append(BookRoute(book: request.book)) }
+            )
+        }
+        .sheet(isPresented: $showsScanner, onDismiss: presentScanOutcome) {
+            ISBNScanSheet { outcome in
+                scanOutcome = outcome
+            }
         }
     }
 
@@ -133,8 +205,7 @@ struct SearchView: View {
         if !catalog.isLoaded {
             searching("Opening the catalog…")
         } else if !collectionsBuilt {
-            Color.clear
-                .frame(height: 1)
+            searching("Setting out the shelves…")
         } else if collections.isEmpty {
             EmptyState(
                 title: "Look up a book.",
@@ -249,16 +320,22 @@ struct SearchView: View {
     private var results: some View {
         let books = displayed
         resultsHeader
-        if books.isEmpty {
+        if isTypingISBN {
+            Text("Keep going: an ISBN has 10 or 13 digits, on the back cover by the barcode or on the copyright page.")
+                .leafStyle(.body, color: .inkSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.vertical, Space.l)
+            manualAddLink
+        } else if books.isEmpty {
             if phase == .loading {
-                searching("Searching…")
+                searching(ISBN.parse(trimmedQuery) == nil ? "Searching…" : "Looking up the ISBN…")
             } else {
                 EmptyState(
                     title: "Nothing matches “\(trimmedQuery)”.",
-                    message: phase == .offline ? "You’re offline, so only books on this device were searched." : "",
+                    message: emptyMessage,
                     actionTitle: "Add it by hand"
                 ) {
-                    showsManualAdd = true
+                    manualDraft = draftFromQuery
                 }
             }
         } else {
@@ -269,7 +346,8 @@ struct SearchView: View {
                             book: book,
                             wpm: store.wpm,
                             shelf: store.shelf(of: book.id),
-                            onAdd: { shelf, front in add(book, to: shelf, atFront: front) }
+                            onAdd: { shelf, front in add(book, to: shelf, atFront: front) },
+                            onQuickAdd: { quickAdd = QuickAddRequest(book: book) }
                         )
                         Hairline()
                             .padding(.leading, BookCover.Size.s.width + Space.l)
@@ -305,6 +383,8 @@ struct SearchView: View {
     }
 
     private var resultsEyebrow: String {
+        if isTypingISBN { return "ISBN" }
+        if ISBN.parse(trimmedQuery) != nil, phase == .live { return "Found by ISBN" }
         switch phase {
         case .live where remoteQuery == trimmedQuery: return "Open Library"
         case .offline: return "Offline · books on this device"
@@ -324,11 +404,57 @@ struct SearchView: View {
     }
 
     private var manualAddLink: some View {
-        TextButton("Not here? Add it by hand.") {
-            Haptics.shared.tap()
-            showsManualAdd = true
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: Space.l) {
+                manualAddButton
+                Spacer(minLength: 0)
+                scanButton
+            }
+            VStack(alignment: .leading, spacing: Space.m) {
+                manualAddButton
+                scanButton
+            }
         }
         .padding(.top, Space.l)
+    }
+
+    private var manualAddButton: some View {
+        TextButton("Not here? Add it by hand.") {
+            Haptics.shared.tap()
+            manualDraft = draftFromQuery
+        }
+    }
+
+    private var scanButton: some View {
+        TextButton("Scan a barcode") {
+            Haptics.shared.tap()
+            showsScanner = true
+        }
+    }
+
+    private var emptyMessage: String {
+        if let isbnMatch { return "Open Library knows “\(isbnMatch.title)” but not its page count. Add that and it’s yours." }
+        if ISBN.parse(trimmedQuery) != nil {
+            return phase == .offline
+                ? "Looking up an ISBN needs a connection; the books on this device don’t carry them."
+                : "Open Library has no book with this ISBN."
+        }
+        return phase == .offline ? "You’re offline, so only books on this device were searched." : ""
+    }
+
+    /// The form starts from what is known: an ISBN match, or the words typed as a title. Never from a bare ISBN.
+    private var draftFromQuery: ManualBookDraft {
+        if let isbnMatch {
+            return ManualBookDraft(title: isbnMatch.title, author: isbnMatch.author ?? "", pages: isbnMatch.pages, year: isbnMatch.year)
+        }
+        let text = trimmedQuery
+        guard !text.isEmpty, !ISBN.looksLikeISBN(text) else { return ManualBookDraft() }
+        return ManualBookDraft(title: text)
+    }
+
+    /// A few digits in: not yet an ISBN, and not worth searching titles for.
+    private var isTypingISBN: Bool {
+        ISBN.looksLikeISBN(trimmedQuery) && ISBN.parse(trimmedQuery) == nil
     }
 
     // MARK: Searching
@@ -337,6 +463,18 @@ struct SearchView: View {
     /// query changes, so a slow answer to an old query never lands on top of a new one.
     private func runSearch(_ text: String) async {
         guard !text.isEmpty else {
+            localResults = []
+            remoteResults = []
+            remoteQuery = ""
+            phase = .idle
+            return
+        }
+        isbnMatch = nil
+        if let isbn = ISBN.parse(text) {
+            await lookUpISBN(isbn, typed: text)
+            return
+        }
+        if ISBN.looksLikeISBN(text) {
             localResults = []
             remoteResults = []
             remoteQuery = ""
@@ -371,7 +509,88 @@ struct SearchView: View {
         }
     }
 
+    /// A typed ISBN skips the title search: Open Library finds the work, the catalog's copy is preferred.
+    private func lookUpISBN(_ isbn: String, typed text: String) async {
+        localResults = []
+        remoteResults = []
+        phase = .loading
+        let result = await ISBNLookup.resolve(isbn, catalog: catalog)
+        guard !Task.isCancelled else { return }
+        remoteQuery = text
+        switch result {
+        case .found(let book):
+            remoteResults = [book]
+            phase = .live
+        case .partial(let match):
+            isbnMatch = match
+            phase = .live
+        case .notFound:
+            phase = .live
+        case .offline:
+            phase = .offline
+        }
+    }
+
     // MARK: Actions
+
+    /// One tap from the quick-add sheet. Already read uses the shelf's own finish moment and haptics.
+    private func applyQuickAdd(_ book: Book, _ choice: QuickAddChoice) {
+        let previous = store.shelf(of: book.id)
+        let shelf: Shelf
+        switch choice {
+        case .startReading:
+            add(book, to: .reading, atFront: false)
+            shelf = .reading
+        case .wantToRead(let next):
+            add(book, to: .toRead, atFront: next)
+            shelf = .toRead
+        case .alreadyRead:
+            LibraryShelfActions.markFinished(book, store: store)
+            shelf = .finished
+        }
+        withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
+            undoBook = nil
+            lastAdd = AddedNote(book: book, previous: previous, shelf: shelf)
+        }
+    }
+
+    /// Takes an add back: off the shelves if it was new, otherwise back where it was.
+    private func undoAdd(_ note: AddedNote) {
+        withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
+            if let previous = note.previous {
+                store.move(note.book.id, to: previous)
+            } else {
+                store.remove(note.book.id)
+            }
+            lastAdd = nil
+        }
+    }
+
+    /// After the scanner's sheet is gone: the found book in the quick-add sheet, or the form with what was learned.
+    private func presentScanOutcome() {
+        guard let outcome = scanOutcome else { return }
+        scanOutcome = nil
+        switch outcome {
+        case .found(let book): quickAdd = QuickAddRequest(book: book, note: "Found from the barcode")
+        case .addByHand(let draft): manualDraft = draft
+        }
+    }
+
+    /// The Library's add menu and the screenshot runs: open ready to type, or straight to the scanner or the form.
+    private func consumeAddIntent() {
+        guard let intent = router.addBookIntent else { return }
+        router.addBookIntent = nil
+        switch intent {
+        case .search:
+            // Let the tab finish appearing first, or the field doesn't take focus.
+            Task {
+                try? await Task.sleep(for: .milliseconds(350))
+                searchActive = true
+            }
+        case .scan: showsScanner = true
+        case .manual: manualDraft = ManualBookDraft()
+        }
+    }
 
     /// Adds a book to a shelf, or moves it if it is already in the library. A book that is already in
     /// the library is moved rather than re-added, so a page count the reader edited is never overwritten.
@@ -392,6 +611,7 @@ struct SearchView: View {
         Haptics.shared.tap()
         withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
             store.dismiss(book.id)
+            lastAdd = nil
             undoBook = book
             // Gone from every row at once; the rebuild that follows the dismissal takes a moment.
             for index in collections.indices {
@@ -411,6 +631,14 @@ struct SearchView: View {
             if let first = collections.first { router.searchPath.append(first) }
         case "undo":
             if let book = collections.first?.books.first { dismiss(book) }
+        case "quickadd":
+            quickAdd = QuickAddRequest(book: catalog.search("the name of the wind", limit: 1).first ?? DemoData.dune)
+        case "added":
+            applyQuickAdd(catalog.search("the name of the wind", limit: 1).first ?? DemoData.dune, .wantToRead(next: true))
+        case "scan":
+            showsScanner = true
+        case "manual":
+            manualDraft = ManualBookDraft(title: "The Thursday Murder Club", author: "Richard Osman")
         default:
             if let style = styles[stage], let row = collections.first(where: { SearchShelfKind($0).style == style }) {
                 proxy.scrollTo(row.id, anchor: .top)
