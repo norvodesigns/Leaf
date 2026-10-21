@@ -116,6 +116,10 @@ final class AppRouter {
     var readingSlotToEdit: UUID?
     /// The swipe deck as a full sheet (from Search and Today).
     var showDeck = false
+    /// "Ask the Librarian" as a full sheet (from Search).
+    var showLibrarian = false
+    /// Screenshots: "answer" walks the librarian's questions so the picks are on screen.
+    var librarianStage: String?
     /// "Steep and read": the session screen opens at the tea instead of the timer.
     var ritual: RitualRequest?
     /// Which page the Plan tab shows.

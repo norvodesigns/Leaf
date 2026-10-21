@@ -121,6 +121,10 @@ struct RootView: View {
         case "deck":
             router.tab = .search
             router.showDeck = true
+        case "librarian", "librarian.answer":
+            router.tab = .search
+            if key == "librarian.answer" { router.librarianStage = "answer" }
+            router.showLibrarian = true
         case "library":
             router.tab = .library
         case "library.finished":

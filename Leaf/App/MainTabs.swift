@@ -82,6 +82,9 @@ struct MainTabs: View {
         .sheet(isPresented: $router.showDeck) {
             SwipeDeckScreen()
         }
+        .sheet(isPresented: $router.showLibrarian) {
+            LibrarianScreen()
+        }
         .sheet(item: $router.teaPage) { page in
             TeaPageSheet(page: page)
         }

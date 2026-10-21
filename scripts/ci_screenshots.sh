@@ -178,6 +178,7 @@ for appearance in light dark; do
     shot lt-25-today-new 7 -LeafDemo YES -LeafScreen today -LeafScenario new -LeafTime 18:00 "${lt[@]}"
     shot lt-34-position 6 -LeafDemo YES -LeafScreen position -LeafScenario newbook "${lt[@]}"
     shot lt-40-deck 8 -LeafDemo YES -LeafScreen deck "${lt[@]}"
+    shot lt-B2-librarian-picks 9 -LeafDemo YES -LeafScreen librarian.answer "${lt[@]}"
     shot lt-42-session-ritual 6 -LeafDemo YES -LeafScreen session.ritual "${lt[@]}"
     shot lt-69-plan-reading 8 -LeafDemo YES -LeafScreen plan.reading "${lt[@]}"
     shot lt-82-challenges 8 -LeafDemo YES -LeafScreen plan.challenges -LeafScenario year "${lt[@]}"
@@ -194,6 +195,8 @@ for appearance in light dark; do
   shot "34-position$suffix" 5 -LeafDemo YES -LeafScreen position -LeafScenario newbook
   shot "38-readingtimes$suffix" 5 -LeafDemo YES -LeafScreen readingtimes
   shot "40-deck$suffix" 8 -LeafDemo YES -LeafScreen deck
+  shot "B1-librarian$suffix" 7 -LeafDemo YES -LeafScreen librarian
+  shot "B2-librarian-picks$suffix" 9 -LeafDemo YES -LeafScreen librarian.answer
   shot "42-session-ritual$suffix" 5 -LeafDemo YES -LeafScreen session.ritual
   shot "45-session-cup$suffix" 5 -LeafDemo YES -LeafScreen session.cup
   shot "11-library$suffix" 5 -LeafDemo YES -LeafScreen library

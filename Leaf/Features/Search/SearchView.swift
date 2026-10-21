@@ -148,6 +148,10 @@ struct SearchView: View {
                 }
                 .padding(.top, Space.s)
             }
+            LibrarianBanner {
+                router.showLibrarian = true
+            }
+            .padding(.top, Space.s)
             DeckBanner(covers: Array(collections.first?.books.prefix(3) ?? [])) {
                 router.showDeck = true
             }
