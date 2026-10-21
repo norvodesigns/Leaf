@@ -23,6 +23,7 @@ struct SessionView: View {
     @State private var goalIsMet = false
     @State private var showsAmbience = false
     @State private var showsJournal = false
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
 
     @ScaledMetric(relativeTo: .headline) private var controlHeight: CGFloat = 54
 
@@ -63,8 +64,9 @@ struct SessionView: View {
         }
         .task(id: interaction) {
             try? await Task.sleep(for: .seconds(20))
+            // Not with VoiceOver: the layer that catches the waking touch would swallow its next activation.
             guard !Task.isCancelled, !isEnding, !showDiscardDialog, !showsJournal, !showsAmbience,
-                  store.activeSession != nil else { return }
+                  !voiceOverEnabled, store.activeSession != nil else { return }
             withAnimation(Motion.fade) { isDimmed = true }
         }
         .onAppear {
@@ -95,6 +97,9 @@ struct SessionView: View {
                 // Reading has begun, from the ritual or from anywhere else: the tea stage is done.
                 router.ritual = nil
             }
+        }
+        .onChange(of: voiceOverEnabled) { _, on in
+            if on { isDimmed = false }
         }
         .onChange(of: store.activeSession == nil) { _, ended in
             // Ended or discarded somewhere else (the watch): close the cover.
