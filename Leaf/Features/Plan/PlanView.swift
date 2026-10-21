@@ -53,6 +53,8 @@ struct PlanView: View {
                         InsightsPage(desk: desk)
                     case .challenges:
                         ChallengesPage(desk: desk)
+                    case .circles:
+                        CirclesPage()
                     }
                 }
                 .leafMargins()
@@ -89,6 +91,7 @@ struct PlanView: View {
         case .forecast: desk.forecast != nil
         case .insights: desk.insights != nil
         case .challenges: desk.challenges != nil
+        case .circles: true
         }
     }
 

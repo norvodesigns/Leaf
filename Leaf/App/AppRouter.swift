@@ -6,9 +6,9 @@ enum AppTab: Hashable {
     case today, library, plan, search
 }
 
-/// The three pages of the Plan tab.
+/// The pages of the Plan tab.
 enum PlanSection: String, CaseIterable, Identifiable, Hashable {
-    case forecast, insights, challenges
+    case forecast, insights, challenges, circles
 
     var id: String { rawValue }
 
@@ -17,6 +17,7 @@ enum PlanSection: String, CaseIterable, Identifiable, Hashable {
         case .forecast: "Forecast"
         case .insights: "Insights"
         case .challenges: "Challenges"
+        case .circles: "Circles"
         }
     }
 }
@@ -132,6 +133,8 @@ final class AppRouter {
     var planSheet: PlanSheet?
     /// A what-if or scroll position to stage on the Plan tab (screenshots): "whatif", "care", "mix", "stamps"…
     var planStage: String?
+    /// Reading circle staging (screenshots): a sheet to open, "new", "member" or "schedule".
+    var circleStage: String?
     /// Opens the Search tab ready to add a book (the Library's `plus`); Search consumes it.
     var addBookIntent: AddBookIntent?
     /// Search staging once its rows exist (screenshots): "series", "author", "time", "seasonal", "seeall", "undo",

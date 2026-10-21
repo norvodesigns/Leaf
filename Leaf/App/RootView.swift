@@ -157,6 +157,14 @@ struct RootView: View {
             router.planSheet = .yearInBooks
         case "plan.letter":
             router.openWeeklyLetter()
+        case "plan.circles", "plan.circles.new", "plan.circles.member", "plan.circles.schedule", "plan.circles.prompts":
+            router.tab = .plan
+            router.planSection = .circles
+            switch key {
+            case "plan.circles.prompts": router.planStage = "prompts"
+            case "plan.circles": break
+            default: router.circleStage = String(key.dropFirst("plan.circles.".count))
+            }
         case "plan.challenges", "plan.stamps":
             router.tab = .plan
             router.planSection = .challenges

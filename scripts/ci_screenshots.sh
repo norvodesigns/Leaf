@@ -130,6 +130,12 @@ for appearance in light dark; do
     shot a02-add-added 11 -LeafDemo YES -LeafScreen search.added
     shot a04-add-manual 11 -LeafDemo YES -LeafScreen search.manual
     shot a05-add-isbn 9 -LeafDemo YES -LeafScreen search.isbn
+    # Reading circles: starting one, moving a friend along, the schedule, the empty page, and large text.
+    shot e02-circles-new 7 -LeafDemo YES -LeafScreen plan.circles.new
+    shot e03-circles-member 7 -LeafDemo YES -LeafScreen plan.circles.member
+    shot e04-circles-schedule 7 -LeafDemo YES -LeafScreen plan.circles.schedule
+    shot e05-circles-empty 6 -LeafDemo YES -LeafScreen plan.circles -LeafScenario new
+    shot lt-e01-circles 7 -LeafDemo YES -LeafScreen plan.circles -UIPreferredContentSizeCategoryName UICTContentSizeCategoryAccessibilityL
     shot 101-book-journal 7 -LeafDemo YES -LeafScreen book.journal
     shot 102-book-more 9 -LeafDemo YES -LeafScreen book.more
     shot 103-book-edition 7 -LeafDemo YES -LeafScreen book.edition
@@ -216,6 +222,8 @@ for appearance in light dark; do
   shot "90-search-browse$suffix" 10 -LeafDemo YES -LeafScreen search
   shot "a01-add-quick$suffix" 11 -LeafDemo YES -LeafScreen search.quickadd
   shot "a03-add-scan$suffix" 11 -LeafDemo YES -LeafScreen search.scan
+  shot "e01-circles$suffix" 6 -LeafDemo YES -LeafScreen plan.circles
+  shot "e06-circles-prompts$suffix" 7 -LeafDemo YES -LeafScreen plan.circles.prompts
   shot "100-library-paused$suffix" 5 -LeafDemo YES -LeafScreen library.paused
   shot "107-library-toread$suffix" 5 -LeafDemo YES -LeafScreen library.toread
   shot "110-tea-cabinet$suffix" 6 -LeafDemo YES -LeafScreen tea.cabinet

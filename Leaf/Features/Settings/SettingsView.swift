@@ -440,6 +440,7 @@ struct SettingsView: View {
             TeaSteepState.save(nil)
             CozySettings.reset()
             LibraryTraces.erase()
+            CircleStore.shared.eraseAll()
             store.resetEverything()
         }
     }
