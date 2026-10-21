@@ -45,6 +45,18 @@ struct AtmosphereSteamWisp: Sendable, Equatable {
     var opacity: Double
 }
 
+/// One ember lifting off the hearth. It fades in at the bottom, drifts up and sideways, and has gone dark before it
+/// restarts, so the loop never shows.
+struct AtmosphereEmber: Sendable, Equatable {
+    var x: Double
+    var y: Double
+    /// Share of the scene's shorter side.
+    var radius: Double
+    /// 0 at the hearth, 1 where it has gone.
+    var progress: Double
+    var opacity: Double
+}
+
 // MARK: - Generators
 
 /// Seeded, time-parameterised generators for the blur scenes (NEXT.md section 7): bokeh, rain on glass and steam.
@@ -62,6 +74,7 @@ enum AtmosphereField {
     static let maxBokeh = 40
     static let maxRain = 120
     static let maxSteam = 24
+    static let maxEmbers = 24
 
     /// How fast the scene's clock runs at a calm level: the calm itself, limited to 0...1.
     static func tempo(forCalm calm: Double) -> Double {
@@ -221,6 +234,52 @@ enum AtmosphereField {
             ))
         }
         return wisps
+    }
+    // MARK: Hearth
+
+    /// The firelight's brightness, about 0.7 to 1: two layers of smooth noise, a slow swell and a quicker shiver, so
+    /// it breathes like a fire without the mechanical beat of a sine. Continuous in `phase`, so 15 fps looks calm.
+    static func flicker(seed: UInt64, phase: Double) -> Double {
+        let p = InteractionMath.finite(phase)
+        let swell = InteractionMath.smoothNoise(seed: InteractionMath.mix(seed, 0xF1), at: p * 0.55)
+        let shiver = InteractionMath.smoothNoise(seed: InteractionMath.mix(seed, 0xF2), at: p * 1.9)
+        return InteractionMath.clamp(0.84 + 0.10 * swell + 0.05 * shiver, 0, 1)
+    }
+
+    /// A few embers rising from the hearth, each on its own seven-to-thirteen-second loop, lower half of the scene only.
+    static func embers(seed: UInt64, time: Double, count: Int, calm: Double) -> [AtmosphereEmber] {
+        embers(seed: seed, phase: phase(forTime: time, calm: calm), count: count, calm: calm)
+    }
+
+    static func embers(seed: UInt64, phase: Double, count: Int, calm: Double) -> [AtmosphereEmber] {
+        let n = min(max(count, 0), maxEmbers)
+        let p = InteractionMath.finite(phase)
+        let reach = amplitude(forCalm: calm)
+        var embers: [AtmosphereEmber] = []
+        embers.reserveCapacity(n)
+        for index in 0..<n {
+            var g = stream(seed, 0xE3_0000, index)
+            let baseX = 0.5 + (g.unit() - 0.5) * 0.6
+            let period = 7 + 6 * g.unit()
+            let offset = g.unit()
+            let rise = 0.22 + 0.26 * g.unit()
+            let driftReach = (0.02 + 0.05 * g.unit()) * reach
+            let driftCycles = 0.8 + 0.8 * g.unit()
+            let driftPhase = g.unit()
+            let baseRadius = 0.003 + 0.004 * g.unit()
+            let peak = 0.35 + 0.4 * g.unit()
+
+            let u = InteractionMath.fract(p / period + offset)
+            let fade = sin(Double.pi * u)
+            embers.append(AtmosphereEmber(
+                x: baseX + driftReach * wave(driftCycles * u + driftPhase) * u,
+                y: 1 - rise * u,
+                radius: baseRadius * (1 - 0.5 * u),
+                progress: u,
+                opacity: peak * fade * fade
+            ))
+        }
+        return embers
     }
 }
 

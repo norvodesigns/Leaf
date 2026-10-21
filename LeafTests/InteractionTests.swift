@@ -2021,3 +2021,78 @@ struct AtmosphereFieldTests {
         #expect(AtmosphereClock(calm: -9).calm == 0)
     }
 }
+
+// MARK: - Hearth (nook scenes)
+
+struct HearthFieldTests {
+    private let seed: UInt64 = 20_261_021
+
+    @Test func embersAreDeterministicAndClamped() {
+        let a = AtmosphereField.embers(seed: seed, time: 12.5, count: 10, calm: 1)
+        let b = AtmosphereField.embers(seed: seed, time: 12.5, count: 10, calm: 1)
+        #expect(a == b)
+        let none = AtmosphereField.embers(seed: seed, time: 1, count: -3, calm: 1)
+        #expect(none.isEmpty)
+        let many = AtmosphereField.embers(seed: seed, time: 1, count: 10_000, calm: 1)
+        #expect(many.count == AtmosphereField.maxEmbers)
+    }
+
+    @Test func embersStayInTheLowerSceneAndInBounds() {
+        for tenth in 0..<600 {
+            let time = Double(tenth) / 10
+            for ember in AtmosphereField.embers(seed: seed, time: time, count: 16, calm: 1) {
+                let inX: Bool = ember.x >= 0 && ember.x <= 1
+                let inY: Bool = ember.y >= 0.45 && ember.y <= 1
+                let visible: Bool = ember.opacity >= 0 && ember.opacity <= 1
+                #expect(inX && inY && visible)
+                #expect(ember.radius > 0)
+            }
+        }
+    }
+
+    @Test func embersAreDarkWhenTheyRestart() {
+        let frame = 1.0 / 15
+        var time = 0.0
+        var previous = AtmosphereField.embers(seed: seed, time: time, count: 8, calm: 1)
+        var restarts = 0
+        for _ in 0..<(15 * 120) {
+            time += frame
+            let now = AtmosphereField.embers(seed: seed, time: time, count: 8, calm: 1)
+            for (a, b) in zip(previous, now) {
+                if b.progress < a.progress {
+                    restarts += 1
+                    let faded: Bool = a.opacity < 0.03 && b.opacity < 0.03
+                    #expect(faded, "dark before it restarted")
+                } else {
+                    let step: Double = abs(a.y - b.y)
+                    #expect(step < 0.01, "no jump")
+                }
+            }
+            previous = now
+        }
+        #expect(restarts > 4)
+    }
+
+    @Test func flickerStaysWarmAndSmooth() {
+        var previous = AtmosphereField.flicker(seed: seed, phase: 0)
+        for frame in 1..<(15 * 60) {
+            let level = AtmosphereField.flicker(seed: seed, phase: Double(frame) / 15)
+            let inRange: Bool = level >= 0.65 && level <= 1
+            #expect(inRange)
+            let step: Double = abs(level - previous)
+            #expect(step < 0.05, "no visible jump between frames")
+            previous = level
+        }
+    }
+
+    @Test func hostileInputsStayFinite() {
+        for value in [Double.nan, .infinity, -.infinity, 1e300, -1e300] {
+            let level = AtmosphereField.flicker(seed: .max, phase: value)
+            #expect(level.isFinite)
+            for ember in AtmosphereField.embers(seed: 0, time: value, count: 6, calm: value) {
+                let finite: Bool = ember.x.isFinite && ember.y.isFinite && ember.opacity.isFinite && ember.radius.isFinite
+                #expect(finite)
+            }
+        }
+    }
+}
