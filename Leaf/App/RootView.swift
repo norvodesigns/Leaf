@@ -11,6 +11,8 @@ struct RootView: View {
     @State private var didApplyLaunchRoute = false
     /// Screenshot runs can show the Live Activity on a stand-in Lock Screen (`-LeafScreen liveactivity.goal`).
     private let liveActivityStage: LiveActivityStage.Kind?
+    /// Screenshot runs can show the widgets on a stand-in Home Screen or Lock Screen (`-LeafScreen widgets.home`).
+    private let widgetStage: WidgetStage.Kind?
     /// Screenshot runs can open the design-system pages (`-LeafScreen gallery`, `gallery.ribbon`). Debug builds only.
     private let galleryKey: String?
 
@@ -20,6 +22,7 @@ struct RootView: View {
         _onboardingStart = State(initialValue: step ?? .welcome)
         _forceOnboarding = State(initialValue: step != nil)
         liveActivityStage = key.hasPrefix("liveactivity.") ? LiveActivityStage.Kind(rawValue: String(key.dropFirst("liveactivity.".count))) : nil
+        widgetStage = key.hasPrefix("widgets.") ? WidgetStage.Kind(rawValue: String(key.dropFirst("widgets.".count))) : nil
         galleryKey = key == "gallery" || key.hasPrefix("gallery.") ? key : nil
     }
 
@@ -27,6 +30,8 @@ struct RootView: View {
         ZStack {
             if let liveActivityStage {
                 LiveActivityStage(kind: liveActivityStage)
+            } else if let widgetStage {
+                WidgetStage(kind: widgetStage)
             } else if let galleryKey {
                 gallery(galleryKey)
             } else if store.hasOnboarded && !forceOnboarding {

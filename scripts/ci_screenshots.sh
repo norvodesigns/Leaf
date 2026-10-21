@@ -173,6 +173,9 @@ for appearance in light dark; do
     shot 151-tour-settings 6 -LeafDemo YES -LeafScreen tour.settings
     shot 152-liveactivity-steeping 6 -LeafDemo YES -LeafScreen liveactivity.steeping
     shot 153-liveactivity-watch 6 -LeafDemo YES -LeafScreen liveactivity.watch
+    # Widgets: the Lock Screen accessories and StandBy, and the Home Screen at a large text size.
+    shot wg-1-lock 6 -LeafDemo YES -LeafScreen widgets.lock
+    shot wg-4-home-largetype 6 -LeafDemo YES -LeafScreen widgets.home -UIPreferredContentSizeCategoryName UICTContentSizeCategoryAccessibilityM
     # Polish pass: every main screen at an accessibility text size (lt-*), to catch truncation and clipped layouts.
     lt=(-UIPreferredContentSizeCategoryName UICTContentSizeCategoryAccessibilityL)
     shot lt-01-welcome 4 -LeafScreen onboarding.welcome "${lt[@]}"
@@ -238,6 +241,8 @@ for appearance in light dark; do
   shot "141-today-wrapped$suffix" 7 -LeafDemo YES -LeafScreen wrapped.offer -LeafScroll wrapped
   shot "145-whatsnew$suffix" 6 -LeafDemo YES -LeafScreen whatsnew
   shot "146-tour-today$suffix" 7 -LeafDemo YES -LeafScreen tour.today
+  shot "wg-2-home$suffix" 6 -LeafDemo YES -LeafScreen widgets.home -LeafTime 20:30
+  shot "wg-3-timer$suffix" 6 -LeafDemo YES -LeafScreen widgets.timer -LeafTime 20:30
 done
 xcrun simctl ui "$IOS_SIM" appearance light
 
