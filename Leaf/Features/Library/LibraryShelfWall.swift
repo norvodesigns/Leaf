@@ -625,7 +625,8 @@ struct ShelfPoster: View {
 
     static let size = CGSize(width: 360, height: 640)
     static let shelfHeight: CGFloat = 112
-    static let maximumRows = 3
+    /// Two planks fit under the words; more books than that are counted, not crowded in.
+    static let maximumRows = 2
 
     var body: some View {
         let rows = ShelfWall.rows(
@@ -633,8 +634,9 @@ struct ShelfPoster: View {
         )
         let shown = Array(rows.prefix(Self.maximumRows))
         let more = rows.dropFirst(Self.maximumRows).reduce(0) { $0 + $1.count }
-        // Taller books when there are only a plank or two to fill the card.
-        let height: CGFloat = shown.count <= 2 ? 150 : Self.shelfHeight
+        // Tall books on a single plank; two planks share the card's 640 points with the words above and the wordmark
+        // below (about 190 and 115), with a little to spare, and a little less when a line says how many more.
+        let height: CGFloat = shown.count <= 1 ? 150 : (more > 0 ? Self.shelfHeight : 124)
         VStack(alignment: .leading, spacing: Space.m) {
             Eyebrow("My \(String(year.year)) shelf")
             Text(ShelfWallText.posterTitle(year))
