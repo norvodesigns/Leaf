@@ -65,7 +65,8 @@ struct TeaLeafRating: View {
     var size: CGFloat = 22
 
     var body: some View {
-        HStack(spacing: Space.xs) {
+        // No gaps between leaves: each one's hit area runs into the next, 36 × 44 pt.
+        HStack(spacing: 0) {
             ForEach(1...5, id: \.self) { value in
                 Button {
                     Haptics.shared.selection()
@@ -74,7 +75,7 @@ struct TeaLeafRating: View {
                     Image(systemName: value <= (rating ?? 0) ? "leaf.fill" : "leaf")
                         .font(.system(size: size * 0.7, weight: .regular))
                         .foregroundStyle(value <= (rating ?? 0) ? Color.accent : Color.inkTertiary)
-                        .frame(width: size + Space.s, height: Space.hitTarget)
+                        .frame(width: max(size + Space.m, 36), height: Space.hitTarget)
                         .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
@@ -118,6 +119,7 @@ struct TeaAromaPicker: View {
                 } label: {
                     Chip(aroma, systemImage: isOn ? "checkmark" : nil, tone: isOn ? .accent : .neutral)
                         .frame(minHeight: Space.hitTarget)
+                        .contentShape(.rect)
                 }
                 .buttonStyle(.pressable)
                 .accessibilityAddTraits(isOn ? AccessibilityTraits.isSelected : AccessibilityTraits())

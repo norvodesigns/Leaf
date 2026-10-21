@@ -267,6 +267,7 @@ struct ReadingSlotEditor: View {
                             } label: {
                                 Chip(suggestion, tone: draft.label == suggestion ? .accent : .neutral)
                                     .frame(minHeight: Space.hitTarget)
+                                    .contentShape(.rect)
                             }
                             .buttonStyle(.pressable)
                         }

@@ -153,6 +153,7 @@ struct TastingCard: View {
                     } label: {
                         Chip(option.title, systemImage: strength == option ? "checkmark" : nil, tone: strength == option ? .accent : .neutral)
                             .frame(minHeight: Space.hitTarget)
+                            .contentShape(.rect)
                     }
                     .buttonStyle(.pressable)
                     .accessibilityAddTraits(strength == option ? AccessibilityTraits.isSelected : AccessibilityTraits())

@@ -204,6 +204,7 @@ struct SessionRitualView: View {
                         } label: {
                             Chip(choice.name, systemImage: choice.id == teaID ? "checkmark" : nil, tone: choice.id == teaID ? .accent : .neutral)
                                 .frame(minHeight: Space.hitTarget)
+                                .contentShape(.rect)
                         }
                         .buttonStyle(.pressable)
                         .accessibilityAddTraits(choice.id == teaID ? AccessibilityTraits.isSelected : AccessibilityTraits())

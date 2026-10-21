@@ -94,6 +94,7 @@ struct StatsDepthView: View {
         } label: {
             Chip(title, systemImage: isOn ? "checkmark" : nil, tone: isOn ? .accent : .neutral)
                 .frame(minHeight: Space.hitTarget)
+                .contentShape(.rect)
         }
         .buttonStyle(.pressable)
         .accessibilityAddTraits(isOn ? AccessibilityTraits.isSelected : AccessibilityTraits())
