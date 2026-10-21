@@ -213,7 +213,10 @@ struct Librarian {
             }
             scored.append((book, score))
         }
-        scored.sort { $0.score > $1.score || ($0.score == $1.score && $0.book.popularity > $1.book.popularity) }
+        scored.sort { lhs, rhs in
+            if lhs.score != rhs.score { return lhs.score > rhs.score }
+            return lhs.book.popularity > rhs.book.popularity
+        }
         return scored.map(\.book)
     }
 
@@ -239,12 +242,15 @@ struct Librarian {
     /// "Tea & cafes and cats, for a cozy mood": the two strongest themes the book shares with the mood.
     func moodLine(for book: Book, moodID: String?) -> String? {
         guard let mood = LibrarianMood.mood(id: moodID), let weights = mood.weights?.weights else { return nil }
-        let themes = (book.themes ?? [])
-            .filter { !$0.hasPrefix("series:") }
-            .compactMap { theme in weights["t:" + theme].map { (theme, $0) } }
-            .sorted { $0.1 > $1.1 || ($0.1 == $1.1 && $0.0 < $1.0) }
-            .prefix(2)
-            .map(\.0)
+        var weighted: [(theme: String, weight: Double)] = []
+        for theme in book.themes ?? [] where !theme.hasPrefix("series:") {
+            if let weight = weights["t:" + theme] { weighted.append((theme, weight)) }
+        }
+        weighted.sort { lhs, rhs in
+            if lhs.weight != rhs.weight { return lhs.weight > rhs.weight }
+            return lhs.theme < rhs.theme
+        }
+        let themes: [String] = weighted.prefix(2).map { $0.theme }
         switch themes.count {
         case 0:
             guard let genre = book.genres.first(where: { weights["g:" + $0] != nil }) else { return nil }
