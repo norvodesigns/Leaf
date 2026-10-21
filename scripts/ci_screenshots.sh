@@ -226,4 +226,5 @@ if [ -n "${WATCH_SIM:-}" ] && [ -d "$WATCH_APP" ]; then
   wshot w15-add -LeafDemo YES -LeafScreen add.sent
   wshot w16-complications -LeafDemo YES -LeafScreen complications
   wshot w17-timers -LeafDemo YES -LeafScreen timers
+  wshot w18-timers-steep -LeafDemo YES -LeafScreen timers.steep
 fi

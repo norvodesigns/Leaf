@@ -125,6 +125,9 @@ struct ComplicationGallery: View {
 
 /// `-LeafScreen timers`: the Timer widget's faces in each state, since a CI simulator has no face to put them on.
 struct TimerGallery: View {
+    /// The first sample to show: 0 for reading, 2 for the steep (the watch's screen holds about one at a time).
+    var from = 0
+
     private struct Sample: Identifiable {
         let id: String
         let timer: ComplicationTimer
@@ -143,7 +146,7 @@ struct TimerGallery: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
-                ForEach(samples) { sample in
+                ForEach(samples.dropFirst(from)) { sample in
                     let timer = sample.timer
                     let state = sample.state
                     Text(sample.id).font(.caption2).foregroundStyle(.secondary)

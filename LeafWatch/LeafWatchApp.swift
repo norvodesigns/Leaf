@@ -37,8 +37,8 @@ struct WatchRootView: View {
         #if DEBUG
         if LaunchScreen.current == "complications" {
             ComplicationGallery()
-        } else if LaunchScreen.current == "timers" {
-            TimerGallery()
+        } else if let screen = LaunchScreen.current, screen.hasPrefix("timers") {
+            TimerGallery(from: screen == "timers.steep" ? 2 : 0)
         } else {
             root
         }
