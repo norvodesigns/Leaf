@@ -8,8 +8,10 @@ Commits pushed to main:
   07185da Watch live timer: the reading or steeping timer in the Smart Stack and the Dock
   6a39276 Watch: a screenshot of the steep and ready timer faces (w18)
 CI: run 39665922123 (8c01e92): build, all unit tests (incl. LiveTimerTests and the new Live Activity raw values),
-  the watch app and its widget extension, unsigned archive and screenshots green. Final run: 39676881472 (039008a),
-  running when this was written
+  the watch app and its widget extension, unsigned archive and screenshots green. Final run: 39676881472 (039008a), re-run after the first attempt never got a runner: build, all unit
+  tests, watch app, unsigned archive and warnings green; screenshots showed the tour on Library, Plan and Search
+  and the poster's footer on the card. Its screenshot step was then cancelled by another session's push to main,
+  so the watch shots (w1 to w18) of that run are missing; w17 was last seen in run 39665922123, w18 not yet seen.
 What shows where (phone-started vs watch-started, reading vs steep):
   One timer, one card (LiveTimerRules.watchShowsCard, Shared/LiveTimer.swift, tested; table in docs/PLATFORM.md).
   - Phone-started reading session: the phone's Live Activity (Lock Screen, Dynamic Island); the system mirrors it to

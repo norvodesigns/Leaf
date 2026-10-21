@@ -8,8 +8,10 @@ Commits pushed to main:
   d44e1b4 What's new once after an update, and a quick look around the app
   7c51633 Tour: notes show for targets right under a large title, and Plan's first note points at the forecast
 CI: run 39665922123 (8c01e92): build, all unit tests (incl. the 12 in WhatsNewTests), watch build, archive and
-  screenshots green; screenshots showed no note on Library, Plan and Search, fixed in 7c51633. Final run: 39676881472
-  (039008a), running when this was written
+  screenshots green; screenshots showed no note on Library, Plan and Search, fixed in 7c51633. Final run: 39676881472 (039008a), re-run after the first attempt never got a runner: build, all unit
+  tests, watch app, unsigned archive and warnings green; screenshots showed the tour on Library, Plan and Search
+  and the poster's footer on the card. Its screenshot step was then cancelled by another session's push to main,
+  so the watch shots (w1 to w18) of that run are missing; w17 was last seen in run 39665922123, w18 not yet seen.
 Screens / states built (staging name -> screenshot file, all with -LeafDemo YES):
   What's new sheet (this version's release)        -LeafScreen whatsnew          -> 145-whatsnew(-dark)
   Tour on Today: the nook                          -LeafScreen tour.today        -> 146-tour-today(-dark)
