@@ -23,7 +23,8 @@ extension LeafData {
     ///   furthest page any of its sessions reached, clamped to the page count.
     /// - Preferences: the newest `updatedAt` wins as a whole, except the device's own settings, `hasOnboarded`
     ///   (true if either side is) and `onboardedAt` (the earliest).
-    /// - Tombstones older than 90 days are dropped before anything else, so they stop having any effect.
+    /// - Tombstones older than 90 days are dropped before anything else, so they stop having any effect, except a
+    ///   removed read-through's: those are kept, since every device recovers old read-throughs from sessions again.
     func merged(with remote: LeafData, now: Date) -> LeafData {
         let cutoff = now.addingTimeInterval(-SyncPolicy.tombstoneLifetime)
         let tombstones = SyncMerge.tombstones(self.tombstones, remote.tombstones, cutoff: cutoff)
@@ -91,7 +92,7 @@ enum SyncMerge {
 
     static func tombstones(_ a: [Tombstone], _ b: [Tombstone], cutoff: Date) -> [Tombstone] {
         var latest: [SyncTombstoneKey: Date] = [:]
-        for tombstone in a + b where tombstone.deletedAt >= cutoff {
+        for tombstone in a + b where tombstone.deletedAt >= cutoff || tombstone.kind == .read {
             let key = SyncTombstoneKey(kind: tombstone.kind, key: tombstone.key)
             if let existing = latest[key], existing >= tombstone.deletedAt { continue }
             latest[key] = tombstone.deletedAt
@@ -164,17 +165,15 @@ enum SyncMerge {
         }
     }
 
-    /// Sessions are the source of truth for progress: a book being read is never behind them. A session counts only
-    /// if it ended no earlier than a day before the book's `startedAt`, so a book that was restarted for a reread
-    /// is not dragged back to where the last read-through ended (when the store resets `startedAt` on a restart).
-    /// The page only ever goes up, and the update stamp is left alone: this is a repair, not an edit.
+    /// Sessions are the source of truth for progress: a book being read is never behind them (see
+    /// `countsTowardCurrentRead`, so a book restarted for a reread is not dragged back to where the last read-through
+    /// ended). The page only ever goes up, and the update stamp is left alone: this is a repair, not an edit.
     static func raised(_ item: LibraryItem, toSessions sessions: [ReadingSession]) -> LibraryItem {
         guard item.shelf == .reading || item.shelf == .paused else { return item }
-        let earliest = item.startedAt.map { $0.addingTimeInterval(-SyncPolicy.readThroughSlack) }
+        let latestFinish = item.reads.map(\.finishedAt).max()
         var counted = false
         var reached = 0
-        for session in sessions {
-            if let earliest, session.startedAt.addingTimeInterval(max(0, session.seconds)) < earliest { continue }
+        for session in sessions where countsTowardCurrentRead(session, startedAt: item.startedAt, latestFinish: latestFinish) {
             counted = true
             reached = max(reached, session.toPage)
         }
@@ -184,6 +183,17 @@ enum SyncMerge {
         // Having a session is itself the reader saying where they are.
         repaired.positionConfirmed = true
         return repaired
+    }
+
+    /// Whether a session belongs to the read-through in progress. One that ended more than a day before the book's
+    /// `startedAt` (when the store restarts a book for a reread) belongs to an earlier read-through, and so does one
+    /// that ended by the finish of the latest read-through kept on the book: a book begun again on the day it was
+    /// finished must not jump back to its last page.
+    static func countsTowardCurrentRead(_ session: ReadingSession, startedAt: Date?, latestFinish: Date?) -> Bool {
+        let end = session.startedAt.addingTimeInterval(max(0, session.seconds))
+        if let startedAt, end < startedAt.addingTimeInterval(-SyncPolicy.readThroughSlack) { return false }
+        if let latestFinish, end <= latestFinish.addingTimeInterval(1) { return false }
+        return true
     }
 
     // MARK: Sessions

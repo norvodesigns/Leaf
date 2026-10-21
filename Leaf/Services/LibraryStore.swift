@@ -442,6 +442,8 @@ final class LibraryStore {
     @discardableResult
     func log(_ session: ReadingSession) -> SessionOutcome? {
         guard !data.sessions.contains(where: { $0.id == session.id }) else { return nil }
+        // A number JSON can't hold (from a damaged watch message, say) would make every later save of the library fail.
+        guard session.seconds.isFinite, session.startedAt.timeIntervalSinceReferenceDate.isFinite else { return nil }
         guard let index = data.items.firstIndex(where: { $0.id == session.bookID }) else { return nil }
         let wasMet = goalMetToday
         let oldWPM = data.preferences.wpm
@@ -523,7 +525,7 @@ final class LibraryStore {
     /// "Read without the timer": logs minutes and the page reached.
     @discardableResult
     func logManual(bookID: String, minutes: Double, toPage: Int, at date: Date? = nil) -> SessionOutcome? {
-        guard let item = item(bookID), minutes > 0 else { return nil }
+        guard let item = item(bookID), minutes > 0, minutes.isFinite else { return nil }
         let seconds = minutes * 60
         let start = date ?? stamp.addingTimeInterval(-seconds)
         let session = ReadingSession(

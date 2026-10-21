@@ -1114,6 +1114,43 @@ struct SyncMergeTests {
         #expect(counted.items[0].currentPage == 40)
     }
 
+    @Test func aBookBegunAgainOnTheDayItWasFinishedStaysAtTheStart() {
+        // Finished at -7,200 by a session to the last page, begun again two hours later: the store kept the finish
+        // as a read-through and reset the page. The finishing session is inside the day's slack, but it belongs to
+        // the read-through that ended with it.
+        let finishing = SyncFixtures.session("a", start: -7_800, seconds: 600, from: 250, to: 300)
+        var restarted = SyncFixtures.item("a", shelf: .reading, page: 0, updated: 5, started: 0)
+        restarted.positionConfirmed = true
+        restarted.reads = [ReadThrough(bookID: "a", startedAt: SyncFixtures.at(-90_000), finishedAt: SyncFixtures.at(-7_200))]
+        let merged = merge(SyncFixtures.data(items: [restarted]), SyncFixtures.data(sessions: [finishing]))
+        #expect(merged.items[0].currentPage == 0)
+        let reread = SyncFixtures.session("a", start: 60, seconds: 600, to: 25)
+        let counted = merge(SyncFixtures.data(items: [restarted]), SyncFixtures.data(sessions: [finishing, reread]))
+        #expect(counted.items[0].currentPage == 25)
+    }
+
+    @Test func aRemovedReadThroughStaysRemovedPastTheTombstoneLifetime() {
+        let later = SyncFixtures.at(200 * 24 * 60 * 60)
+        let read = SyncFixtures.tomb(.read, UUID().uuidString, 0)
+        let item = SyncFixtures.tomb(.item, "gone", 0)
+        let merged = SyncFixtures.data(tombstones: [read, item]).merged(with: LeafData(), now: later)
+        #expect(merged.tombstones.map(\.kind) == [.read], "read-throughs are recovered from sessions again, so their tombstones never expire")
+    }
+
+    @Test func aRemovedRecoveredReadIsNotRecoveredAgain() {
+        // An older build restarted the book without keeping the finish; the sessions still show it.
+        let day: Double = 24 * 60 * 60
+        let first = SyncFixtures.session("a", start: -30 * day, seconds: 3_600, from: 0, to: 300)
+        let restarted = SyncFixtures.item("a", shelf: .reading, page: 10, updated: 5, started: 0)
+        let recovered = SyncFixtures.data(items: [restarted], sessions: [first]).withRecoveredReads()
+        let readID = try? #require(recovered.items.first?.reads.first?.id)
+        #expect(readID != nil)
+        var data = SyncFixtures.data(items: [restarted], sessions: [first])
+        data.tombstones = [SyncFixtures.tomb(.read, readID?.uuidString ?? "", 10)]
+        let reloaded = data.withRecoveredReads()
+        #expect(reloaded.items.first?.reads.isEmpty == true)
+    }
+
     @Test func sessionsOfADeletedBookStayForTheStatistics() {
         let sessions = [SyncFixtures.session("gone", to: 50)]
         let merged = merge(
@@ -1476,11 +1513,14 @@ struct SyncPropertyTests {
                 #expect(item.currentPage >= 0 && item.currentPage <= item.book.pages, "page out of range, seed \(seed)")
                 guard item.shelf == .reading || item.shelf == .paused else { continue }
                 let earliest = item.startedAt.map { $0.addingTimeInterval(-SyncPolicy.readThroughSlack) }
+                let latestFinish = item.reads.map(\.finishedAt).max()
                 let reached = merged.sessions
                     .filter { session in
                         guard session.bookID == item.id else { return false }
+                        let end = session.startedAt.addingTimeInterval(session.seconds)
+                        if let latestFinish, end <= latestFinish.addingTimeInterval(1) { return false }
                         guard let earliest else { return true }
-                        return session.startedAt.addingTimeInterval(session.seconds) >= earliest
+                        return end >= earliest
                     }
                     .map(\.toPage).max() ?? 0
                 #expect(item.currentPage >= min(reached, item.book.pages), "\(item.id) is behind its sessions, seed \(seed)")
@@ -1509,7 +1549,8 @@ struct SyncPropertyTests {
             let r = replicas(seed: UInt64(seed), count: 2)
             let soon = r[0].merged(with: r[1], now: now)
             let later = soon.merged(with: r[1], now: now.addingTimeInterval(200 * 24 * 60 * 60))
-            #expect(later.tombstones.isEmpty, "every tombstone is older than 90 days by then, seed \(seed)")
+            let expired = later.tombstones.filter { $0.kind != .read }
+            #expect(expired.isEmpty, "every tombstone but a read-through's is older than 90 days by then, seed \(seed)")
             #expect(Set(later.sessions.map(\.id)) == Set(soon.sessions.map(\.id)))
             #expect(Set(later.journal.map(\.id)).isSuperset(of: Set(soon.journal.map(\.id))))
         }

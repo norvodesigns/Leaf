@@ -163,10 +163,13 @@ extension LeafData {
     func withRecoveredReads() -> LeafData {
         var sessionsByBook: [String: [ReadingSession]] = [:]
         for session in sessions { sessionsByBook[session.bookID, default: []].append(session) }
+        // A read-through the reader took off stays off, though its sessions would recover it again.
+        let removed = Set(tombstones.filter { $0.kind == .read }.map(\.key))
         var copy = self
         for index in copy.items.indices {
             let item = copy.items[index]
             let found = ReadsHistory.recovered(for: item, sessions: sessionsByBook[item.id] ?? [])
+                .filter { !removed.contains($0.id.uuidString) }
             guard !found.isEmpty else { continue }
             copy.items[index].reads = (item.reads + found).sorted(by: ReadThrough.isEarlier)
         }

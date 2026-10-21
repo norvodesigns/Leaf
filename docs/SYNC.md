@@ -62,7 +62,7 @@ are the live session and the device's own settings, which stay local. Output is 
 |---|---|
 | Library items | Per book id, the newest `updatedAt` wins **as a whole**. A tie goes to the larger JSON, so both sides pick the same copy. |
 | Deleting an item | A tombstone removes an item only if `deletedAt` is **strictly later** than the item's `updatedAt`. Equal keeps the item. Re-adding after a delete wins because its stamp is newer. |
-| Progress | After merging, a book on the Reading or Paused shelf is raised to the furthest page any of its sessions reached (clamped to its page count). Never lowered; `updatedAt` is not touched. Sessions that ended more than a day before the book's `startedAt` are ignored, so a restarted (re-read) book is not dragged back. |
+| Progress | After merging, a book on the Reading or Paused shelf is raised to the furthest page any of its sessions reached (clamped to its page count). Never lowered; `updatedAt` is not touched. Sessions that ended more than a day before the book's `startedAt` are ignored, and so are sessions that ended by the finish of the latest read-through kept on the book, so a restarted (re-read) book is not dragged back, even when it is begun again on the day it was finished. |
 | Sessions | Union by id, append-only. Sessions of a deleted book stay for the statistics. |
 | Journal | Newest `updatedAt` per id, plus tombstones, same rule as items. |
 | Read-throughs (`LibraryItem.reads`) | Merged one by one whichever copy of the book wins: newest `updatedAt` per read-through, a `read` tombstone removes one only if strictly later. A read-through's id comes from the book and its finish (to the second), so two devices that keep the same finish keep one. Earlier read-throughs from before reads were kept are recovered from sessions on load, unstamped, on every device alike. |
@@ -72,7 +72,7 @@ are the live session and the device's own settings, which stay local. Output is 
 | Speed tests | Union keyed by date (to the millisecond) and passage. Kept oldest first so `speedTests.last` is the latest. |
 | Preferences | Newest `updatedAt` wins as a whole, except: device settings stay local; `hasOnboarded` is true if either side is; `onboardedAt` is the earliest known. On an equal stamp, settings the reader changed beat untouched defaults (so a new device cannot wipe an old one's choices), then the larger JSON wins. |
 | `version` | The higher. |
-| Tombstones | Union (latest `deletedAt` per key). Dropped when older than **90 days**, before they are applied. After that a device that was off for longer can bring a deleted item back. |
+| Tombstones | Union (latest `deletedAt` per key). Dropped when older than **90 days**, before they are applied. After that a device that was off for longer can bring a deleted item back. A removed read-through's tombstone (`read`) never expires: every device recovers old read-throughs from sessions on load, and the tombstone is what keeps a removed one off. |
 | Live session | Kept from the local side; dropped if its book was deleted elsewhere. |
 
 Because whole preferences are last-writer-wins, two devices changing different settings at nearly the same time
