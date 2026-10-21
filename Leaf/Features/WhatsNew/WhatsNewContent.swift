@@ -74,7 +74,7 @@ enum TourSteps {
         TourStep(id: "today.times", area: .today, title: "Reading times", text: "A few times a day, each with its own book. Leaf plans around them."),
         TourStep(id: "library.shelves", area: .library, title: "Your shelves", text: "Reading, To read and Finished. Finished can also be a wall of spines."),
         TourStep(id: "library.hold", area: .library, title: "Hold to move", text: "Hold a book to move it to another shelf, or to change the order you’ll read in."),
-        TourStep(id: "plan.forecast", area: .plan, title: "When you’ll finish", text: "A range, not a promise: the likely day, and how early or late it could be."),
+        TourStep(id: "plan.forecast", area: .plan, title: "The forecast", text: "A range, not a promise: what’s likely, and how early or late it could land. Each book has its own below."),
         TourStep(id: "plan.whatif", area: .plan, title: "What if", text: "Try a few more minutes, or another day, and watch the dates move."),
         TourStep(id: "search.rows", area: .search, title: "Rows to browse", text: "Shelves picked for you. Each book says why it’s there, and “Not for me” teaches Leaf what to skip."),
         TourStep(id: "search.deck", area: .search, title: "The deck", text: "One book at a time: keep it, or pass."),

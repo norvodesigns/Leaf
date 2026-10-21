@@ -142,14 +142,16 @@ private struct CoachMarkHost: ViewModifier {
             }
     }
 
-    /// The targets actually on screen (with room for a callout), in this view's coordinates. A target scrolled out
-    /// of sight waits until it comes back.
+    /// The targets on screen, in this view's coordinates: most of a target, or a good part of a tall one, inside the
+    /// safe area (which starts under the title, so a control right below it counts). A target scrolled out of sight
+    /// waits until it comes back.
     static func visible(_ anchors: [String: Anchor<CGRect>], in proxy: GeometryProxy) -> [String: CGRect] {
-        let screen = CGRect(origin: .zero, size: proxy.size).insetBy(dx: 0, dy: 40)
+        let bounds = CGRect(origin: .zero, size: proxy.size)
         var found: [String: CGRect] = [:]
         for (id, anchor) in anchors {
             let rect = proxy[anchor]
-            if screen.intersects(rect) && rect.minY > 20 && rect.maxY < proxy.size.height - 60 { found[id] = rect }
+            let shown = rect.intersection(bounds)
+            if !shown.isNull, shown.height >= min(rect.height * 0.6, 120) { found[id] = rect }
         }
         return found
     }

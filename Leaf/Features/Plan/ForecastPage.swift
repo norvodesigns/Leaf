@@ -36,12 +36,12 @@ struct ForecastPage: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
+                .coachMarkAnchor("plan.forecast")
                 .inkIn(0)
             yearCard
                 .padding(.top, Space.xl)
                 .inkIn(1)
             nowReading
-                .coachMarkAnchor("plan.forecast")
                 .inkIn(2)
             care
             whatIfSection
