@@ -633,6 +633,8 @@ struct ShelfPoster: View {
         )
         let shown = Array(rows.prefix(Self.maximumRows))
         let more = rows.dropFirst(Self.maximumRows).reduce(0) { $0 + $1.count }
+        // Taller books when there are only a plank or two to fill the card.
+        let height: CGFloat = shown.count <= 2 ? 150 : Self.shelfHeight
         VStack(alignment: .leading, spacing: Space.m) {
             Eyebrow("My \(String(year.year)) shelf")
             Text(ShelfWallText.posterTitle(year))
@@ -642,8 +644,8 @@ struct ShelfPoster: View {
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: Space.s)
             ForEach(Array(shown.enumerated()), id: \.offset) { _, row in
-                ShelfPlankRow(spines: row, shelfHeight: Self.shelfHeight, bleed: Space.xxl) { spine in
-                    ShelfSpineView(spine: spine, shelfHeight: Self.shelfHeight, tint: tints[spine.book.id] ?? SpineTint(palette: CoverPalette(book: spine.book)))
+                ShelfPlankRow(spines: row, shelfHeight: height, bleed: Space.xxl) { spine in
+                    ShelfSpineView(spine: spine, shelfHeight: height, tint: tints[spine.book.id] ?? SpineTint(palette: CoverPalette(book: spine.book)))
                 }
                 .padding(.bottom, Space.s)
             }

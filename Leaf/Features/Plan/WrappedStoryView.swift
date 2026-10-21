@@ -315,7 +315,11 @@ struct WrappedCardView: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             WrappedStyle.background(card)
-            TeaRingScatter(seed: "\(story.year)|\(card.rawValue)")
+            TeaRingScatter(
+                seed: "\(story.year)|\(card.rawValue)",
+                count: card == .books ? 4 : 7,
+                footFrom: card == .books ? 0.86 : (card == .shelf ? 0.8 : 0.72)
+            )
                 .opacity(0.85)
             VStack(alignment: .leading, spacing: Space.m) {
                 Eyebrow(WrappedText.eyebrow(card, year: story.year), color: accent)
@@ -539,6 +543,8 @@ struct WrappedCardView: View {
 struct TeaRingScatter: View {
     let seed: String
     var count = 7
+    /// Where the rings along the foot begin, as a share of the height.
+    var footFrom = 0.72
 
     private struct Ring {
         var x: Double
@@ -552,11 +558,11 @@ struct TeaRingScatter: View {
         var generator = SeededGenerator(seed: SeededGenerator.hash("rings|" + seed))
         var rings: [Ring] = []
         for index in 0..<count {
-            // Two near the top corner, the rest along the foot.
-            let high = index < 2
+            // One mostly off the right edge near the top, clear of the words; the rest along the foot.
+            let high = index == 0
             rings.append(Ring(
-                x: high ? 0.72 + 0.24 * generator.unit() : 0.04 + 0.92 * generator.unit(),
-                y: high ? 0.08 + 0.14 * generator.unit() : 0.68 + 0.3 * generator.unit(),
+                x: high ? 0.98 + 0.07 * generator.unit() : 0.04 + 0.92 * generator.unit(),
+                y: high ? 0.12 + 0.08 * generator.unit() : footFrom + (0.98 - footFrom) * generator.unit(),
                 diameter: 40 + 80 * generator.unit(),
                 share: 0.5 + 0.5 * generator.unit(),
                 opacity: 0.45 + 0.45 * generator.unit()
