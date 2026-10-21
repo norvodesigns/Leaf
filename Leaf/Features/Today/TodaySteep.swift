@@ -44,11 +44,13 @@ struct TeaSteepState: Codable, Equatable {
     }
 
     static func save(_ state: TeaSteepState?) {
-        guard let state, let data = try? JSONEncoder().encode(state) else {
+        if let state, let data = try? JSONEncoder().encode(state) {
+            UserDefaults.standard.set(data, forKey: key)
+        } else {
             UserDefaults.standard.removeObject(forKey: key)
-            return
         }
-        UserDefaults.standard.set(data, forKey: key)
+        // The Live Activity shows the pot as it steeps, and ends when it's poured out.
+        Task { @MainActor in LiveActivityController.shared.sync() }
     }
 }
 

@@ -32,7 +32,7 @@ enum WhatsNew {
                 .init(title: "Sounds, if you want them", line: "Rain, a fire, a kettle, a café or a library. Nothing plays until you choose."),
                 .init(title: "On the Lock Screen", line: "A Live Activity for the cup you’re reading, and Shortcuts to start one."),
                 .init(title: "iCloud", line: "Your library on every device you sign in to."),
-                .init(title: "Apple Watch", line: "A rebuilt watch app, with complications for the day’s reading."),
+                .init(title: "Apple Watch", line: "A rebuilt watch app, with complications for the day’s reading and your timer in the Smart Stack."),
             ]
         ),
     ]

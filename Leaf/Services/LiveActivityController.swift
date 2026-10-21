@@ -4,9 +4,13 @@ import CoreImage.CIFilterBuiltins
 import SwiftUI
 import UIKit
 
-/// Keeps the reading Live Activity in step with the live session (NEXT.md section 11).
+/// Keeps the reading Live Activity in step with the live session, or the pot steeping before it (NEXT.md section 11).
 ///
-/// - Starts one when a session starts, and only while the app is in the foreground (ActivityKit's rule).
+/// - Starts one when a session starts, or when tea goes on to steep for a book, and only while the app is in the
+///   foreground (ActivityKit's rule). A steep that turns into the cup of reading for the same book carries on in the
+///   same activity rather than ending one and starting another.
+/// - The system mirrors the activity to the Apple Watch's Smart Stack (its small card is `ReadingActivityWatchCard`);
+///   the watch is told which session it covers (`sessionShown`), so it never shows a second card of its own.
 /// - Updates it on state changes only: pause, resume, a page logged, the goal crossed. The digits advance by themselves
 ///   (`Text(timerInterval:)`), and the stale date is the moment the goal will be reached, so the activity turns to
 ///   "goal met" on time even while the app sleeps.
@@ -24,7 +28,10 @@ final class LiveActivityController {
 
     private weak var store: LibraryStore?
     private var activity: Activity<ReadingActivityAttributes>?
-    private var sessionID: UUID?
+    /// What the activity shows: "session:<id>" or "steep:<start>".
+    private var key: String?
+    /// The reading session the activity is showing, for the watch (nil for a steep or none).
+    private(set) var sessionShown: UUID?
     private var startedAt: Date?
     private var lastContent: ReadingActivityContent?
 
@@ -38,7 +45,8 @@ final class LiveActivityController {
         for leftover in existing {
             if activity == nil, leftover.attributes.bookID == liveBook, leftover.activityState == .active {
                 activity = leftover
-                sessionID = store.activeSession?.id
+                sessionShown = store.activeSession?.id
+                key = sessionShown.map { "session:\($0)" }
                 startedAt = Date()
             } else {
                 end(leftover, closing: nil)
@@ -50,35 +58,47 @@ final class LiveActivityController {
     /// Brings the activity in line with the store: start, update, end or nothing.
     func sync() {
         guard let store else { return }
-        guard let session = store.activeSession,
-              let item = store.item(session.bookID),
-              store.preferences.liveActivities,
-              ActivityAuthorizationInfo().areActivitiesEnabled else {
+        guard store.preferences.liveActivities, ActivityAuthorizationInfo().areActivitiesEnabled else {
             endCurrent()
             return
         }
+        let now = Date()
+        if let session = store.activeSession, let item = store.item(session.bookID) {
+            show(key: "session:\(session.id)", sessionID: session.id, item: item, content: Self.content(for: session, item: item, store: store, now: now))
+        } else if let steep = TeaSteepState.load(now: now), let item = Self.book(for: steep, store: store) {
+            show(key: "steep:\(Int(steep.startedAt.timeIntervalSince1970))", sessionID: nil, item: item, content: Self.steepContent(steep, item: item, now: now))
+        } else {
+            endCurrent()
+        }
+    }
 
+    private func show(key newKey: String, sessionID: UUID?, item: LibraryItem, content: ReadingActivityContent) {
         let isForeground = UIApplication.shared.applicationState == .active
         if let current = activity {
             let isGone = current.activityState == .ended || current.activityState == .dismissed
             let isOld = startedAt.map { Date().timeIntervalSince($0) > Self.renewAfter } ?? false
-            if sessionID != session.id || isGone || (isOld && isForeground) {
+            // The tea is poured and the cup of reading begins, for the same book: one activity all the way through.
+            let carriesOn = key?.hasPrefix("steep:") == true && newKey.hasPrefix("session:") && current.attributes.bookID == item.id
+            if carriesOn && !isGone {
+                key = newKey
+                sessionShown = sessionID
+                WatchBridge.shared.push()
+            } else if key != newKey || isGone || (isOld && isForeground) {
                 endCurrent()
             }
         }
 
-        let content = Self.content(for: session, item: item, store: store, now: Date())
         if let current = activity {
             guard content != lastContent else { return }
             lastContent = content
             let update = ActivityContent(state: content, staleDate: content.goalDate)
             Task { await current.update(update) }
         } else if isForeground {
-            start(session: session, item: item, content: content)
+            start(key: newKey, sessionID: sessionID, item: item, content: content)
         }
     }
 
-    private func start(session: ActiveSession, item: LibraryItem, content: ReadingActivityContent) {
+    private func start(key newKey: String, sessionID: UUID?, item: LibraryItem, content: ReadingActivityContent) {
         let attributes = ReadingActivityAttributes(
             bookID: item.id,
             title: item.book.title,
@@ -92,9 +112,11 @@ final class LiveActivityController {
                 content: ActivityContent(state: content, staleDate: content.goalDate),
                 pushType: nil
             )
-            sessionID = session.id
+            key = newKey
+            sessionShown = sessionID
             startedAt = Date()
             lastContent = content
+            WatchBridge.shared.push()
         } catch {
             // Live Activities off for Leaf, too many running, or not in the foreground after all: the session goes on.
             activity = nil
@@ -107,9 +129,12 @@ final class LiveActivityController {
         closing?.state = .finishing
         end(current, closing: closing)
         activity = nil
-        sessionID = nil
+        key = nil
+        let wasShowingSession = sessionShown != nil
+        sessionShown = nil
         startedAt = nil
         lastContent = nil
+        if wasShowingSession { WatchBridge.shared.push() }
     }
 
     private func end(_ activity: Activity<ReadingActivityAttributes>, closing: ReadingActivityContent?) {
@@ -158,6 +183,24 @@ final class LiveActivityController {
             state: state,
             line: line,
             teaName: store.tea(id: session.teaID)?.name
+        )
+    }
+
+    /// The book a steep is for: the one it was poured for, else the first being read. Nil when there is none, and then
+    /// no activity, since one is always about a book.
+    static func book(for steep: TeaSteepState, store: LibraryStore) -> LibraryItem? {
+        if let id = steep.bookID, let item = store.item(id) { return item }
+        return store.reading.first
+    }
+
+    /// The steep as the activity shows it: counting down to the tea, which the stale date turns to ready on time.
+    static func steepContent(_ steep: TeaSteepState, item: LibraryItem, now: Date) -> ReadingActivityContent {
+        ReadingActivityContent(
+            timerStart: steep.startedAt,
+            goalSeconds: steep.steepSeconds,
+            currentPage: item.currentPage,
+            state: steep.isReady(at: now) ? .teaReady : .steeping,
+            teaName: steep.tea.name
         )
     }
 

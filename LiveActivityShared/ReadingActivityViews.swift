@@ -41,12 +41,19 @@ struct ReadingActivityModel {
 
     /// The goal is behind us: either the app said so, or the countdown ran out while the app was asleep.
     var goalReached: Bool {
-        content.state == .goalReached || (isStale && content.countsDown && !content.isPaused)
+        guard !content.isSteep else { return false }
+        return content.state == .goalReached || (isStale && content.countsDown && !content.isPaused)
     }
+
+    /// A pot steeping before the cup.
+    var isSteeping: Bool { content.state == .steeping && !isStale }
+
+    /// The tea is ready: the app said so, or the steep ran out while it slept.
+    var teaReady: Bool { content.state == .teaReady || (content.state == .steeping && isStale) }
 
     var isPaused: Bool { content.isPaused }
 
-    var countsDown: Bool { content.countsDown && !goalReached }
+    var countsDown: Bool { content.countsDown && !goalReached && !teaReady }
 
     /// Counting down to the goal, or (once it's met, or with no goal) up through the time read.
     var timerRange: ClosedRange<Date> {
@@ -71,8 +78,11 @@ struct ReadingActivityModel {
         return min(1, Double(content.pausedElapsedSeconds) / Double(goal))
     }
 
-    /// "Goal met", "Paused", "Earl Grey · one cup", "Reading".
+    /// "Goal met", "Paused", "Earl Grey · one cup", "Reading", "Earl Grey · steeping", "Earl Grey is ready".
     var eyebrow: String {
+        let tea = content.teaName ?? "Your tea"
+        if teaReady { return "\(tea) is ready" }
+        if isSteeping { return "\(tea) · steeping" }
         if goalReached { return "Goal met" }
         if isPaused { return "Paused" }
         if content.state == .finishing { return "The last pages" }
@@ -82,6 +92,8 @@ struct ReadingActivityModel {
 
     /// The app's line, or plain words for the state.
     var headline: String {
+        if teaReady { return "Pour, then read" }
+        if isSteeping { return "Find your page and settle in" }
         if goalReached, content.state != .goalReached { return "Goal met. Read on?" }
         if let line = content.line, !line.isEmpty { return line }
         switch content.state {
@@ -89,11 +101,15 @@ struct ReadingActivityModel {
         case .paused: return "Your place is saved"
         case .goalReached: return "Anything more is a gift"
         case .finishing: return "Nearly done"
+        case .steeping: return "Find your page and settle in"
+        case .teaReady: return "Pour, then read"
         }
     }
 
     /// "to your goal", "to the end of the cup", "read", "paused".
     var timerCaption: String {
+        if teaReady { return "ready" }
+        if isSteeping { return "until it’s ready" }
         if isPaused { return "paused" }
         if countsDown { return content.teaName == nil ? "to your goal" : "left in the cup" }
         return "read"
@@ -106,10 +122,12 @@ struct ReadingActivityModel {
 
     /// Changes whenever the view should rack focus to a new state.
     var phase: String {
-        goalReached ? "goal" : (isPaused ? "paused" : content.state.rawValue)
+        if teaReady { return "ready" }
+        return goalReached ? "goal" : (isPaused ? "paused" : content.state.rawValue)
     }
 
     var timerColor: Color {
+        if teaReady { return ReadingActivityPalette.amber }
         if isPaused { return ReadingActivityPalette.inkSecondary }
         return goalReached ? ReadingActivityPalette.accent : ReadingActivityPalette.ink
     }
@@ -186,6 +204,12 @@ struct ReadingActivityButtons: View {
     var compact = false
 
     var body: some View {
+        if !model.content.isSteep {
+            sessionButtons
+        }
+    }
+
+    private var sessionButtons: some View {
         HStack(spacing: 8) {
             if model.isPaused {
                 Button(intent: ResumeReadingIntent()) {
@@ -449,6 +473,67 @@ struct ReadingActivityExpandedBottom: View {
 }
 
 // MARK: - A stand-in Lock Screen and island, for the app's debug gallery
+
+// MARK: - Apple Watch
+
+/// The card the Apple Watch shows in its Smart Stack for a Live Activity started on the iPhone (the `.small`
+/// supplemental family). Built for a glance on the wrist: a glyph and one line of state, the digits large, a thin bar,
+/// the book. High contrast on black, no cover (the wrist is too small for it to read), nothing bright filled in, so it
+/// sits well in Always On. The digits run by themselves.
+struct ReadingActivityWatchCard: View {
+    let model: ReadingActivityModel
+
+    private var glyph: String {
+        if model.content.isSteep { return model.teaReady ? "cup.and.saucer.fill" : "cup.and.heat.waves" }
+        if model.isPaused { return "pause.circle" }
+        if model.goalReached { return "checkmark.circle" }
+        return model.content.teaName == nil ? "book" : "cup.and.saucer"
+    }
+
+    private var tint: Color {
+        if model.teaReady { return ReadingActivityPalette.amber }
+        if model.goalReached { return ReadingActivityPalette.accent }
+        if model.isPaused { return ReadingActivityPalette.inkSecondary }
+        return ReadingActivityPalette.amber
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 4) {
+                Image(systemName: glyph)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(tint)
+                Text(model.eyebrow)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(ReadingActivityPalette.inkSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            if model.teaReady {
+                Text("Ready")
+                    .font(.system(size: 26, weight: .regular, design: .serif))
+                    .foregroundStyle(ReadingActivityPalette.amber)
+            } else {
+                Text(timerInterval: model.timerRange, pauseTime: model.pauseDate, countsDown: model.countsDown, showsHours: true)
+                    .font(.system(size: 26, weight: .regular, design: .serif).monospacedDigit())
+                    .foregroundStyle(model.timerColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            }
+            if model.hasGoal && !model.teaReady {
+                ReadingActivityProgress(model: model)
+                    .frame(height: 3)
+            }
+            Text(model.content.isSteep ? model.headline : model.title)
+                .font(.system(size: 12, weight: .regular))
+                .foregroundStyle(ReadingActivityPalette.ink)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(model.spokenSummary)
+    }
+}
 
 /// The Lock Screen card and the island regions laid out on a dark wallpaper, so screenshots can show the design.
 struct ReadingActivityGallery: View {

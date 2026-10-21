@@ -14,6 +14,11 @@ enum ReadingActivityState: String, Codable, Hashable, Sendable {
     case goalReached
     /// The reader is wrapping up the book or the session. The activity is about to end.
     case finishing
+    /// A pot is steeping before the cup of reading: `timerStart` is when the water went on and `goalSeconds` the steep,
+    /// so the digits count down to the tea by themselves.
+    case steeping
+    /// The tea is ready and the reading hasn't begun yet.
+    case teaReady
 }
 
 /// The part of a reading Live Activity that changes. ActivityKit caps attributes plus state at about 4 KB, so this stays
@@ -73,8 +78,11 @@ extension ReadingActivityContent {
     /// True while the digits should count down to the goal. Once the goal is reached they count up instead.
     var countsDown: Bool {
         guard goalLength != nil else { return false }
-        return state == .reading || state == .paused
+        return state == .reading || state == .paused || state == .steeping
     }
+
+    /// A tea steeping, or ready, rather than a session.
+    var isSteep: Bool { state == .steeping || state == .teaReady }
 
     /// The interval to hand to `Text(timerInterval:pauseTime:countsDown:showsHours:)`. Always a valid range, because
     /// SwiftUI traps on one that ends before it starts.

@@ -155,6 +155,8 @@ for appearance in light dark; do
     shot 149-tour-plan 8 -LeafDemo YES -LeafScreen tour.plan
     shot 150-tour-search 8 -LeafDemo YES -LeafScreen tour.search
     shot 151-tour-settings 6 -LeafDemo YES -LeafScreen tour.settings
+    shot 152-liveactivity-steeping 6 -LeafDemo YES -LeafScreen liveactivity.steeping
+    shot 153-liveactivity-watch 6 -LeafDemo YES -LeafScreen liveactivity.watch
     shot 88-insights-large-type 9 -LeafDemo YES -LeafScreen plan.insights -LeafScenario year -UIPreferredContentSizeCategoryName UICTContentSizeCategoryAccessibilityL
   fi
   shot "10-today$suffix" 5 -LeafDemo YES -LeafScreen today -LeafTime 20:30
@@ -223,4 +225,5 @@ if [ -n "${WATCH_SIM:-}" ] && [ -d "$WATCH_APP" ]; then
   wshot w14-shelf-actions -LeafDemo YES -LeafScreen shelf.actions
   wshot w15-add -LeafDemo YES -LeafScreen add.sent
   wshot w16-complications -LeafDemo YES -LeafScreen complications
+  wshot w17-timers -LeafDemo YES -LeafScreen timers
 fi

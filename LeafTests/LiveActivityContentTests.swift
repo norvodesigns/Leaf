@@ -78,13 +78,13 @@ import Testing
     }
 
     @Test func stateRawValuesAreStable() {
-        #expect(ReadingActivityState.allRawValuesForTest == ["reading", "paused", "goalReached", "finishing"])
+        #expect(ReadingActivityState.allRawValuesForTest == ["reading", "paused", "goalReached", "finishing", "steeping", "teaReady"])
     }
 }
 
 private extension ReadingActivityState {
     static var allRawValuesForTest: [String] {
-        [ReadingActivityState.reading, .paused, .goalReached, .finishing].map(\.rawValue)
+        [ReadingActivityState.reading, .paused, .goalReached, .finishing, .steeping, .teaReady].map(\.rawValue)
     }
 }
 #endif

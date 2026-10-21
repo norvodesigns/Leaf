@@ -118,6 +118,45 @@ Built in UI-2 (not yet verified by CI or on a device):
 Still to do: the widget snapshot writer and the Home Screen widgets, and the CloudKit sync itself. A Live Activity can only be started while the app is in the foreground, lasts up to 8 hours, and
 can sit on the Lock Screen for about 4 more (NEXT.md section 11).
 
+## The live timer on the wrist (Smart Stack and Dock)
+
+One timer, one card. A Live Activity started on the iPhone is mirrored to the watch's Smart Stack (and shows in the
+Dock) by the system, so whenever the phone has one for this session, that is the card, and the watch's own Timer widget
+stays out of the way. Otherwise the watch's Timer widget is the card. The rule is `LiveTimerRules.watchShowsCard`
+(`Shared/LiveTimer.swift`, tested in `LeafTests/LiveTimerTests.swift`).
+
+| Started on | What | Phone | Watch |
+|---|---|---|---|
+| Phone | Reading session | Live Activity (Lock Screen, Dynamic Island) | The mirrored Live Activity, in its small layout. Leaf's Timer widget shows today's reading. If Live Activities are off on the phone, the Timer widget shows the session instead. |
+| Phone | Tea steeping | Live Activity counting down to the tea, then "(tea) is ready"; it carries on as the session if the reader starts reading that book | The mirrored Live Activity. |
+| Watch | Reading session | A Live Activity only if the phone app is open when it hears of the session (ActivityKit starts them only in the foreground, and Leaf has no push server) | Leaf's Timer widget, until the phone says it has a Live Activity for this session; then the mirrored one. |
+| Watch | Tea steeping | Nothing (the phone doesn't hear of a watch steep) | Leaf's Timer widget, counting down, then "(tea) is ready" for up to 30 minutes. |
+
+How the pieces talk:
+
+- `LeafWidgets/ReadingLiveActivity.swift` declares `.supplementalActivityFamilies([.small])`, and
+  `ReadingActivityFamilyView` reads `activityFamily`: `.small` draws `ReadingActivityWatchCard`
+  (`LiveActivityShared/ReadingActivityViews.swift`), a two-line card for the watch and CarPlay; `.medium` is the
+  Lock Screen view. The content state gained `steeping` and `teaReady`; old states decode as before.
+- The phone tells the watch which session its Live Activity covers: `WatchSnapshot.liveActivitySessionID` (optional,
+  decoded if present, so an older phone's snapshot still loads), set from `LiveActivityController.sessionShown` and
+  pushed whenever an activity starts or ends.
+- The watch writes the timer into its `ComplicationSnapshot` (`timer: ComplicationTimer?`,
+  `WatchComplicationShared/ComplicationTimer.swift`) with `ComplicationFeed.publish`, and reloads both widget kinds.
+- `LeafWatchWidgets/LeafWatchTimerWidget.swift` (`LeafTimerWidget`, kind `LeafWatchTimer`, rectangular, corner,
+  circular and inline) draws it with `Text(timerInterval:pauseTime:countsDown:showsHours:)` and
+  `ProgressView(timerInterval:)`, so nothing updates per second. Its timeline is the timer's phases (running, then
+  reached at the goal or when the tea is ready, then settled five minutes later) with `TimelineEntryRelevance`
+  scores (1 while running, 1 for ready tea, 0.8 at a met goal, 0.6 paused, falling back after five minutes), then an
+  entry at expiry with today's reading and relevance 0. Policy `.never`: the app writes a new snapshot on every change.
+- A timer expires so it never lingers: a steep 30 minutes after the tea is ready, a reading session 8 hours after it
+  started.
+- The watch's `WKExtendedRuntimeSession` still keeps a watch-started session alive; the widget is what shows when the
+  app isn't on screen.
+
+No new target, entitlement or capability: the Timer widget lives in `LeafWatchWidgets`, and the small Live Activity
+layout in `LeafWidgets`.
+
 ## Privacy manifests
 
 The app, the watch app and the extension each carry a `PrivacyInfo.xcprivacy`. The extension's declares no tracking, no

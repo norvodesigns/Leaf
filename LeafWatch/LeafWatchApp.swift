@@ -37,6 +37,8 @@ struct WatchRootView: View {
         #if DEBUG
         if LaunchScreen.current == "complications" {
             ComplicationGallery()
+        } else if LaunchScreen.current == "timers" {
+            TimerGallery()
         } else {
             root
         }

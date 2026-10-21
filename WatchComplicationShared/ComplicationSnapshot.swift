@@ -16,6 +16,8 @@ struct ComplicationSnapshot: Codable, Hashable, Sendable {
     var slotMinutes: [Int]
     /// When the session running now started, less its pauses, so the face can count up. Nil when none is running.
     var liveSince: Date?
+    /// The reading session or tea steep the Timer widget shows, when the watch is the one to show it.
+    var timer: ComplicationTimer? = nil
 
     var minutesLeft: Double { max(0, Double(dailyMinutes) - minutesReadToday) }
     var goalProgress: Double { dailyMinutes > 0 ? min(1, minutesReadToday / Double(dailyMinutes)) : 0 }
@@ -71,6 +73,8 @@ struct ComplicationSnapshot: Codable, Hashable, Sendable {
 enum ComplicationStore {
     static let appGroup = "group.com.norvodesigns.leaf"
     static let kind = "LeafWatchComplication"
+    /// The Timer widget: a running reading session or tea steep, then today's reading again.
+    static let timerKind = "LeafWatchTimer"
     private static let key = "leaf.complication"
 
     static func read() -> ComplicationSnapshot? {

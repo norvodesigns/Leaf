@@ -198,7 +198,8 @@ extension LibraryStore {
             slots: slotPlans().compactMap { slotPlan in
                 guard let part = slotPlan.parts.first, let item = item(part.bookID) else { return nil }
                 return WatchSlot(id: slotPlan.slot.id, minuteOfDay: slotPlan.slot.minuteOfDay, label: slotPlan.slot.label, bookID: part.bookID, title: item.book.title, minutes: slotPlan.minutes, fromPage: part.fromPage, toPage: slotPlan.parts.last?.toPage ?? part.toPage)
-            }
+            },
+            liveActivitySessionID: LiveActivityController.shared.sessionShown
         )
     }
 }

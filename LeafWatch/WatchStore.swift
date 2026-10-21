@@ -278,11 +278,18 @@ final class WatchStore {
         steep = SteepTimer(tea: tea, startedAt: now)
         guard persist else { return }
         scheduleSteepNotification(tea: tea, seconds: Double(tea.steepSeconds))
+        // The same runtime that keeps a session alive keeps Leaf in the Dock while the tea steeps; the notification is
+        // still the one tap when it's ready.
+        if snapshot.activeSession == nil { ReadingRuntime.shared.begin(secondsToGoal: nil) }
+        publishComplications()
     }
 
     func cancelSteep() {
         steep = nil
         cancelSteepNotification()
+        guard persist else { return }
+        if snapshot.activeSession == nil { ReadingRuntime.shared.end() }
+        publishComplications()
     }
 
     private func scheduleSteepNotification(tea: WatchTea, seconds: Double) {
@@ -331,7 +338,16 @@ final class WatchStore {
         guard persist, let data = SyncCodec.encode(snapshot, key: SyncCodec.snapshotKey)[SyncCodec.snapshotKey] else { return }
         defaults.set(data, forKey: Self.key)
         defaults.set(minutesDay.timeIntervalSince1970, forKey: Self.dayKey)
-        ComplicationFeed.publish(snapshot, day: minutesDay)
+        publishComplications()
+    }
+
+    /// The face and the Smart Stack: today's reading, and the timer running on the wrist (a session or a steep).
+    private func publishComplications() {
+        let goal = snapshot.activeSession.flatMap { session -> Double? in
+            let target = session.goalSeconds.flatMap { $0 > 0 ? $0 : nil } ?? (Double(snapshot.dailyMinutes) - minutesReadToday) * 60
+            return target > 0 ? target : nil
+        }
+        ComplicationFeed.publish(snapshot, day: minutesDay, steep: steep, goalSeconds: goal)
     }
 }
 

@@ -7,6 +7,7 @@ import WidgetKit
 struct LeafWatchWidgets: WidgetBundle {
     var body: some Widget {
         LeafComplication()
+        LeafTimerWidget()
     }
 }
 

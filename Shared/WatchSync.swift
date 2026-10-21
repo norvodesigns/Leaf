@@ -31,6 +31,9 @@ struct WatchSnapshot: Codable, Hashable, Sendable {
     var liveActivities: Bool
     /// Today's reading times, earliest first, each with the book it is for.
     var slots: [WatchSlot]
+    /// The session the phone's Live Activity is showing right now, if any. The system mirrors that activity to the
+    /// watch's Smart Stack, so the watch's own Timer card stays away for it (`LiveTimerRules`).
+    var liveActivitySessionID: UUID?
 
     static let empty = WatchSnapshot(
         generatedAt: .distantPast, dailyMinutes: 20, minutesReadToday: 0, isReadingDay: true,
@@ -42,7 +45,8 @@ struct WatchSnapshot: Codable, Hashable, Sendable {
         generatedAt: Date, dailyMinutes: Int, minutesReadToday: Double, isReadingDay: Bool, streak: Int, wpm: Double,
         today: [WatchAssignment], reading: [WatchBook], week: [WatchDay], activeSession: ActiveSession?, hasOnboarded: Bool,
         greeting: WatchGreeting? = nil, tea: WatchTea? = nil, cupMinutes: Int = 25, queue: [WatchBook] = [],
-        forecasts: [WatchForecast] = [], yearGoal: WatchYearGoal? = nil, liveActivities: Bool = true, slots: [WatchSlot] = []
+        forecasts: [WatchForecast] = [], yearGoal: WatchYearGoal? = nil, liveActivities: Bool = true, slots: [WatchSlot] = [],
+        liveActivitySessionID: UUID? = nil
     ) {
         self.generatedAt = generatedAt
         self.dailyMinutes = dailyMinutes
@@ -63,11 +67,12 @@ struct WatchSnapshot: Codable, Hashable, Sendable {
         self.yearGoal = yearGoal
         self.liveActivities = liveActivities
         self.slots = slots
+        self.liveActivitySessionID = liveActivitySessionID
     }
 
     enum CodingKeys: String, CodingKey {
         case generatedAt, dailyMinutes, minutesReadToday, isReadingDay, streak, wpm, today, reading, week, activeSession, hasOnboarded
-        case greeting, tea, cupMinutes, queue, forecasts, yearGoal, liveActivities, slots
+        case greeting, tea, cupMinutes, queue, forecasts, yearGoal, liveActivities, slots, liveActivitySessionID
     }
 
     init(from decoder: Decoder) throws {
@@ -91,7 +96,8 @@ struct WatchSnapshot: Codable, Hashable, Sendable {
             forecasts: try c.decodeIfPresent([WatchForecast].self, forKey: .forecasts) ?? [],
             yearGoal: try c.decodeIfPresent(WatchYearGoal.self, forKey: .yearGoal),
             liveActivities: try c.decodeIfPresent(Bool.self, forKey: .liveActivities) ?? true,
-            slots: try c.decodeIfPresent([WatchSlot].self, forKey: .slots) ?? []
+            slots: try c.decodeIfPresent([WatchSlot].self, forKey: .slots) ?? [],
+            liveActivitySessionID: try c.decodeIfPresent(UUID.self, forKey: .liveActivitySessionID)
         )
     }
 
