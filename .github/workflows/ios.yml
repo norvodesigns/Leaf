@@ -121,6 +121,7 @@ jobs:
           test -f "$APP/PrivacyInfo.xcprivacy" && echo "iOS privacy manifest bundled"
           test -f "$WATCH/PrivacyInfo.xcprivacy" && echo "watch privacy manifest bundled"
           ls "$APP" | grep -E "Assets.car|InstrumentSerif" || true
+          echo "sizes (KB, unsigned, uncompressed): Leaf.app $(du -sk "$APP" | cut -f1), Leaf executable $(du -k "$APP/Leaf" | cut -f1), LeafWatch.app $(du -sk "$WATCH" | cut -f1), LeafWatch executable $(du -k "$WATCH/LeafWatch" 2>/dev/null | cut -f1)"
 
       - name: Warnings
         if: always()
