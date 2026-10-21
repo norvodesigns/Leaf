@@ -52,7 +52,7 @@ struct ISBNTests {
     }
 
     @Test func spotsISBNsBeingTyped() {
-        let typing: Bool = ISBN.looksLikeISBN("978-0-261")
+        let typing: Bool = ISBN.looksLikeISBN("978-0-261-102")
         let year: Bool = ISBN.looksLikeISBN("1984")
         let title: Bool = ISBN.looksLikeISBN("Dune 2")
         #expect(typing)
