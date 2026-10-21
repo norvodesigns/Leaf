@@ -11,9 +11,13 @@ import Foundation
 protocol ReadingIntentHandling: AnyObject {
     /// Opens Leaf and starts (or returns to) a reading session. False when there's nothing to read.
     func startReading() -> Bool
+    /// Opens Leaf at the tea for the next book with a pot already steeping (or the one on the stove). False when
+    /// there's nothing to read.
+    func startSteep() -> Bool
     func pauseReading() -> Bool
     func resumeReading() -> Bool
-    /// Moves the bookmark of the book being read on by `pages`. False without a session.
+    /// Moves the bookmark on by `pages`: the session's book, or with none running the book Today suggests. False with
+    /// nothing to move.
     func logPages(_ pages: Int) -> Bool
 }
 
@@ -21,6 +25,39 @@ protocol ReadingIntentHandling: AnyObject {
 @MainActor
 enum ReadingIntentBridge {
     static weak var handler: ReadingIntentHandling?
+}
+
+/// "Start reading in Leaf": opens the app on Today and begins (or returns to) the session, tea and all. Here rather
+/// than in the app so the Home Screen widgets and the Control Center control can run it too; the system opens Leaf
+/// and performs it there.
+struct StartReadingIntent: AppIntent {
+    static var title: LocalizedStringResource = "Start reading"
+    static var description: IntentDescription? = IntentDescription("Opens Leaf and starts today’s reading.")
+    static var openAppWhenRun: Bool = true
+
+    init() {}
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        _ = ReadingIntentBridge.handler?.startReading()
+        return .result()
+    }
+}
+
+/// "Steep a pot": opens Leaf at the tea for the next book, with the kettle already poured, so the reader can find
+/// their page while it steeps. Nothing plays unless the reader turned Leaf's sounds on.
+struct StartSteepIntent: AppIntent {
+    static var title: LocalizedStringResource = "Steep a pot"
+    static var description: IntentDescription? = IntentDescription("Opens Leaf with a pot of tea steeping for your next book.")
+    static var openAppWhenRun: Bool = true
+
+    init() {}
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        _ = ReadingIntentBridge.handler?.startSteep()
+        return .result()
+    }
 }
 
 /// Pauses the reading timer (the Live Activity's pause button, Shortcuts, Siri).
@@ -51,7 +88,8 @@ struct ResumeReadingIntent: LiveActivityIntent {
     }
 }
 
-/// Moves the bookmark on while reading, without ending the session.
+/// Moves the bookmark on while reading, without ending the session; with no session, moves the next book's bookmark
+/// (the Control Center control). Runs in the app's process without opening it.
 struct LogPagesIntent: LiveActivityIntent {
     static var title: LocalizedStringResource = "Log pages"
     static var description: IntentDescription? = IntentDescription("Moves your bookmark on by a few pages while you read.")

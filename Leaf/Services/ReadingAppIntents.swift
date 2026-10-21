@@ -42,26 +42,46 @@ final class AppReadingIntents: ReadingIntentHandling {
     }
 
     func logPages(_ pages: Int) -> Bool {
-        guard let store, let session = store.activeSession, let item = store.item(session.bookID) else { return false }
-        let from = max(item.currentPage, session.startPage)
-        store.setPage(item.id, page: min(item.book.pages, from + max(1, pages)))
-        LiveActivityController.shared.sync()
+        guard let store else { return false }
+        if let session = store.activeSession, let item = store.item(session.bookID) {
+            let from = max(item.currentPage, session.startPage)
+            store.setPage(item.id, page: min(item.book.pages, from + max(1, pages)))
+            LiveActivityController.shared.sync()
+            return true
+        }
+        // No session (the Control Center control): the book Today suggests, as if the reader moved its bookmark.
+        guard let item = store.nextBook, item.shelf == .reading, item.currentPage < item.book.pages else { return false }
+        store.setPage(item.id, page: min(item.book.pages, item.currentPage + max(1, pages)))
         return true
     }
-}
 
-/// "Start reading in Leaf": opens the app on Today and begins (or returns to) the session, tea and all.
-struct StartReadingIntent: AppIntent {
-    static var title: LocalizedStringResource = "Start reading"
-    static var description: IntentDescription? = IntentDescription("Opens Leaf and starts today’s reading.")
-    static var openAppWhenRun: Bool = true
+    func startSteep() -> Bool {
+        guard let store, let router else { return false }
+        if store.activeSession != nil { return startReading() }
+        guard let item = store.nextBook else { return false }
+        let pot = TeaSteepState.load()
+        // A pot already on the stove for this book is the one to come back to; otherwise pour the book's tea now,
+        // unless Leaf first has to ask where the reader is (the ritual then opens with "Pour and steep").
+        if pot?.bookID != item.id, !ReadingSessionLauncher.needsPosition(item, store: store) {
+            let tea = Self.tea(for: item, store: store)
+            let strength = CozySettings.teaStrength
+            let ritual = TeaRitual.plan(tea: tea, strength: strength, cupMinutes: store.preferences.cupMinutes)
+            let isOwn = store.data.cabinet.contains { $0.teaID == tea.id }
+            TeaSteepState.save(TeaSteepState(teaID: tea.id, steepSeconds: ritual.steepSeconds, startedAt: Date(), bookID: item.id, strength: strength, ownTea: isOwn ? tea : nil))
+            CozySounds.shared.teaBrewStarted()
+        }
+        router.showSettings = false
+        router.lastOutcome = nil
+        router.teaPage = nil
+        router.popToRoot()
+        router.tab = .today
+        return ReadingSessionLauncher.beginRitual(bookID: item.id, teaID: nil, store: store, router: router, from: ReadingSessionLauncher.heroSource)
+    }
 
-    init() {}
-
-    @MainActor
-    func perform() async throws -> some IntentResult {
-        _ = ReadingIntentBridge.handler?.startReading()
-        return .result()
+    /// The tea the ritual would open on for this book: its pairing among the teas on offer for the hour.
+    private static func tea(for item: LibraryItem, store: LibraryStore) -> Tea {
+        let offer = store.teaChoices(limit: 8, for: item.id)
+        return TeaShelf.preferred(for: item.book, pinnedTeaID: item.pairedTeaID, choices: offer.teas) ?? offer.teas.first ?? TeaCatalog.earlGrey
     }
 }
 
