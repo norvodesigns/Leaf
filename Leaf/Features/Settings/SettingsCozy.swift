@@ -20,6 +20,7 @@ struct SettingsTeaSection: View {
     @State private var strength = CozySettings.teaStrength
     @State private var cues = CozySettings.soundCues
     @State private var volume = 0.5
+    @AppStorage(NookScene.storageKey) private var nookScene: NookScene = .lamp
 
     private static let cupChoices = [15, 20, 25, 30, 40, 45, 50, 60]
 
@@ -72,6 +73,22 @@ struct SettingsTeaSection: View {
             settingsHeader("Tea")
         } footer: {
             settingsFooter("The ritual offers the teas in your cabinet, or Leaf’s when it’s empty. A cup is \(store.preferences.cupMinutes) minutes of reading; strength sets how long the tea steeps before it starts.")
+        }
+        .settingsRows()
+
+        Section {
+            Picker(selection: $nookScene) {
+                ForEach(NookScene.allCases) { scene in
+                    Label(scene.name, systemImage: scene.symbol).tag(scene)
+                }
+            } label: {
+                Text("Scene").leafStyle(.uiBody)
+            }
+            .pickerStyle(.menu)
+        } header: {
+            settingsHeader("Reading nook")
+        } footer: {
+            settingsFooter("The light behind a reading session. \(nookScene.blurb) Scenes are quiet; sound is its own choice below.")
         }
         .settingsRows()
 

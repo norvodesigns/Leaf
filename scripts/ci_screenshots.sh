@@ -84,6 +84,12 @@ for appearance in light dark; do
     shot 47-session-paused 5 -LeafDemo YES -LeafScreen session.paused
     shot 48-session-note 6 -LeafDemo YES -LeafScreen session.note
     shot 49-session-ambience 6 -LeafDemo YES -LeafScreen session.ambience
+    # Nook scenes: the scene rides in the argument domain, so it isn't saved for the shots after these.
+    shot 45a-nook-rain 6 -LeafDemo YES -LeafScreen session -leaf.cozy.nookScene rain
+    shot 45b-nook-hearth 6 -LeafDemo YES -LeafScreen session -leaf.cozy.nookScene hearth
+    shot 45c-nook-library 6 -LeafDemo YES -LeafScreen session -leaf.cozy.nookScene library
+    shot 45d-nook-sheet 6 -LeafDemo YES -LeafScreen session.nook -leaf.cozy.nookScene rain
+    shot 45e-nook-large-type 6 -LeafDemo YES -LeafScreen session -leaf.cozy.nookScene hearth -UIPreferredContentSizeCategoryName UICTContentSizeCategoryAccessibilityL
     # The Live Activity on a stand-in Lock Screen, with the Dynamic Island regions.
     shot 50-la-reading 5 -LeafDemo YES -LeafScreen liveactivity.reading
     shot 51-la-paused 5 -LeafDemo YES -LeafScreen liveactivity.paused

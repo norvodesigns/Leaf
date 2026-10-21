@@ -1,7 +1,8 @@
 import Foundation
 
 /// The small cozy choices that live on this device rather than in the synced reading preferences: whether sound cues
-/// play, the tea strength the ritual starts at, and how loud an ambience starts. Every one is quiet or neutral until
+/// play, the tea strength the ritual starts at, how loud an ambience starts, and the session's scene
+/// (`NookScene.storageKey`, read through `@AppStorage`). Every one is quiet or neutral until
 /// the reader changes it (nothing in Leaf makes a sound by surprise).
 @MainActor
 enum CozySettings {
@@ -41,5 +42,6 @@ enum CozySettings {
         soundCues = false
         defaults.removeObject(forKey: strengthKey)
         defaults.removeObject(forKey: volumeKey)
+        defaults.removeObject(forKey: NookScene.storageKey)
     }
 }

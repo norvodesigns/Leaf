@@ -23,6 +23,8 @@ struct SessionView: View {
     @State private var goalIsMet = false
     @State private var showsAmbience = false
     @State private var showsJournal = false
+    @State private var showsScene = false
+    @AppStorage(NookScene.storageKey) private var nookScene: NookScene = .lamp
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
 
     @ScaledMetric(relativeTo: .headline) private var controlHeight: CGFloat = 54
@@ -31,7 +33,8 @@ struct SessionView: View {
 
     var body: some View {
         ZStack {
-            SessionBackground()
+            NookSceneBackdrop(scene: nookScene, calm: session?.isPaused == true ? 0 : 1)
+                .ignoresSafeArea()
 
             if let session, let book = store.item(session.bookID)?.book {
                 content(session: session, book: book)
@@ -65,7 +68,7 @@ struct SessionView: View {
         .task(id: interaction) {
             try? await Task.sleep(for: .seconds(20))
             // Not with VoiceOver: the layer that catches the waking touch would swallow its next activation.
-            guard !Task.isCancelled, !isEnding, !showDiscardDialog, !showsJournal, !showsAmbience,
+            guard !Task.isCancelled, !isEnding, !showDiscardDialog, !showsJournal, !showsAmbience, !showsScene,
                   !voiceOverEnabled, store.activeSession != nil else { return }
             withAnimation(Motion.fade) { isDimmed = true }
         }
@@ -77,11 +80,15 @@ struct SessionView: View {
             switch LaunchOptions.current.screen ?? "" {
             case "session.note": showsJournal = true
             case "session.ambience": showsAmbience = true
+            case "session.nook": showsScene = true
             default: break
             }
         }
         .sheet(isPresented: $showsAmbience) {
             AmbienceSheet()
+        }
+        .sheet(isPresented: $showsScene) {
+            NookSceneSheet()
         }
         .sheet(isPresented: $showsJournal) {
             if let session, let book = store.item(session.bookID)?.book {
@@ -232,16 +239,27 @@ struct SessionView: View {
 
     // MARK: Note and ambience
 
-    /// A thought or a quote, and the room's sound: quiet glass capsules under the face.
+    /// A thought or a quote, the room's light and the room's sound: quiet glass capsules under the face. When the
+    /// three don't fit in a line (large text), they become icons with the same labels.
     private var extras: some View {
         GlassEffectContainer(spacing: Space.m) {
-            HStack(spacing: Space.m) {
-                extraButton(title: "Note", systemImage: "square.and.pencil", label: "Write a thought or a quote") {
-                    showsJournal = true
-                }
-                extraButton(title: ambienceTitle, systemImage: AmbiencePlayer.shared.currentID == nil ? "speaker.slash" : "speaker.wave.2", label: "Ambience: \(ambienceTitle)") {
-                    showsAmbience = true
-                }
+            ViewThatFits(in: .horizontal) {
+                extraRow(compact: false)
+                extraRow(compact: true)
+            }
+        }
+    }
+
+    private func extraRow(compact: Bool) -> some View {
+        HStack(spacing: Space.m) {
+            extraButton(title: "Note", systemImage: "square.and.pencil", label: "Write a thought or a quote", compact: compact) {
+                showsJournal = true
+            }
+            extraButton(title: nookScene.name, systemImage: nookScene.symbol, label: "Scene: \(nookScene.name)", compact: compact) {
+                showsScene = true
+            }
+            extraButton(title: ambienceTitle, systemImage: AmbiencePlayer.shared.currentID == nil ? "speaker.slash" : "speaker.wave.2", label: "Ambience: \(ambienceTitle)", compact: compact) {
+                showsAmbience = true
             }
         }
     }
@@ -250,18 +268,24 @@ struct SessionView: View {
         AmbienceCatalog.ambience(id: AmbiencePlayer.shared.currentID)?.name ?? "Silence"
     }
 
-    private func extraButton(title: String, systemImage: String, label: String, action: @escaping () -> Void) -> some View {
+    private func extraButton(title: String, systemImage: String, label: String, compact: Bool, action: @escaping () -> Void) -> some View {
         Button {
             Haptics.shared.tap()
             action()
         } label: {
-            Label(title, systemImage: systemImage)
-                .font(.system(.subheadline, weight: .medium))
-                .foregroundStyle(Color.ink)
-                .lineLimit(1)
-                .padding(.horizontal, Space.l)
-                .frame(minHeight: Space.hitTarget)
-                .contentShape(.capsule)
+            Group {
+                if compact {
+                    Image(systemName: systemImage)
+                } else {
+                    Label(title, systemImage: systemImage)
+                }
+            }
+            .font(.system(.subheadline, weight: .medium))
+            .foregroundStyle(Color.ink)
+            .lineLimit(1)
+            .padding(.horizontal, compact ? Space.m : Space.l)
+            .frame(minWidth: Space.hitTarget, minHeight: Space.hitTarget)
+            .contentShape(.capsule)
         }
         .buttonStyle(.plain)
         .glassEffect(.regular.tint(Color.glassTint).interactive(), in: .capsule)
@@ -482,46 +506,6 @@ struct SessionView: View {
         if minutes > 0 { parts.append("\(minutes) \(minutes == 1 ? "minute" : "minutes")") }
         if rest > 0 || parts.isEmpty { parts.append("\(rest) \(rest == 1 ? "second" : "seconds")") }
         return parts.joined(separator: " ")
-    }
-}
-
-// MARK: - Background
-
-/// A 3×3 mesh of `paper` with a `lamp` at the top centre that drifts a few percent over twelve
-/// seconds (DESIGN.md §6). Still under Reduce Motion.
-private struct SessionBackground: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        Group {
-            if reduceMotion {
-                mesh(at: 0)
-            } else {
-                TimelineView(.animation(minimumInterval: 1.0 / 15.0)) { context in
-                    mesh(at: context.date.timeIntervalSinceReferenceDate)
-                }
-            }
-        }
-        .ignoresSafeArea()
-        .accessibilityHidden(true)
-    }
-
-    private func mesh(at time: TimeInterval) -> some View {
-        let phase = time * 2 * Double.pi / 12
-        let lampDrift = Float(sin(phase) * 0.03)
-        let centreX = Float(0.5 + cos(phase * 0.7) * 0.03)
-        let centreY = Float(0.5 + sin(phase * 0.5) * 0.03)
-        let points: [SIMD2<Float>] = [
-            SIMD2<Float>(0, 0), SIMD2<Float>(0.5 + lampDrift, 0), SIMD2<Float>(1, 0),
-            SIMD2<Float>(0, 0.5), SIMD2<Float>(centreX, centreY), SIMD2<Float>(1, 0.5),
-            SIMD2<Float>(0, 1), SIMD2<Float>(0.5, 1), SIMD2<Float>(1, 1),
-        ]
-        let colors: [Color] = [
-            Color.paper, Color.lamp, Color.paper,
-            Color.paper, Color.paper, Color.paper,
-            Color.paper, Color.paper, Color.paper,
-        ]
-        return MeshGradient(width: 3, height: 3, points: points, colors: colors)
     }
 }
 

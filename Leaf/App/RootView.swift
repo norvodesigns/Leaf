@@ -245,7 +245,7 @@ struct RootView: View {
         case "session":
             store.startSession(bookID: DemoData.hobbit.id, startedAt: Date().addingTimeInterval(-(9 * 60 + 41)))
             router.showSession = true
-        case "session.cup", "session.cupdone", "session.paused", "session.note", "session.ambience":
+        case "session.cup", "session.cupdone", "session.paused", "session.note", "session.ambience", "session.nook":
             let minutes = key == "session.cupdone" ? 26.5 : 9 + 41.0 / 60
             let teaID: String? = key.hasPrefix("session.cup") || key == "session.note" ? TeaCatalog.earlGrey.id : nil
             store.startSession(
