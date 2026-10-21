@@ -121,7 +121,8 @@ jobs:
           test -f "$APP/PrivacyInfo.xcprivacy" && echo "iOS privacy manifest bundled"
           test -f "$WATCH/PrivacyInfo.xcprivacy" && echo "watch privacy manifest bundled"
           ls "$APP" | grep -E "Assets.car|InstrumentSerif" || true
-          echo "sizes (KB, unsigned, uncompressed): Leaf.app $(du -sk "$APP" | cut -f1), Leaf executable $(du -k "$APP/Leaf" | cut -f1), LeafWatch.app $(du -sk "$WATCH" | cut -f1), LeafWatch executable $(du -k "$WATCH/LeafWatch" 2>/dev/null | cut -f1)"
+          # Also published beside the screenshots (sizes.txt), for machines that can't read job logs.
+          echo "sizes (KB, unsigned, uncompressed): Leaf.app $(du -sk "$APP" | cut -f1), Leaf executable $(du -k "$APP/Leaf" | cut -f1), LeafWatch.app $(du -sk "$WATCH" | cut -f1), LeafWatch executable $(du -k "$WATCH/LeafWatch" 2>/dev/null | cut -f1)" | tee build-sizes.txt
 
       - name: Warnings
         if: always()
@@ -143,6 +144,7 @@ jobs:
           ls screenshots/jpg/*.jpg >/dev/null 2>&1 || { echo "no screenshots to publish"; exit 0; }
           dir=$(mktemp -d)
           cp screenshots/jpg/*.jpg "$dir/"
+          cp build-sizes.txt "$dir/sizes.txt" 2>/dev/null || true
           cd "$dir"
           git init -q
           git add -A
