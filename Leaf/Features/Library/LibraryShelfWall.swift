@@ -634,9 +634,9 @@ struct ShelfPoster: View {
         )
         let shown = Array(rows.prefix(Self.maximumRows))
         let more = rows.dropFirst(Self.maximumRows).reduce(0) { $0 + $1.count }
-        // Tall books on a single plank; two planks share the card's 640 points with the words above and the wordmark
-        // below (about 190 and 115), with a little to spare, and a little less when a line says how many more.
-        let height: CGFloat = shown.count <= 1 ? 150 : (more > 0 ? Self.shelfHeight : 124)
+        // Tall books on a single plank. Two planks share the card's 640 points with the words above (about 200) and
+        // the wordmark below (about 140), so they are shorter, and shorter again when a line says how many more.
+        let height: CGFloat = shown.count <= 1 ? 150 : (more > 0 ? 104 : Self.shelfHeight)
         VStack(alignment: .leading, spacing: Space.m) {
             Eyebrow("My \(String(year.year)) shelf")
             Text(ShelfWallText.posterTitle(year))
@@ -644,17 +644,18 @@ struct ShelfPoster: View {
             Text("\(LeafFormat.number(year.pages)) pages, finished one by one.")
                 .leafStyle(.pullQuote)
                 .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: Space.s)
-            ForEach(Array(shown.enumerated()), id: \.offset) { _, row in
-                ShelfPlankRow(spines: row, shelfHeight: height, bleed: Space.xxl) { spine in
-                    ShelfSpineView(spine: spine, shelfHeight: height, tint: tints[spine.book.id] ?? SpineTint(palette: CoverPalette(book: spine.book)))
+            VStack(alignment: .leading, spacing: Space.s) {
+                ForEach(Array(shown.enumerated()), id: \.offset) { _, row in
+                    ShelfPlankRow(spines: row, shelfHeight: height, bleed: Space.xxl) { spine in
+                        ShelfSpineView(spine: spine, shelfHeight: height, tint: tints[spine.book.id] ?? SpineTint(palette: CoverPalette(book: spine.book)))
+                    }
                 }
-                .padding(.bottom, Space.s)
+                if more > 0 {
+                    Text("and \(more) more")
+                        .leafStyle(.caption)
+                }
             }
-            if more > 0 {
-                Text("and \(more) more")
-                    .leafStyle(.caption)
-            }
+            .padding(.top, Space.s)
             Spacer(minLength: 0)
             HStack(alignment: .lastTextBaseline) {
                 Text(ShelfWallText.favouritesLine(year))
