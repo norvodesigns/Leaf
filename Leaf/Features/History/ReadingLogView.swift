@@ -28,9 +28,22 @@ struct ReadingLogView: View {
                     .padding(.top, Space.s)
                     .padding(.bottom, Space.m)
                 if entries.isEmpty {
-                    Text(query.isEmpty ? "Nothing logged here yet." : "Nothing matches “\(query)”.")
-                        .leafStyle(.body, color: .inkSecondary)
-                        .padding(.top, Space.l)
+                    if !query.isEmpty {
+                        Text("Nothing matches “\(query)”.")
+                            .leafStyle(.body, color: .inkSecondary)
+                            .padding(.top, Space.l)
+                    } else if show == .everything, range == .allTime {
+                        EmptyState(
+                            "Nothing logged yet",
+                            message: "Every sitting, quick log and finished book lands here, newest first, ready to export."
+                        )
+                        .frame(maxWidth: .infinity)
+                    } else {
+                        Text("Nothing logged here yet. Try showing everything, or a wider range.")
+                            .leafStyle(.body, color: .inkSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.top, Space.l)
+                    }
                 }
                 ForEach(months, id: \.title) { month in
                     SectionHeader(month.title, topSpacing: Space.l)

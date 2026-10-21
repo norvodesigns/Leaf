@@ -90,7 +90,10 @@ private struct AccessoryRow: View {
                     .foregroundStyle(Color.ink)
                     .contentTransition(.symbolEffect(.replace))
                     .frame(width: 36, height: 36)
+                    // A 44 pt hit area without growing the bar.
+                    .padding(4)
                     .contentShape(.rect)
+                    .padding(-4)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(model.symbolLabel)

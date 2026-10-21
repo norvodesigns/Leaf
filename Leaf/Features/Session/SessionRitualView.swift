@@ -297,9 +297,11 @@ struct SessionRitualView: View {
                 PrimaryGlassButton("Pour and steep", systemImage: "cup.and.heat.waves") {
                     pour()
                 }
-                TextButton("Read without tea", color: .inkSecondary) {
+                // A real way in, not a footnote: plain reading is as welcome as tea.
+                SecondaryGlassButton("Read without tea", systemImage: "book", compact: true, playsHaptic: false) {
                     startReading(withTea: false)
                 }
+                .padding(.top, Space.xs)
             }
         }
         .padding(.top, Space.s)

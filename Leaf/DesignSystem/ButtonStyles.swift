@@ -33,9 +33,13 @@ struct TextButton: View {
         Button(action: action) {
             Text(title)
                 .leafStyle(style, color: color)
+                // A taller and wider hit area than the words, without moving them: short labels ("Edit") still get
+                // close to 44 pt.
                 .padding(.vertical, Space.m)
+                .padding(.horizontal, Space.s)
                 .contentShape(.rect)
                 .padding(.vertical, -Space.m)
+                .padding(.horizontal, -Space.s)
         }
         .buttonStyle(.pressable)
     }
