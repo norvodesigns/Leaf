@@ -31,7 +31,6 @@ were read where it mattered but not edited.
 
 | Severity | Where | Finding | Why not fixed, and the suggested fix |
 |---|---|---|---|
-| **High (main is red)** | `LeafTests/AudioTests.swift:528`, `Shared/Audio/*` (ambience owner, cf66393) | `AmbienceSynthTests/otherSampleRatesStayFiniteAndRoughlyOnTarget`: the café recipe rendered at 22,050 Hz is 10.8 LU off its loudness target (tolerance 3). Deterministic on Linux and in Xcode; it is the only failing test on main since cf66393, so CI stops before the watch build, the archive and the screenshots for everyone. | Not my files. Either the café's loudness calibration assumes 44.1 kHz (a band or a measured gain that moves with the sample rate), or 22,050 Hz should be excluded for the café like the kettle and the library. |
 | Medium | `Leaf/Services/CloudSync.swift`, `LibraryStore.resetEverything` | Reset while iCloud can't be reached (offline): `deleteCloudData` fails and returns, but `started` stays true, so the reader's next change (onboarding again) restarts sync, which fetches the old cloud library and merges it into the erased one. The next launch does the same. | A safe retry needs care I can't verify without devices: persist an "erase pending" flag, retry the zone deletion before the engine starts, show it in Settings, and clear the flag on an account change or `notAuthenticated` so a retry can never delete a *different* account's zone. |
 | Medium | `CloudSync.handleAccountChange` | On `.switchAccounts` (or a sign-in after a sign-out) the whole local library is uploaded into the new account and merged with it. On a handed-down or shared iPhone, one person's library and journal end up in another person's iCloud. | Product decision. Suggest pausing sync on an account switch and asking ("Keep this library in the new iCloud account?"). |
 | Low | `.github/workflows/ios.yml` | `concurrency: cancel-in-progress: true` on `main`: every push cancels the run in progress. With several engineers pushing, full runs (with screenshots, ~45 min) rarely finish. | Owner's call: `cancel-in-progress: false` lets the running build finish and keeps only the newest pending one (GitHub replaces older pending runs), at the cost of waiting. |
@@ -89,6 +88,11 @@ search performance, screenshots in light, dark and large type); tests and CI.
   screenshot steps were skipped. My changes are therefore compiled and unit-tested on macOS, but their Release
   archive and their screenshots are not yet verified; the next green run on main covers both.
 - Linux: 838 tests, all passing except that same ambience test.
+- The ambience engineer fixed that test in 9f9fab6 (the café and the crackles now sound the same at any sample rate).
+- **Green:** 8c01e92 (run 39665922123, everything above plus later work by others): build and every unit test,
+  the Release archive and packaging check, warnings and screenshots all passed. The screenshots (run 39655925407,
+  a63477d, which also holds all of this work) show the copy fixes in place: Library's captions, Search's row
+  subtitles and the watch session.
 - Note for whoever runs CI from a sandbox: the job-log storage host can be blocked by a proxy, in which case
   `scripts/ci.py errors` prints nothing; the GitHub API's job-logs endpoint (or the GitHub MCP `get_job_logs` tool)
   still works.
