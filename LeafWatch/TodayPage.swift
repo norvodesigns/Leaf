@@ -98,6 +98,7 @@ struct TodayPage: View {
             }
             .buttonStyle(.glassProminent)
             .tint(WatchTheme.accent)
+            .foregroundStyle(WatchTheme.onAccent)
         } else {
             if let tea = store.snapshot.tea {
                 Button {
@@ -114,6 +115,7 @@ struct TodayPage: View {
                 }
                 .buttonStyle(.glassProminent)
                 .tint(WatchTheme.accent)
+                .foregroundStyle(WatchTheme.onAccent)
             }
             Button {
                 WatchHaptics.play(.start)
@@ -196,6 +198,7 @@ struct SteepTimerView: View {
             }
             .buttonStyle(.glassProminent)
             .tint(WatchTheme.accent)
+            .foregroundStyle(WatchTheme.onAccent)
             Button("Pour it out") {
                 WatchHaptics.play(.retry)
                 store.cancelSteep()
@@ -377,6 +380,7 @@ struct ShelfBookActions: View {
                 }
                 .buttonStyle(.glassProminent)
                 .tint(WatchTheme.accent)
+                .foregroundStyle(WatchTheme.onAccent)
                 .disabled(store.activeSession != nil)
                 if store.activeSession?.bookID == book.id {
                     // Finishing or setting aside would drop the minutes being timed; end the session first.

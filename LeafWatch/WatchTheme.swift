@@ -5,6 +5,8 @@ import WatchKit
 enum WatchTheme {
     static let accent = Color(red: 0x8D / 255, green: 0xBB / 255, blue: 0x98 / 255)
     static let accentDeep = Color(red: 0x1E / 255, green: 0x33 / 255, blue: 0x26 / 255)
+    /// The label on an accent button: deep green on the mint, about 9:1 (white on it is barely 2:1).
+    static let onAccent = Color(red: 0x0E / 255, green: 0x1A / 255, blue: 0x12 / 255)
     static let paper = Color(red: 0xF1 / 255, green: 0xEA / 255, blue: 0xDC / 255)
     static let inkSecondary = Color(red: 0xB9 / 255, green: 0xB0 / 255, blue: 0x9F / 255)
     static let ribbon = Color(red: 0xE0 / 255, green: 0x69 / 255, blue: 0x4F / 255)
@@ -36,8 +38,10 @@ struct GoalRing: View {
 
     var body: some View {
         ZStack {
-            Circle().stroke(WatchTheme.track, lineWidth: lineWidth)
+            // Inset by half the line, so the stroke stays inside the frame and never meets the screen's rounded edge.
+            Circle().inset(by: lineWidth / 2).stroke(WatchTheme.track, lineWidth: lineWidth)
             Circle()
+                .inset(by: lineWidth / 2)
                 .trim(from: 0, to: max(0.001, min(1, progress)))
                 .stroke(WatchTheme.accent.gradient, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))

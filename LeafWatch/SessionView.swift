@@ -120,6 +120,7 @@ struct SessionView: View {
                             }
                             .buttonStyle(.glassProminent)
                             .tint(WatchTheme.accent)
+                            .foregroundStyle(WatchTheme.onAccent)
                         }
                     }
                 }
@@ -207,6 +208,7 @@ struct PageEntryView: View {
             }
             .buttonStyle(.glassProminent)
             .tint(WatchTheme.accent)
+            .foregroundStyle(WatchTheme.onAccent)
         }
         .onAppear {
             page = Double(store.estimatedPage(for: session))

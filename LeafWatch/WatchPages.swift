@@ -98,6 +98,7 @@ struct QuickLogView: View {
             }
             .buttonStyle(.glassProminent)
             .tint(WatchTheme.accent)
+            .foregroundStyle(WatchTheme.onAccent)
         }
         .navigationTitle("Log a read")
         .onAppear {
@@ -195,6 +196,7 @@ struct WhereWasIView: View {
             }
             .buttonStyle(.glassProminent)
             .tint(WatchTheme.accent)
+            .foregroundStyle(WatchTheme.onAccent)
             .disabled(Int(page) == book.currentPage)
         }
         .navigationTitle(book.title)
@@ -230,6 +232,7 @@ struct ForecastPage: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
+                    .padding(.leading, 4)
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel("\(year.finished) of \(year.goal) books read in \(String(year.year)). \(year.sentence)")
                 }

@@ -39,8 +39,8 @@ folder, with no project edit.
 - `WatchComplicationShared/`: compiled into the watch app and its complications: `ComplicationSnapshot`, the few
   numbers a face shows, which the watch app writes to the App Group container after each change, and the complication
   views (so the app can draw them in a DEBUG gallery). Foundation, SwiftUI and WidgetKit only; no `Shared/`.
-- `LeafWidgets/`: sources only the widget extension compiles (the widget bundle, the Live Activity views, later the
-  Home Screen widgets and controls), its entitlements and privacy manifest.
+- `LeafWidgets/`: sources only the widget extension compiles (the widget bundle, the Live Activity, the Today widget
+  and the Control Center controls), its entitlements and privacy manifest.
 - `LiveActivityShared/`: compiled into both the app and the extension, and nothing else. This is for types both sides
   must agree on: the Live Activity attributes now, and the App Intents the Live Activity buttons run later (an
   interactive Live Activity button runs its intent in the app's process, but the extension has to see the type). Keep it
@@ -115,8 +115,38 @@ Built in UI-2 (not yet verified by CI or on a device):
   `ReadingFocusFilter` Focus filter (holds Leaf's reminders while a Reading Focus is on).
 - `NSCameraUsageDescription` in `Config/Info.plist`, for Live Text quote scanning in the session (text only).
 
-Still to do: the widget snapshot writer and the Home Screen widgets, and the CloudKit sync itself. A Live Activity can only be started while the app is in the foreground, lasts up to 8 hours, and
-can sit on the Lock Screen for about 4 more (NEXT.md section 11).
+Still to do: the CloudKit sync itself. A Live Activity can only be started while the app is in the foreground, lasts up
+to 8 hours, and can sit on the Lock Screen for about 4 more (NEXT.md section 11).
+
+## Widgets and Control Center controls
+
+All in the existing `LeafWidgets` extension: no new target, entitlement or capability. The extension already has the
+App Group, and controls need nothing extra.
+
+- **The snapshot.** `LiveActivityShared/LeafWidgetSnapshot.swift`: `LeafWidgetSnapshot` (today's minutes and goal, the
+  current book and its page, today's pages, three books up next with their likely finish, the week, the running session
+  or the pot steeping) and `LeafWidgetStore` (the App Group's shared defaults, key `leaf.widget`). `Leaf/Services/WidgetFeed.swift`
+  builds it from the store (`LibraryStore.widgetSnapshot`) after every change, a steep, a new forecast, the day
+  changing and going to the background; it writes only when the snapshot differs and only then reloads the `LeafToday`
+  timelines and the controls. Covers are the Live Activity's (`LiveActivityCover.prepare`), written once per book per
+  launch. Screenshot runs never write it.
+- **The Today widget** (`LeafWidgets/LeafTodayWidget.swift`, views in `LiveActivityShared/LeafWidgetViews.swift` so the
+  app can stage them): small, medium and large on the Home Screen (the small one is what StandBy shows), and circular,
+  rectangular and inline on the Lock Screen, matching the watch complications. One entry now and one at each moment it
+  changes by itself (the goal crossed, the tea ready, the pot cold, midnight); the seconds are `Text(timerInterval:)`.
+  Interactive buttons: Read (`StartReadingIntent`) and Steep (`StartSteepIntent`) by day, Pause or Resume and "A page"
+  while reading.
+- **Controls** (`LeafWidgets/LeafControls.swift`): Start reading, Steep a pot, and Log pages (the reader picks how many
+  pages per press when adding it; `LogPagesControlConfiguration`). Each works from Control Center, the Lock Screen and the
+  Action button.
+- **Where the intents run.** `StartReadingIntent` and `StartSteepIntent` set `openAppWhenRun`, so the system opens Leaf
+  and performs them there; `LogPagesIntent` is a `LiveActivityIntent`, so it runs in the app's process without opening it.
+  All of them are in `LiveActivityShared/ReadingIntents.swift`, compiled into both targets, and reach the store through
+  `ReadingIntentBridge` (`Leaf/Services/ReadingAppIntents.swift`). Log pages with no session moves the bookmark of the
+  book Today suggests (Reading shelf only).
+- **Screenshots.** `-LeafScreen widgets.home`, `widgets.timer`, `widgets.lock` draw the widgets on a stand-in Home
+  Screen, Lock Screen and StandBy (`Leaf/Features/Session/WidgetStage.swift`); shots `wg-1` to `wg-4`. Controls can't
+  be staged in the app.
 
 ## The live timer on the wrist (Smart Stack and Dock)
 

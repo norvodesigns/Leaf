@@ -100,12 +100,20 @@ struct ComplicationRectangular: View {
     }
 }
 
-/// Inline: the line alone, above the time.
+/// Inline: "13 min · The Hobbit" above the time, as on the iPhone's Lock Screen.
 struct ComplicationInline: View {
     let snapshot: ComplicationSnapshot
 
     var body: some View {
-        Label(snapshot.liveSince != nil ? "Reading now" : snapshot.line, systemImage: "leaf.fill")
+        Label(text, systemImage: snapshot.liveSince != nil ? "book.fill" : "leaf.fill")
             .accessibilityLabel(snapshot.spoken)
+    }
+
+    private var text: String {
+        if snapshot.liveSince != nil { return "Reading now" }
+        guard let title = snapshot.title else { return snapshot.line }
+        if snapshot.isRestDay { return "Rest day · \(title)" }
+        if snapshot.isGoalMet { return "Goal met · \(title)" }
+        return "\(Int(snapshot.minutesLeft.rounded(.up))) min · \(title)"
     }
 }

@@ -172,10 +172,12 @@ enum LeafWidgetGlyph {
         case .today, .empty: return "leaf.fill"
         case .goalMet: return "checkmark"
         case .rest: return "cup.and.saucer.fill"
-        case .reading: return "book.fill"
-        case .paused: return "pause.fill"
-        case .goalReached: return "checkmark"
-        case .steeping: return "cup.and.heat.waves.fill"
+        // The timer glyphs are the Apple Watch's (its Timer widget and Live Activity card): outlines, so nothing bright
+        // sits filled in on an Always On screen.
+        case .reading: return "book"
+        case .paused: return "pause.circle"
+        case .goalReached: return "checkmark.circle"
+        case .steeping: return "cup.and.heat.waves"
         case .teaReady: return "cup.and.saucer.fill"
         }
     }
