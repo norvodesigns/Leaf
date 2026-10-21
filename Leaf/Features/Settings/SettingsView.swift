@@ -401,6 +401,7 @@ struct SettingsView: View {
             router.ritual = nil
             TeaSteepState.save(nil)
             CozySettings.reset()
+            LibraryTraces.erase()
             store.resetEverything()
         }
     }
