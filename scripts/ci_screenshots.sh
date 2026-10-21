@@ -157,6 +157,28 @@ for appearance in light dark; do
     shot 151-tour-settings 6 -LeafDemo YES -LeafScreen tour.settings
     shot 152-liveactivity-steeping 6 -LeafDemo YES -LeafScreen liveactivity.steeping
     shot 153-liveactivity-watch 6 -LeafDemo YES -LeafScreen liveactivity.watch
+    # Polish pass: every main screen at an accessibility text size (lt-*), to catch truncation and clipped layouts.
+    lt=(-UIPreferredContentSizeCategoryName UICTContentSizeCategoryAccessibilityL)
+    shot lt-01-welcome 4 -LeafScreen onboarding.welcome "${lt[@]}"
+    shot lt-05-minutes 4 -LeafScreen onboarding.minutes "${lt[@]}"
+    shot lt-11-library 6 -LeafDemo YES -LeafScreen library "${lt[@]}"
+    shot lt-13-search 8 -LeafDemo YES -LeafScreen search "${lt[@]}"
+    shot lt-14-search-query 8 -LeafDemo YES -LeafScreen search.query "${lt[@]}"
+    shot lt-15-book 6 -LeafDemo YES -LeafScreen book:OL27482W "${lt[@]}"
+    shot lt-16-session 6 -LeafDemo YES -LeafScreen session "${lt[@]}"
+    shot lt-17-settings 5 -LeafDemo YES -LeafScreen settings "${lt[@]}"
+    shot lt-19-outcome 6 -LeafDemo YES -LeafScreen session.outcome "${lt[@]}"
+    shot lt-24-today-between 8 -LeafDemo YES -LeafScreen today -LeafScenario between -LeafTime 19:30 "${lt[@]}"
+    shot lt-25-today-new 7 -LeafDemo YES -LeafScreen today -LeafScenario new -LeafTime 18:00 "${lt[@]}"
+    shot lt-34-position 6 -LeafDemo YES -LeafScreen position -LeafScenario newbook "${lt[@]}"
+    shot lt-40-deck 8 -LeafDemo YES -LeafScreen deck "${lt[@]}"
+    shot lt-42-session-ritual 6 -LeafDemo YES -LeafScreen session.ritual "${lt[@]}"
+    shot lt-69-plan-reading 8 -LeafDemo YES -LeafScreen plan.reading "${lt[@]}"
+    shot lt-82-challenges 8 -LeafDemo YES -LeafScreen plan.challenges -LeafScenario year "${lt[@]}"
+    shot lt-110-tea-cabinet 6 -LeafDemo YES -LeafScreen tea.cabinet "${lt[@]}"
+    shot lt-121-log 6 -LeafDemo YES -LeafScreen log -LeafScenario year "${lt[@]}"
+    shot lt-145-whatsnew 6 -LeafDemo YES -LeafScreen whatsnew "${lt[@]}"
+    shot lt-146-tour-today 7 -LeafDemo YES -LeafScreen tour.today "${lt[@]}"
     shot 88-insights-large-type 9 -LeafDemo YES -LeafScreen plan.insights -LeafScenario year -UIPreferredContentSizeCategoryName UICTContentSizeCategoryAccessibilityL
   fi
   shot "10-today$suffix" 5 -LeafDemo YES -LeafScreen today -LeafTime 20:30
@@ -227,4 +249,7 @@ if [ -n "${WATCH_SIM:-}" ] && [ -d "$WATCH_APP" ]; then
   wshot w16-complications -LeafDemo YES -LeafScreen complications
   wshot w17-timers -LeafDemo YES -LeafScreen timers
   wshot w18-timers-steep -LeafDemo YES -LeafScreen timers.steep
+  # Polish pass: the watch at its largest text size.
+  wshot lt-w1-today -LeafDemo YES -LeafScreen today -UIPreferredContentSizeCategoryName UICTContentSizeCategoryXXXL
+  wshot lt-w2-session -LeafDemo YES -LeafScreen session -UIPreferredContentSizeCategoryName UICTContentSizeCategoryXXXL
 fi
