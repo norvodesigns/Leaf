@@ -29,7 +29,7 @@ struct BookTimelineView: View {
                         chapterView(chapter, item: item)
                     }
                     TextButton("Add a read from before Leaf", color: .accent) {
-                        Haptics.shared.tap()
+                        CanopyFeel.play(.tap)
                         addsEarlierRead = true
                     }
                     .padding(.top, Space.s)
@@ -113,7 +113,7 @@ struct BookTimelineView: View {
                         Section("Rate this read") {
                             ForEach((1...5).reversed(), id: \.self) { value in
                                 Button(value == 1 ? "1 leaf" : "\(value) leaves") {
-                                    Haptics.shared.selection()
+                                    CanopyFeel.play(.select)
                                     store.setReadRating(bookID, readID: read.id, rating: value)
                                 }
                             }
@@ -320,7 +320,7 @@ struct EarlierReadSheet: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Add") {
-                        Haptics.shared.success()
+                        CanopyFeel.play(.saved)
                         let calendar = store.calendar
                         let finishDay = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: finished) ?? finished
                         let startDay = knowsStart ? calendar.date(bySettingHour: 12, minute: 0, second: 0, of: started) : nil

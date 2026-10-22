@@ -63,7 +63,7 @@ struct TeaPairingSection: View {
             Spacer(minLength: Space.s)
             if item != nil {
                 Button {
-                    Haptics.shared.selection()
+                    CanopyFeel.play(.select)
                     withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
                         store.setPairedTea(book.id, teaID: isPinned ? nil : pick.tea.id)
                     }
@@ -90,7 +90,7 @@ struct TeaPairingSection: View {
         return Menu {
             ForEach(others) { tea in
                 Button(tea.name) {
-                    Haptics.shared.selection()
+                    CanopyFeel.play(.select)
                     withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
                         store.setPairedTea(book.id, teaID: tea.id)
                     }
@@ -145,7 +145,7 @@ struct TastingCard: View {
             TeaFlowLayout(spacing: Space.s) {
                 ForEach(TastingStrength.allCases, id: \.self) { option in
                     Button {
-                        Haptics.shared.selection()
+                        CanopyFeel.play(.select)
                         withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
                             strength = option
                         }
@@ -244,7 +244,7 @@ struct TeaWeekCard: View {
                 .accessibilityElement(children: .combine)
                 .accessibilityHint("Opens book details")
                 TextButton("Steep and read", color: .accent) {
-                    Haptics.shared.tap()
+                    CanopyFeel.play(.tap)
                     onSteep()
                 }
             }

@@ -43,6 +43,8 @@ enum CanopyFeel: String, CaseIterable {
     case tap
     /// Something can't be done.
     case warning
+    /// Something kept for good: a tea added to the cabinet, a backup restored, a picture saved.
+    case saved
 
     /// What the reader feels, for the gallery and the docs.
     var pattern: String {
@@ -67,6 +69,7 @@ enum CanopyFeel: String, CaseIterable {
         case .drop: return "A drop"
         case .tap: return "A light tap"
         case .warning: return "A warning"
+        case .saved: return "A bright double tap"
         }
     }
 
@@ -94,6 +97,7 @@ enum CanopyFeel: String, CaseIterable {
         case .drop: haptics.play(.reorderDrop, heft: heft)
         case .tap: haptics.tap()
         case .warning: haptics.warning()
+        case .saved: haptics.success()
         }
     }
 }

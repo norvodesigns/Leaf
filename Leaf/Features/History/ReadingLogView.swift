@@ -94,7 +94,7 @@ struct ReadingLogView: View {
                 ForEach(ReadingLog.Show.allCases, id: \.self) { Text($0.title).tag($0) }
             }
             .pickerStyle(.segmented)
-            .onChange(of: show) { _, _ in Haptics.shared.selection() }
+            .onChange(of: show) { _, _ in CanopyFeel.play(.select) }
             Menu {
                 Picker("Range", selection: $range) {
                     ForEach(InsightsRange.allCases, id: \.self) { Text($0.title).tag($0) }

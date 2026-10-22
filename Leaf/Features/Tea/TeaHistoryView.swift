@@ -154,7 +154,7 @@ struct TeaHistoryView: View {
             }
             if !showsAllBooks && lines.count > Self.collapsedBooks {
                 TextButton("Show all \(lines.count) books", style: .caption, color: .accent) {
-                    Haptics.shared.tap()
+                    CanopyFeel.play(.tap)
                     showsAllBooks = true
                 }
             }
@@ -208,7 +208,7 @@ struct TeaHistoryView: View {
             }
             if !showsAllNotes && notes.count > Self.collapsedNotes {
                 TextButton("Show all \(notes.count) notes", style: .caption, color: .accent) {
-                    Haptics.shared.tap()
+                    CanopyFeel.play(.tap)
                     showsAllNotes = true
                 }
             }

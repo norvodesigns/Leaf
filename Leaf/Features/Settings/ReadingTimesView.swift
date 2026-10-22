@@ -77,7 +77,7 @@ struct ReadingTimesSection: View {
                         .leafStyle(.caption)
                         .fixedSize(horizontal: false, vertical: true)
                     TextButton("Read side by side") {
-                        Haptics.shared.selection()
+                        CanopyFeel.play(.select)
                         store.updatePreferences { $0.planMode = .sideBySide }
                     }
                 }
@@ -102,7 +102,7 @@ struct ReadingTimesSection: View {
 
     private func delete(at offsets: IndexSet) {
         let ids = offsets.map { slots[$0].id }
-        Haptics.shared.warning()
+        CanopyFeel.play(.warning)
         withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
             for id in ids { store.removeReadingSlot(id) }
         }
@@ -262,7 +262,7 @@ struct ReadingSlotEditor: View {
                     HStack(spacing: Space.s) {
                         ForEach(Self.suggestions, id: \.self) { suggestion in
                             Button {
-                                Haptics.shared.selection()
+                                CanopyFeel.play(.select)
                                 draft.label = suggestion
                             } label: {
                                 Chip(suggestion, tone: draft.label == suggestion ? .accent : .neutral)
@@ -319,7 +319,7 @@ struct ReadingSlotEditor: View {
                         Text("One at a time plans a single book a day, so this time would read whatever is first. Side by side gives each book its own share and keeps this time for this book.")
                             .leafStyle(.caption)
                         TextButton("Read side by side") {
-                            Haptics.shared.selection()
+                            CanopyFeel.play(.select)
                             store.updatePreferences { $0.planMode = .sideBySide }
                         }
                     }
@@ -358,7 +358,7 @@ struct ReadingSlotEditor: View {
         }
         .confirmationDialog("Delete this reading time?", isPresented: $confirmsDelete, titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
-                Haptics.shared.warning()
+                CanopyFeel.play(.warning)
                 store.removeReadingSlot(draft.id)
                 dismiss()
             }
@@ -400,7 +400,7 @@ struct ReadingSlotEditor: View {
         } else {
             store.updateReadingSlot(slot)
         }
-        Haptics.shared.success()
+        CanopyFeel.play(.planChanged)
         onSaved?()
         dismiss()
     }
@@ -436,7 +436,7 @@ struct ReadingTimesSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") {
-                        Haptics.shared.tap()
+                        CanopyFeel.play(.tap)
                         router.showReadingTimes = false
                         dismiss()
                     }

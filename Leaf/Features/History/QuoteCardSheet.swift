@@ -66,7 +66,7 @@ struct QuoteCardSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Done") {
-                        Haptics.shared.tap()
+                        CanopyFeel.play(.tap)
                         dismiss()
                     }
                 }
@@ -108,7 +108,7 @@ struct QuoteCardSheet: View {
         HStack(spacing: Space.m) {
             ForEach(QuoteCardStyle.allCases, id: \.self) { option in
                 Button {
-                    Haptics.shared.selection()
+                    CanopyFeel.play(.select)
                     style = option
                 } label: {
                     VStack(spacing: Space.xs) {
@@ -136,7 +136,7 @@ struct QuoteCardSheet: View {
             Menu {
                 ForEach(all) { quote in
                     Button {
-                        Haptics.shared.selection()
+                        CanopyFeel.play(.select)
                         entryID = quote.id
                     } label: {
                         Text("\(String(quote.text.prefix(60)))\(quote.text.count > 60 ? "…" : "") · \(quote.bookTitle)")
@@ -199,7 +199,7 @@ struct QuoteCardSheet: View {
             try await PHPhotoLibrary.shared().performChanges {
                 PHAssetChangeRequest.creationRequestForAsset(from: image)
             }
-            Haptics.shared.success()
+            CanopyFeel.play(.saved)
             saveState = .saved
         } catch {
             saveState = .idle

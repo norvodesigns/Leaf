@@ -185,7 +185,7 @@ struct WhereAreYouSheet: View {
 
     private func select(_ option: PositionChoice) {
         guard option != choice else { return }
-        Haptics.shared.selection()
+        CanopyFeel.play(.select)
         isTyping = false
         withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
             choice = option
@@ -325,7 +325,7 @@ struct WhereAreYouSheet: View {
                 confirm()
             }
             TextButton("Not now", color: .inkSecondary) {
-                Haptics.shared.tap()
+                CanopyFeel.play(.tap)
                 dismiss()
             }
         }
@@ -343,9 +343,9 @@ struct WhereAreYouSheet: View {
         case .alreadyRead: position = .alreadyRead(on: remembersDate ? finishedOn : nil)
         }
         if choice == .alreadyRead {
-            Haptics.shared.success()
+            CanopyFeel.play(.saved)
         } else {
-            Haptics.shared.play(.pageTurn)
+            CanopyFeel.play(.pageLogged)
         }
         store.apply(position, to: book.id)
         dismiss()

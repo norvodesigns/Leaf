@@ -56,7 +56,7 @@ struct SettingsDaysPage: View {
             set: { newValue in
                 guard !newValue.isEmpty else {
                     triedToClear = true
-                    Haptics.shared.warning()
+                    CanopyFeel.play(.warning)
                     return
                 }
                 triedToClear = false

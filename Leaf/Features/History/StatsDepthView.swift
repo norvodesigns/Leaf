@@ -89,7 +89,7 @@ struct StatsDepthView: View {
 
     private func chip(_ title: String, isOn: Bool, action: @escaping () -> Void) -> some View {
         Button {
-            Haptics.shared.selection()
+            CanopyFeel.play(.select)
             action()
         } label: {
             Chip(title, systemImage: isOn ? "checkmark" : nil, tone: isOn ? .accent : .neutral)
@@ -344,7 +344,7 @@ struct HistorySheet<Content: View>: View {
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
                         Button("Done") {
-                            Haptics.shared.tap()
+                            CanopyFeel.play(.tap)
                             dismiss()
                         }
                     }

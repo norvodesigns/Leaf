@@ -58,7 +58,7 @@ struct SettingsTeaSection: View {
             }
             .pickerStyle(.segmented)
             .onChange(of: strength) { _, value in
-                Haptics.shared.selection()
+                CanopyFeel.play(.select)
                 CozySettings.teaStrength = value
             }
             .accessibilityLabel("Tea strength")
@@ -120,7 +120,7 @@ struct SettingsTeaSection: View {
                 Text("Sound cues").leafStyle(.uiBody)
             }
             .onChange(of: cues) { _, isOn in
-                Haptics.shared.selection()
+                CanopyFeel.play(.select)
                 CozySettings.soundCues = isOn
             }
         } header: {
@@ -170,7 +170,7 @@ struct SettingsTeaSection: View {
                 return TeaCatalog.tea(id: id) != nil || ownIDs.contains(id) ? id : nil
             },
             set: { id in
-                Haptics.shared.selection()
+                CanopyFeel.play(.select)
                 store.updatePreferences { $0.favoriteTeaID = id }
             }
         )
@@ -180,7 +180,7 @@ struct SettingsTeaSection: View {
         Binding(
             get: { Self.cupChoices.contains(store.preferences.cupMinutes) ? store.preferences.cupMinutes : 25 },
             set: { minutes in
-                Haptics.shared.selection()
+                CanopyFeel.play(.select)
                 store.updatePreferences { $0.cupMinutes = minutes }
             }
         )
@@ -191,7 +191,7 @@ struct SettingsTeaSection: View {
         Binding(
             get: { store.preferences.ambienceID },
             set: { id in
-                Haptics.shared.selection()
+                CanopyFeel.play(.select)
                 store.updatePreferences { $0.ambienceID = id }
                 if id == nil { AmbiencePlayer.shared.stop() }
             }
@@ -255,7 +255,7 @@ struct SettingsPlanSection: View {
         Binding(
             get: { store.preferences.catchUp },
             set: { mode in
-                Haptics.shared.selection()
+                CanopyFeel.play(.select)
                 store.updatePreferences { $0.catchUp = mode }
             }
         )
@@ -266,7 +266,7 @@ struct SettingsPlanSection: View {
         Binding(
             get: { store.preferences.yearlyGoal ?? 0 },
             set: { value in
-                Haptics.shared.selection()
+                CanopyFeel.play(.select)
                 store.updatePreferences { $0.yearlyGoal = value > 0 ? value : nil }
             }
         )
@@ -276,7 +276,7 @@ struct SettingsPlanSection: View {
         Binding(
             get: { store.preferences.weeklyLetter },
             set: { isOn in
-                Haptics.shared.selection()
+                CanopyFeel.play(.select)
                 store.updatePreferences { $0.weeklyLetter = isOn }
                 if isOn { Task { _ = await Reminders.shared.requestAuthorization() } }
             }
@@ -319,7 +319,7 @@ struct SettingsExtrasSection: View {
         Binding(
             get: { store.preferences.aiGreetings && AILibrarian.isAvailable },
             set: { isOn in
-                Haptics.shared.selection()
+                CanopyFeel.play(.select)
                 store.updatePreferences { $0.aiGreetings = isOn }
             }
         )
@@ -329,7 +329,7 @@ struct SettingsExtrasSection: View {
         Binding(
             get: { store.preferences.liveActivities },
             set: { isOn in
-                Haptics.shared.selection()
+                CanopyFeel.play(.select)
                 store.updatePreferences { $0.liveActivities = isOn }
                 LiveActivityController.shared.sync()
             }
@@ -361,7 +361,7 @@ struct SettingsCloudSection: View {
             .accessibilityElement(children: .combine)
             if let sync = store.sync, sync.status.isRunning {
                 Button {
-                    Haptics.shared.tap()
+                    CanopyFeel.play(.tap)
                     sync.forceFullSync()
                 } label: {
                     Text("Sync now")

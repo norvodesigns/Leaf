@@ -59,14 +59,14 @@ struct TeaCabinetView: View {
             }
             Section {
                 Button {
-                    Haptics.shared.tap()
+                    CanopyFeel.play(.tap)
                     browsesCatalog = true
                 } label: {
                     SettingsDisclosureRow("From Leaf’s teas")
                 }
                 .buttonStyle(.plain)
                 Button {
-                    Haptics.shared.tap()
+                    CanopyFeel.play(.tap)
                     addsOwn = true
                 } label: {
                     SettingsDisclosureRow("A tea of your own")
@@ -120,7 +120,7 @@ struct TeaCabinetView: View {
     private func row(_ cabinetTea: CabinetTea) -> some View {
         let tea = cabinetTea.tea
         return Button {
-            Haptics.shared.tap()
+            CanopyFeel.play(.tap)
             editing = cabinetTea
         } label: {
             HStack(spacing: Space.m) {
@@ -147,7 +147,7 @@ struct TeaCabinetView: View {
         .accessibilityHint("Edit")
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             Button(cabinetTea.isOutOf ? "Back in" : "Run out") {
-                Haptics.shared.selection()
+                CanopyFeel.play(.select)
                 Motion.animate(Motion.paper) { store.setOutOf(cabinetTea.id, !cabinetTea.isOutOf) }
             }
             .tint(cabinetTea.isOutOf ? Color.accent : Color.inkSecondary)
@@ -218,7 +218,7 @@ struct TeaCatalogPicker: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Done") {
-                    Haptics.shared.tap()
+                    CanopyFeel.play(.tap)
                     dismiss()
                 }
             }
@@ -245,7 +245,7 @@ struct TeaCatalogPicker: View {
                     .accessibilityLabel("In your cabinet")
             } else {
                 Button {
-                    Haptics.shared.success()
+                    CanopyFeel.play(.saved)
                     Motion.animate(Motion.paper) {
                         _ = store.addCabinetTea(CabinetTea(tin: tea, now: store.now))
                     }
@@ -398,7 +398,7 @@ struct TeaFormView: View {
         Binding(
             get: { steepSeconds },
             set: { value in
-                Haptics.shared.selection()
+                CanopyFeel.play(.select)
                 steepTouched = true
                 steepSeconds = value
             }
@@ -407,7 +407,7 @@ struct TeaFormView: View {
 
     private func save() {
         guard !trimmedName.isEmpty else { return }
-        Haptics.shared.success()
+        CanopyFeel.play(.saved)
         if var tea = editing {
             tea.name = trimmedName
             tea.brand = brand.trimmingCharacters(in: .whitespacesAndNewlines)

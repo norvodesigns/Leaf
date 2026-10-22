@@ -74,7 +74,7 @@ struct SettingsView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") {
-                        Haptics.shared.tap()
+                        CanopyFeel.play(.tap)
                         router.showSettings = false
                         dismiss()
                     }
@@ -155,7 +155,7 @@ struct SettingsView: View {
     }
 
     private func retakeTest() {
-        Haptics.shared.tap()
+        CanopyFeel.play(.tap)
         // The shell presents the test over this sheet, so you land back here with the new pace.
         router.showSpeedTest = true
     }
@@ -239,9 +239,9 @@ struct SettingsView: View {
                 store.updatePreferences { $0.hapticsLevel = newValue }
                 // Let the new level introduce itself.
                 if newValue == .full {
-                    Haptics.shared.play(.dialDetent)
+                    CanopyFeel.play(.snap)
                 } else {
-                    Haptics.shared.selection()
+                    CanopyFeel.play(.select)
                 }
             }
         )
@@ -307,12 +307,12 @@ struct SettingsView: View {
                     versionTaps += 1
                     if versionTaps >= 7 && !soundLabUnlocked {
                         soundLabUnlocked = true
-                        Haptics.shared.success()
+                        CanopyFeel.play(.saved)
                     }
                 }
             if showsSoundLabRow {
                 Button {
-                    Haptics.shared.tap()
+                    CanopyFeel.play(.tap)
                     showsSoundLab = true
                 } label: {
                     HStack {
@@ -335,7 +335,7 @@ struct SettingsView: View {
     /// A plain row that does something, with a chevron.
     private func settingsLink(_ title: String, action: @escaping () -> Void) -> some View {
         Button {
-            Haptics.shared.tap()
+            CanopyFeel.play(.tap)
             action()
         } label: {
             HStack {
@@ -422,7 +422,7 @@ struct SettingsView: View {
     /// Closes Settings first, then clears everything once the sheet is gone, so the library is not
     /// seen emptying behind it. Onboarding takes over afterwards.
     private func eraseEverything() {
-        Haptics.shared.warning()
+        CanopyFeel.play(.warning)
         // Silence first: nothing keeps playing for a library that is gone.
         AmbiencePlayer.shared.stop(fadeOut: 0)
         CozySounds.shared.cancelPending()
@@ -457,7 +457,7 @@ struct SettingsView: View {
         Binding(
             get: { store.preferences[keyPath: keyPath] },
             set: { newValue in
-                if haptic { Haptics.shared.selection() }
+                if haptic { CanopyFeel.play(.select) }
                 store.updatePreferences { $0[keyPath: keyPath] = newValue }
             }
         )

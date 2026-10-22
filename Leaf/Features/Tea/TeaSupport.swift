@@ -69,7 +69,7 @@ struct TeaLeafRating: View {
         HStack(spacing: 0) {
             ForEach(1...5, id: \.self) { value in
                 Button {
-                    Haptics.shared.selection()
+                    CanopyFeel.play(.select)
                     rating = rating == value ? nil : value
                 } label: {
                     Image(systemName: value <= (rating ?? 0) ? "leaf.fill" : "leaf")
@@ -114,7 +114,7 @@ struct TeaAromaPicker: View {
             ForEach(TastingAroma.all, id: \.self) { aroma in
                 let isOn = aromas.contains(aroma)
                 Button {
-                    Haptics.shared.selection()
+                    CanopyFeel.play(.select)
                     if isOn { aromas.removeAll { $0 == aroma } } else { aromas.append(aroma) }
                 } label: {
                     Chip(aroma, systemImage: isOn ? "checkmark" : nil, tone: isOn ? .accent : .neutral)
@@ -204,7 +204,7 @@ struct TeaPageSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") {
-                        Haptics.shared.tap()
+                        CanopyFeel.play(.tap)
                         router.teaPage = nil
                         dismiss()
                     }

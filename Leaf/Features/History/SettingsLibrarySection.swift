@@ -33,7 +33,7 @@ struct SettingsLibrarySection: View {
             .buttonStyle(.plain)
 
             Button {
-                Haptics.shared.tap()
+                CanopyFeel.play(.tap)
                 importsBackup = true
             } label: {
                 SettingsDisclosureRow("Restore from a backup")
@@ -52,7 +52,7 @@ struct SettingsLibrarySection: View {
         .confirmationDialog("Restore this backup?", isPresented: pendingBinding, titleVisibility: .visible, presenting: pending) { restore in
             Button("Restore") {
                 store.importBackup(restore.library)
-                Haptics.shared.success()
+                CanopyFeel.play(.saved)
                 restoreMessage = "Restored. \(summary(restore.preview))"
                 pending = nil
             }

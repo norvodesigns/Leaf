@@ -98,7 +98,7 @@ struct SoundLabView: View {
     private func toggle(_ sound: Ambience, version: AmbienceRecipe.Version, title: String) -> some View {
         let playing = isPlaying(sound, version)
         return Button {
-            Haptics.shared.selection()
+            CanopyFeel.play(.select)
             if playing {
                 player.stop(fadeOut: 0.4)
             } else {
