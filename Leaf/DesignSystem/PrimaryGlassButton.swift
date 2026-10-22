@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// The one prominent action on a screen (DESIGN.md §5): `.glassProminent` tinted `ink`, a semibold
-/// `paper` label, 54 pt tall (scaled with Dynamic Type) and full width. Plays `press()` on tap.
+/// The one prominent action on a screen: the Canopy hero (docs/design/DESIGN_SYSTEM.md), `.glassProminent` tinted
+/// black in both modes with a white label, 54 pt tall (scaled with Dynamic Type) and full width. Plays `press()` on tap.
 /// Disabled draws at 40%; `isLoading` swaps the label for a spinner and ignores taps.
 /// Use at most one per screen.
 struct PrimaryGlassButton: View {
@@ -36,7 +36,7 @@ struct PrimaryGlassButton: View {
             ZStack {
                 if isLoading {
                     ProgressView()
-                        .tint(.paper)
+                        .tint(.white)
                 } else if let systemImage {
                     Label(title, systemImage: systemImage)
                 } else {
@@ -44,14 +44,14 @@ struct PrimaryGlassButton: View {
                 }
             }
             .font(.system(.headline, weight: .semibold))
-            .foregroundStyle(.paper)
+            .foregroundStyle(.white)
             .lineLimit(1)
             .minimumScaleFactor(0.8)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .contentShape(.capsule)
         }
         .buttonStyle(.glassProminent)
-        .tint(.ink)
+        .tint(Canopy.hero)
         .frame(height: height)
         .opacity(isEnabled ? 1 : 0.4)
         .accessibilityLabel(title)
