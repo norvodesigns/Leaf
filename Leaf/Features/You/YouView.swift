@@ -118,6 +118,7 @@ struct YouView: View {
             row("Quotes", systemImage: "quote.bubble", accent: .bloom) { router.planSheet = .quoteCard(entryID: nil) }
             row("Tea cabinet", systemImage: "cup.and.heat.waves", accent: .clay) { router.teaPage = .cabinet }
             row("Tea history", systemImage: "clock.arrow.circlepath", accent: .clay) { router.teaPage = .history }
+            row("Teas you like", systemImage: "heart", accent: .clay) { router.teaPage = .preferences }
             row("Settings", systemImage: "gearshape", accent: nil) { router.showSettings = true }
         }
         .canopyCard()

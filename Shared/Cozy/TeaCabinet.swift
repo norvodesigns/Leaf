@@ -337,11 +337,12 @@ enum TeaShelf {
         lastTeaID: String? = nil,
         seed: UInt64 = 0,
         limit: Int = 8,
-        pinnedTeaID: String? = nil
+        pinnedTeaID: String? = nil,
+        preferences: TeaPreferences = TeaPreferences()
     ) -> Choices {
         var choices = rankedChoices(
             cabinet: cabinet, daypart: daypart, season: season, favoriteTeaID: favoriteTeaID, lastTeaID: lastTeaID,
-            seed: seed, limit: limit
+            seed: seed, limit: limit, preferences: preferences
         )
         if let pinned = offerable(pinnedTeaID, cabinet: cabinet, daypart: daypart) {
             choices.teas.removeAll { $0.id == pinned.id }
@@ -358,18 +359,20 @@ enum TeaShelf {
         favoriteTeaID: String?,
         lastTeaID: String?,
         seed: UInt64,
-        limit: Int
+        limit: Int,
+        preferences: TeaPreferences
     ) -> Choices {
         let stock = inStock(cabinet)
         if !stock.isEmpty {
             let ranked = TeaSuggester.ranked(
                 daypart: daypart, season: season, lastTeaID: lastTeaID, favoriteTeaID: favoriteTeaID,
-                seed: seed, limit: limit, from: stock
+                seed: seed, limit: limit, from: stock, preferences: preferences
             )
             if !ranked.isEmpty { return Choices(teas: ranked, fromCabinet: true, cabinetUnsuitable: false) }
         }
         let catalog = TeaSuggester.ranked(
-            daypart: daypart, season: season, lastTeaID: lastTeaID, favoriteTeaID: favoriteTeaID, seed: seed, limit: limit
+            daypart: daypart, season: season, lastTeaID: lastTeaID, favoriteTeaID: favoriteTeaID, seed: seed, limit: limit,
+            preferences: preferences
         )
         return Choices(teas: catalog, fromCabinet: false, cabinetUnsuitable: !stock.isEmpty)
     }

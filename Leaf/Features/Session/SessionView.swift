@@ -343,14 +343,15 @@ struct SessionView: View {
         Button {
             beginEnding(session: session, book: book)
         } label: {
-            Text("End")
+            Text("Done")
                 .font(.system(.headline, weight: .semibold))
-                .foregroundStyle(Color.paper)
+                .foregroundStyle(Color.white)
                 .frame(maxWidth: .infinity, minHeight: controlHeight)
                 .contentShape(.capsule)
         }
         .buttonStyle(.plain)
-        .glassEffect(.regular.tint(Color.ink).interactive(), in: .capsule)
+        // The screen's Hero: black glass in light and dark alike.
+        .glassEffect(.regular.tint(Canopy.hero).interactive(), in: .capsule)
         .glassEffectID("end", in: glassNamespace)
         .accessibilityLabel("End session")
     }
@@ -376,9 +377,9 @@ struct SessionView: View {
                 } label: {
                     Text("Save page")
                         .font(.system(.headline, weight: .semibold))
-                        .foregroundStyle(Color.paper)
+                        .foregroundStyle(Color.white)
                         .frame(maxWidth: .infinity, minHeight: controlHeight)
-                        .background(Color.ink, in: .capsule)
+                        .background(Canopy.hero, in: .capsule)
                         .contentShape(.capsule)
                 }
                 .buttonStyle(.pressable)
@@ -424,11 +425,7 @@ struct SessionView: View {
     }
 
     private func togglePause(isPaused: Bool) {
-        if isPaused {
-            Haptics.shared.tap()
-        } else {
-            Haptics.shared.soft(0.6)
-        }
+        CanopyFeel.play(isPaused ? .resume : .pause)
         withAnimation(Motion.resolved(Motion.glass, reduceMotion: reduceMotion)) {
             if isPaused {
                 store.resumeSession()
@@ -439,7 +436,7 @@ struct SessionView: View {
     }
 
     private func beginEnding(session: ActiveSession, book: Book) {
-        Haptics.shared.play(.sessionEnd)
+        CanopyFeel.play(.finishSession)
         let now = Date()
         if session.elapsed(at: now) < 60 {
             discardShortSession()
@@ -468,7 +465,7 @@ struct SessionView: View {
     }
 
     private func savePage() {
-        Haptics.shared.play(.pageTurn)
+        CanopyFeel.play(.pageLogged)
         AmbiencePlayer.shared.stop()
         if let outcome = store.finishSession(toPage: page) {
             ReadingSessionLauncher.present(outcome, router: router)

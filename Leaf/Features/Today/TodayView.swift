@@ -57,6 +57,7 @@ struct TodayView: View {
         var challenges: Int
         var dismissed: Int
         var preferences: ReadingPreferences
+        var tea: TeaPreferences
     }
 
     private struct BriefKey: Hashable {
@@ -75,7 +76,8 @@ struct TodayView: View {
             journal: store.data.journal.count,
             challenges: store.data.challenges.count,
             dismissed: store.data.dismissed.count,
-            preferences: store.preferences
+            preferences: store.preferences,
+            tea: CozySettings.teaPreferences
         )
     }
 

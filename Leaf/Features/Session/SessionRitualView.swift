@@ -187,12 +187,12 @@ struct SessionRitualView: View {
             if let pairing = pairing(in: offer.teas) {
                 pairingNote(pairing)
             }
-            Eyebrow(offer.fromCabinet ? "From your cabinet" : "Teas for this hour")
+            CanopyLabel(offer.fromCabinet ? "From your cabinet" : "Teas for this hour", accent: .clay)
             ScrollView(.horizontal) {
                 HStack(spacing: Space.s) {
                     ForEach(offer.teas) { choice in
                         Button {
-                            Haptics.shared.selection()
+                            CanopyFeel.play(.select)
                             withAnimation(Motion.resolved(Motion.glass, reduceMotion: reduceMotion)) {
                                 teaID = choice.id
                             }
@@ -218,7 +218,7 @@ struct SessionRitualView: View {
                 }
             }
             .pickerStyle(.segmented)
-            .onChange(of: strength) { _, _ in Haptics.shared.selection() }
+            .onChange(of: strength) { _, _ in CanopyFeel.play(.select) }
             Text(teaFacts)
                 .leafStyle(.caption)
                 .fixedSize(horizontal: false, vertical: true)
@@ -229,10 +229,10 @@ struct SessionRitualView: View {
     private func pairingNote(_ pairing: (tea: Tea, reason: String, isPinned: Bool)) -> some View {
         let isChosen = pairing.tea.id == teaID
         return VStack(alignment: .leading, spacing: Space.xs) {
-            Eyebrow(pairing.isPinned ? "Your pairing for this book" : "Pairs well with this book")
+            CanopyLabel(pairing.isPinned ? "Your pairing for this book" : "Pairs well with this book", accent: .clay)
             Button {
                 guard !isChosen else { return }
-                Haptics.shared.selection()
+                CanopyFeel.play(.select)
                 withAnimation(Motion.resolved(Motion.glass, reduceMotion: reduceMotion)) {
                     teaID = pairing.tea.id
                 }
@@ -277,11 +277,12 @@ struct SessionRitualView: View {
         VStack(spacing: Space.xxs) {
             if let pot {
                 if isReady {
-                    PrimaryGlassButton("Start the cup", systemImage: "book", playsHaptic: false) {
+                    CanopyHeroButton("Begin reading", feel: nil) {
                         startReading(withTea: true)
                     }
+                    .canopyFocusInTransition()
                 } else {
-                    SecondaryGlassButton("Start reading now", systemImage: "book", playsHaptic: false) {
+                    CanopyGlassButton("Start reading now", systemImage: "book", accent: .forest, feel: nil) {
                         startReading(withTea: true)
                     }
                 }
@@ -290,11 +291,11 @@ struct SessionRitualView: View {
                 }
                 .accessibilityHint("Clears the \(pot.tea.name) without reading")
             } else {
-                PrimaryGlassButton("Pour and steep", systemImage: "cup.and.heat.waves") {
+                CanopyHeroButton("Pour and steep", systemImage: "cup.and.heat.waves", feel: nil) {
                     pour()
                 }
                 // A real way in, not a footnote: plain reading is as welcome as tea.
-                SecondaryGlassButton("Read without tea", systemImage: "book", compact: true, playsHaptic: false) {
+                CanopyGlassButton("Read without tea", systemImage: "book", accent: .forest, compact: true, feel: nil) {
                     startReading(withTea: false)
                 }
                 .padding(.top, Space.xs)
@@ -308,7 +309,7 @@ struct SessionRitualView: View {
         let isOwn = store.data.cabinet.contains { $0.teaID == tea.id }
         let state = TeaSteepState(teaID: tea.id, steepSeconds: ritual.steepSeconds, startedAt: Date(), bookID: request.bookID, strength: strength, ownTea: isOwn ? tea : nil)
         TeaSteepState.save(state)
-        Haptics.shared.soft(0.6)
+        CanopyFeel.play(.steepStart)
         CozySounds.shared.teaBrewStarted()
         withAnimation(Motion.resolved(Motion.board, reduceMotion: reduceMotion)) {
             isReady = false
@@ -336,7 +337,7 @@ struct SessionRitualView: View {
         }
         TeaSteepState.save(nil)
         router.ritual = nil
-        Haptics.shared.play(.sessionStart)
+        CanopyFeel.play(.start)
     }
 
     /// Waits out the steep, then says so with `teaReady` (and the opt-in cue sound).
@@ -352,7 +353,7 @@ struct SessionRitualView: View {
         withAnimation(Motion.resolved(Motion.board, reduceMotion: reduceMotion)) {
             isReady = true
         }
-        Haptics.shared.play(.teaReady)
+        CanopyFeel.play(.teaReady)
         CozySounds.shared.teaReady()
     }
 }

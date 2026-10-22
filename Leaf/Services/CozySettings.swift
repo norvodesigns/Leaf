@@ -26,6 +26,24 @@ enum CozySettings {
         set { defaults.set(newValue.rawValue, forKey: strengthKey) }
     }
 
+    private static let teaPreferencesKey = "leaf.cozy.teaPreferences"
+
+    /// What the reader likes in a tea (kinds, caffeine, flavours, times of day). Kept on this device; suggestions on
+    /// Today and in the ritual follow it.
+    static var teaPreferences: TeaPreferences {
+        get {
+            guard let data = defaults.data(forKey: teaPreferencesKey) else { return TeaPreferences() }
+            return (try? JSONDecoder().decode(TeaPreferences.self, from: data)) ?? TeaPreferences()
+        }
+        set {
+            if newValue.isEmpty {
+                defaults.removeObject(forKey: teaPreferencesKey)
+            } else if let data = try? JSONEncoder().encode(newValue) {
+                defaults.set(data, forKey: teaPreferencesKey)
+            }
+        }
+    }
+
     /// The level an ambience starts at, 0 to 1, or nil to use each sound's own.
     static var ambienceVolume: Double? {
         get { defaults.object(forKey: volumeKey) as? Double }

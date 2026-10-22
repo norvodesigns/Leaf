@@ -32,9 +32,10 @@ enum TeaSuggester {
         weather: CozyWeather? = nil,
         lastTeaID: String? = nil,
         favoriteTeaID: String? = nil,
-        seed: UInt64 = 0
+        seed: UInt64 = 0,
+        preferences: TeaPreferences = TeaPreferences()
     ) -> Tea {
-        ranked(daypart: daypart, season: season, weather: weather, lastTeaID: lastTeaID, favoriteTeaID: favoriteTeaID, seed: seed, limit: 1).first
+        ranked(daypart: daypart, season: season, weather: weather, lastTeaID: lastTeaID, favoriteTeaID: favoriteTeaID, seed: seed, limit: 1, preferences: preferences).first
             ?? TeaCatalog.earlGrey
     }
 
@@ -47,10 +48,16 @@ enum TeaSuggester {
         favoriteTeaID: String? = nil,
         seed: UInt64 = 0,
         limit: Int = 5,
-        from candidates: [Tea] = TeaCatalog.all
+        from candidates: [Tea] = TeaCatalog.all,
+        preferences: TeaPreferences = TeaPreferences()
     ) -> [Tea] {
-        let scored = allowed(at: daypart, from: candidates).map { tea -> (tea: Tea, score: Double) in
+        // The reader's caffeine choice narrows the hour's rule; if it would leave nothing, the hour's rule stands.
+        let byClock = allowed(at: daypart, from: candidates)
+        let byChoice = byClock.filter { preferences.allows($0, at: daypart) }
+        let pool = byChoice.isEmpty ? byClock : byChoice
+        let scored = pool.map { tea -> (tea: Tea, score: Double) in
             var score = fit(tea, daypart: daypart, season: season, weather: weather)
+            score += preferences.score(tea, at: daypart)
             if tea.id == favoriteTeaID { score += favoriteNudge }
             if tea.id == lastTeaID { score -= repeatPenalty }
             score += CozyRanking.wobble(seed: seed, key: tea.id) * wobbleSize

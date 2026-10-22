@@ -2,7 +2,7 @@ import SwiftUI
 
 /// The tea pages that open as a sheet over the tabs (from Today, Settings links push the same views).
 enum TeaPage: String, Identifiable, Hashable {
-    case cabinet, history
+    case cabinet, history, preferences
 
     var id: String { rawValue }
 }
@@ -18,7 +18,8 @@ extension LibraryStore {
             favoriteTeaID: preferences.favoriteTeaID,
             seed: SeededGenerator.daySeed(now, calendar: calendar),
             limit: limit,
-            pinnedTeaID: bookID.flatMap { item($0)?.pairedTeaID }
+            pinnedTeaID: bookID.flatMap { item($0)?.pairedTeaID },
+            preferences: CozySettings.teaPreferences
         )
     }
 
@@ -199,6 +200,7 @@ struct TeaPageSheet: View {
                 switch page {
                 case .cabinet: TeaCabinetView()
                 case .history: TeaHistoryView()
+                case .preferences: TeaPreferencesView()
                 }
             }
             .toolbar {

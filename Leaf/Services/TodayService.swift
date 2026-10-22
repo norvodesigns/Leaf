@@ -84,7 +84,7 @@ extension LibraryStore {
         let input = TodayBriefInput(
             data: data, plan: plan, now: now, calendar: calendar, weather: weather,
             isFirstLaunchOfDay: isFirstToday, previousGreetingID: previous,
-            candidates: catalog.books, stats: catalog.stats
+            candidates: catalog.books, stats: catalog.stats, teaPreferences: CozySettings.teaPreferences
         )
         var brief = TodayBriefBuilder.build(input)
         if let forecast, let bookID = brief.current?.item.id, let bookForecast = forecast.book(bookID) {

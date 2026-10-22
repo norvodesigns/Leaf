@@ -81,8 +81,10 @@ struct TodayBriefInput: Sendable {
     /// Books to suggest from (the catalog's browse pool). Empty means no suggestions.
     var candidates: [Book] = []
     var stats: CatalogStats?
+    /// What the reader likes in a tea; today's tea leans toward it.
+    var teaPreferences: TeaPreferences = TeaPreferences()
 
-    init(data: LeafData, plan: ReadingPlan, now: Date, calendar: Calendar, weather: CozyWeather? = nil, isFirstLaunchOfDay: Bool = true, previousGreetingID: String? = nil, candidates: [Book] = [], stats: CatalogStats? = nil) {
+    init(data: LeafData, plan: ReadingPlan, now: Date, calendar: Calendar, weather: CozyWeather? = nil, isFirstLaunchOfDay: Bool = true, previousGreetingID: String? = nil, candidates: [Book] = [], stats: CatalogStats? = nil, teaPreferences: TeaPreferences = TeaPreferences()) {
         self.data = data
         self.plan = plan
         self.now = now
@@ -92,6 +94,7 @@ struct TodayBriefInput: Sendable {
         self.previousGreetingID = previousGreetingID
         self.candidates = candidates
         self.stats = stats
+        self.teaPreferences = teaPreferences
     }
 }
 
@@ -147,7 +150,7 @@ enum TodayBriefBuilder {
         let daypart = Daypart.of(now, calendar: calendar)
         let season = Season.of(now, calendar: calendar)
         let lastTea = data.sessions.sorted { $0.startedAt > $1.startedAt }.first { $0.teaID != nil }?.teaID
-        let tea = TeaSuggester.suggest(daypart: daypart, season: season, weather: input.weather, lastTeaID: lastTea, favoriteTeaID: prefs.favoriteTeaID, seed: seed)
+        let tea = TeaSuggester.suggest(daypart: daypart, season: season, weather: input.weather, lastTeaID: lastTea, favoriteTeaID: prefs.favoriteTeaID, seed: seed, preferences: input.teaPreferences)
         let steep = TeaSuggester.steepSeconds(for: tea, strength: .regular)
 
         // The voice.
