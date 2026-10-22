@@ -113,7 +113,7 @@ if ENTITLEMENTS="$(codesign -d --entitlements :- "$APP_PATH" 2>/dev/null)" && [[
 fi
 echo "==> Archive contains the app, the watch app and LeafWidgets.appex"
 # iCloud follows the Release setting (LEAF_CLOUDKIT_ENABLED in the project), the same as an Organizer archive.
-# Override for one build with LEAF_CLOUDKIT_ENABLED=YES scripts/testflight.sh.
+# Override for one build with LEAF_CLOUDKIT_ENABLED=NO scripts/testflight.sh.
 echo "==> iCloud sync in this build: $(/usr/libexec/PlistBuddy -c 'Print :LeafCloudKitEnabled' "$APP_PATH/Info.plist" 2>/dev/null || echo unknown)"
 
 cat > build/ExportOptions.plist <<PLIST

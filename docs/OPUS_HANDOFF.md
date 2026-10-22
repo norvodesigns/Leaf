@@ -248,7 +248,7 @@ Do these in order unless told otherwise. Each ends with a report (section 8). Ke
 ## 7. Things to know
 
 - `Leaf/Resources/catalog.sqlite` (when present) is the book database; `scripts/catalog/` builds it. See `docs/CATALOG.md`.
-- iCloud sync is per build (`LEAF_CLOUDKIT_ENABLED`, one Release setting that Organizer and testflight.sh share, off until the CloudKit schema is in Production; off in Debug and CI). See `docs/SYNC.md`.
+- iCloud sync is per build (`LEAF_CLOUDKIT_ENABLED`, one Release setting that Organizer and testflight.sh share: on in Release since the schema went to Production on 2026-10-22; off in Debug and CI). See `docs/SYNC.md`.
 - The forecast, insights and recommender are deterministic given a seed and `now`; use `SeededGenerator.daySeed(now, calendar:)`.
 - Dates in tests and previews should use an injected `Calendar`; never call `Date()` inside a view-model.
 - The user is on TestFlight: do not break launch. Old saved data must keep loading (all new model fields are optional or
