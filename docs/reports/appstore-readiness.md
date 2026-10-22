@@ -154,6 +154,13 @@ lifecycle, the watch store and its runtime, the control intents and the Focus fi
 7. Optional: an adult-content filter in the catalog build and in Open Library results (section 2, item 2).
 8. Watch: no extended runtime for a steep with no session (section 2, item 1).
 
+**Done by Engine, 2026-10-22** (all on main): 1. Release now has `LEAF_CLOUDKIT_ENABLED = YES`, and testflight.sh
+follows it, so both paths ship iCloud (set Release to NO to ship without it); the offline-Erase and account-switch
+findings are fixed (docs/SYNC.md, "Erase and account changes"). 2. `ci_screenshots.sh store` takes the 6.9-inch set
+and the watch with public-domain books (`store-*.png`), in its own step ahead of the watch and design steps.
+3. The packaging check fails any bundle that reaches UserDefaults without declaring it. 4–6 and 8 as listed.
+7. Erotica is left out of the catalog build (rebuild 3 requested) and of live search; ISBN scans are not filtered.
+
 ## 7. App Store Connect checklist for Matt
 
 - **Name:** "Leaf: Reading Planner" (30 characters max; "Leaf" alone is almost certainly taken). The home-screen
