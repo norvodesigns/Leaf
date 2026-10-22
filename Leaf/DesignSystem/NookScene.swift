@@ -1,45 +1,70 @@
 import SwiftUI
 
-/// The reading nook's scenes for the session screen, on Canopy (docs/design/DESIGN_SYSTEM.md): the plain Dusk
-/// backdrop by default, or a quiet drawing behind the timer: a window with rain, a reading lamp, a wall of shelves.
-/// Crisp fine lines on cream, never blurred, no glow or bokeh, in the neutrals with a little Dusk (the session's
-/// accent). Light only: a scene never makes a sound; the ambience is its own opt-in choice.
+/// The reading nook's scenes behind the session (the owner, 2026-10-22: "crisp photorealistic rain, fireplace and
+/// landscape scenes, but also soft ethereal blurred stuff"). They sit outside the app's chrome, so they don't follow
+/// Canopy's no-blur, no-glow rules; the session's controls on top still do. Plain is Canopy's own Dusk backdrop and the
+/// default. Light only: a scene never makes a sound; the ambience is its own opt-in choice.
 enum NookScene: String, CaseIterable, Identifiable {
-    // Raw values keep a choice saved before Canopy ("rain", "lamp", "library"); anything else falls back to plain.
     case plain
-    case window = "rain"
-    case lamp
-    case shelves = "library"
+    // Realistic, drawn by Metal shaders (`NookShaders.swift`).
+    case rain, hearth, landscape
+    // Soft and dreamy, drawn by SwiftUI (`AtmosphereScene`, a drifting mesh).
+    case glow, mist, drizzle
 
-    /// The device-local choice (`@AppStorage`). Not synced: it's how this phone looks.
+    /// The device-local choice (`@AppStorage`). Not synced: it's how this phone looks. A value saved by an earlier
+    /// build that no longer exists ("lamp", "library") falls back to plain.
     static let storageKey = "leaf.cozy.nookScene"
+
+    static let realistic: [NookScene] = [.rain, .hearth, .landscape]
+    static let soft: [NookScene] = [.glow, .mist, .drizzle]
 
     var id: String { rawValue }
 
     var name: String {
         switch self {
         case .plain: "Plain"
-        case .window: "Rain"
-        case .lamp: "Lamp"
-        case .shelves: "Shelves"
+        case .rain: "Rain"
+        case .hearth: "Fireplace"
+        case .landscape: "Mountains"
+        case .glow: "Glow"
+        case .mist: "Mist"
+        case .drizzle: "Drizzle"
         }
     }
 
     var blurb: String {
         switch self {
         case .plain: "Just the page and the timer."
-        case .window: "Rain running down a window."
-        case .lamp: "A reading lamp and its pool of light."
-        case .shelves: "A wall of books behind you."
+        case .rain: "Rain on the window, the city lit up behind it."
+        case .hearth: "A fire burning low in a stone fireplace."
+        case .landscape: "Mountains at dawn, mist in the valleys, a still lake."
+        case .glow: "Soft lights drifting, out of focus."
+        case .mist: "Slow colour, like light through fog."
+        case .drizzle: "A soft rain, out of focus, on a blue evening."
         }
     }
 
     var symbol: String {
         switch self {
         case .plain: "circle.dashed"
-        case .window: "cloud.rain"
-        case .lamp: "lamp.floor"
-        case .shelves: "books.vertical"
+        case .rain: "cloud.rain"
+        case .hearth: "flame"
+        case .landscape: "mountain.2"
+        case .glow: "sparkles"
+        case .mist: "cloud.fog"
+        case .drizzle: "cloud.drizzle"
+        }
+    }
+
+    /// Every scene but plain is an evening scene: the session's text and glass go light on it.
+    var isDark: Bool { self != .plain }
+
+    fileprivate var program: NookShaderProgram? {
+        switch self {
+        case .rain: .rain
+        case .hearth: .hearth
+        case .landscape: .landscape
+        default: nil
         }
     }
 }
@@ -48,28 +73,35 @@ enum NookScene: String, CaseIterable, Identifiable {
 
 /// A nook scene, full bleed, behind the session's timer and controls.
 ///
-/// Cheap: the drawings are static and render once; only the window's rain moves, at 15 fps inside the glass, and it
-/// holds still when `calm` reaches 0 (a paused session), under Reduce Motion, in Low Power Mode and while the app is
-/// in the background, at which point its timeline stops drawing frames.
+/// Cheap for a screen that stays awake: the realistic scenes are one shader pass at 2× scale; the soft ones are a
+/// few soft shapes at 15 fps. Every one holds still when `calm` reaches 0 (a paused session), under Reduce Motion, in
+/// Low Power Mode and while the app isn't active, and then stops drawing frames. A dark scrim behind the timer and the
+/// controls keeps the text readable on any scene.
 struct NookSceneBackdrop: View {
     let scene: NookScene
     var calm: Double = 1
-    /// False for a still card in a picker: no timeline at all.
+    /// False for a still card: no timelines at all.
     var isLive: Bool = true
 
     var body: some View {
         ZStack {
-            CanopyBackdrop(accent: .dusk)
             Group {
-                switch scene {
-                case .plain: Color.clear
-                case .window: NookWindowScene(calm: calm, isLive: isLive)
-                case .lamp: NookLampScene()
-                case .shelves: NookShelvesScene()
+                if let program = scene.program {
+                    NookShaderView(program: program, calm: calm, isLive: isLive)
+                } else {
+                    switch scene {
+                    case .glow: NookGlowScene(calm: calm, isLive: isLive)
+                    case .mist: NookMistScene(calm: calm, isLive: isLive)
+                    case .drizzle: NookDrizzleScene(calm: calm, isLive: isLive)
+                    default: CanopyBackdrop(accent: .dusk)
+                    }
                 }
             }
             .id(scene)
             .transition(.opacity)
+            if scene.isDark {
+                NookScrim()
+            }
         }
         .animation(Canopy.Motion.smooth, value: scene)
         .allowsHitTesting(false)
@@ -77,7 +109,7 @@ struct NookSceneBackdrop: View {
     }
 }
 
-/// A still card of a scene, for pickers.
+/// A card of a scene, for pickers.
 struct NookSceneThumbnail: View {
     let scene: NookScene
     var isSelected = false
@@ -88,21 +120,29 @@ struct NookSceneThumbnail: View {
             .aspectRatio(0.62, contentMode: .fit)
             .clipShape(shape)
             .overlay {
-                shape.strokeBorder(isSelected ? CanopyAccent.forest.color : Canopy.separator, lineWidth: isSelected ? 2 : 1)
+                shape.strokeBorder(isSelected ? CanopyAccent.forest.color : Canopy.separator, lineWidth: isSelected ? 2.5 : 1)
             }
     }
 }
 
-/// The scenes' ink: fine lines a little darker than a hairline, so they read as a drawing and stay behind the timer.
-private enum NookInk {
-    static var line: Color { Canopy.textTertiary.opacity(0.45) }
-    static var faint: Color { Canopy.separator }
-    static var glass: Color { CanopyAccent.dusk.soft }
-    static var rain: Color { CanopyAccent.dusk.color }
-
-    /// A hairline that stays visible on small cards.
-    static func width(_ size: CGSize, _ share: CGFloat = 0.004) -> CGFloat {
-        max(0.75, min(size.width, size.height) * share)
+/// Darkens behind the timer and along the bottom, where the controls are.
+private struct NookScrim: View {
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack {
+                RadialGradient(
+                    colors: [Color.black.opacity(0.36), Color.black.opacity(0)],
+                    center: UnitPoint(x: 0.5, y: 0.42),
+                    startRadius: 0,
+                    endRadius: min(proxy.size.width, proxy.size.height) * 0.62
+                )
+                LinearGradient(
+                    stops: [.init(color: .clear, location: 0.7), .init(color: Color.black.opacity(0.4), location: 1)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+        }
     }
 }
 
@@ -114,12 +154,11 @@ private final class NookClockBox {
     var lastPhase = 0.0
 }
 
-/// A 15 fps phase for the rain: the calm eases so nothing jumps, and the timeline stops once the scene is held still,
-/// under Reduce Motion, in Low Power Mode or while the app isn't active.
+/// A 15 fps phase for the soft scenes' own motion: the calm eases so nothing jumps, and the timeline stops once the
+/// scene is held still, under Reduce Motion, in Low Power Mode or while the app isn't active.
 private struct NookTimeline<Content: View>: View {
     var calm: Double
     var isLive: Bool
-    /// Where a still scene rests, so cards and Reduce Motion show a pleasant moment rather than phase 0.
     var restingPhase: Double = 7.5
     @ViewBuilder var content: (Double) -> Content
 
@@ -157,164 +196,76 @@ private struct NookTimeline<Content: View>: View {
     }
 }
 
-// MARK: - Rain
+// MARK: - Soft scenes
 
-/// A tall window in the upper half: a Dusk-tinted pane, a fine frame with glazing bars and a sill, and rain as crisp
-/// fine lines running down the glass (`AtmosphereField.rain`). Only the rain redraws, and only inside the pane.
-private struct NookWindowScene: View {
+/// Out-of-focus lights drifting over a warm dusk: two layers of bokeh, the far one larger and fainter.
+private struct NookGlowScene: View {
     var calm: Double
     var isLive: Bool
 
     var body: some View {
-        GeometryReader { proxy in
-            let size = proxy.size
-            let pane = CGRect(x: size.width * 0.14, y: size.height * 0.08, width: size.width * 0.72, height: size.height * 0.42)
-            let corner = max(4, size.width * 0.05)
-            ZStack(alignment: .topLeading) {
-                RoundedRectangle(cornerRadius: corner, style: .continuous)
-                    .fill(NookInk.glass)
-                    .frame(width: pane.width, height: pane.height)
-                    .position(x: pane.midX, y: pane.midY)
-                NookTimeline(calm: calm, isLive: isLive) { phase in
-                    rain(phase: phase)
-                }
-                .frame(width: pane.width, height: pane.height)
-                .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
-                .position(x: pane.midX, y: pane.midY)
-                windowFrame(pane: pane, corner: corner, size: size)
-            }
-            .frame(width: size.width, height: size.height, alignment: .topLeading)
-        }
-    }
-
-    private func rain(phase: Double) -> some View {
-        Canvas { context, size in
-            let line = NookInk.width(size, 0.006)
-            for streak in AtmosphereField.rain(seed: 0x7A1, phase: phase, count: 34, calm: calm) {
-                let x = CGFloat(streak.x) * size.width
-                let head = CGFloat(streak.y) * size.height
-                let length = CGFloat(streak.length) * size.height * 0.7
-                var path = Path()
-                path.move(to: CGPoint(x: x, y: head - length))
-                path.addLine(to: CGPoint(x: x, y: head))
-                context.stroke(
-                    path,
-                    with: .color(NookInk.rain.opacity(0.18 + streak.depth * 0.3)),
-                    style: StrokeStyle(lineWidth: line * CGFloat(0.7 + streak.depth * 0.6), lineCap: .round)
-                )
-            }
-        }
-    }
-
-    /// The frame, the glazing bars and the sill, in fine lines.
-    private func windowFrame(pane: CGRect, corner: CGFloat, size: CGSize) -> some View {
-        Canvas { context, _ in
-            let line = NookInk.width(size)
-            context.stroke(Path(roundedRect: pane, cornerRadius: corner, style: .continuous), with: .color(NookInk.line), lineWidth: line * 1.5)
-            var bars = Path()
-            bars.move(to: CGPoint(x: pane.midX, y: pane.minY))
-            bars.addLine(to: CGPoint(x: pane.midX, y: pane.maxY))
-            bars.move(to: CGPoint(x: pane.minX, y: pane.minY + pane.height * 0.46))
-            bars.addLine(to: CGPoint(x: pane.maxX, y: pane.minY + pane.height * 0.46))
-            context.stroke(bars, with: .color(NookInk.line), lineWidth: line)
-            let sill = CGRect(x: pane.minX - size.width * 0.04, y: pane.maxY + line * 2, width: pane.width + size.width * 0.08, height: max(2, size.height * 0.01))
-            context.stroke(Path(roundedRect: sill, cornerRadius: sill.height / 2, style: .continuous), with: .color(NookInk.line), lineWidth: line)
-        }
-    }
-}
-
-// MARK: - Lamp
-
-/// A floor lamp drawn in fine lines at the right, its arm reaching over the timer, and the light it pours: a cone of
-/// brighter cream (white on cream by day, a faint lift at night), sharp-edged and still.
-private struct NookLampScene: View {
-    @Environment(\.colorScheme) private var colorScheme
-
-    var body: some View {
-        Canvas { context, size in
-            let w = size.width, h = size.height
-            let line = NookInk.width(size)
-            let shadeTop = CGPoint(x: w * 0.58, y: h * 0.16)
-            let shade = Path { path in
-                path.move(to: CGPoint(x: shadeTop.x - w * 0.06, y: shadeTop.y))
-                path.addLine(to: CGPoint(x: shadeTop.x + w * 0.06, y: shadeTop.y))
-                path.addLine(to: CGPoint(x: shadeTop.x + w * 0.11, y: shadeTop.y + h * 0.06))
-                path.addLine(to: CGPoint(x: shadeTop.x - w * 0.11, y: shadeTop.y + h * 0.06))
-                path.closeSubpath()
-            }
-            // The light: a soft-edged cone from the shade down past the timer.
-            let mouth = shadeTop.y + h * 0.06
-            let cone = Path { path in
-                path.move(to: CGPoint(x: shadeTop.x - w * 0.11, y: mouth))
-                path.addLine(to: CGPoint(x: shadeTop.x + w * 0.11, y: mouth))
-                path.addLine(to: CGPoint(x: shadeTop.x + w * 0.42, y: h * 0.7))
-                path.addLine(to: CGPoint(x: shadeTop.x - w * 0.52, y: h * 0.7))
-                path.closeSubpath()
-            }
-            let light = colorScheme == .dark ? Canopy.text.opacity(0.06) : Color.white.opacity(0.7)
-            context.fill(cone, with: .linearGradient(
-                Gradient(colors: [light, light.opacity(0)]),
-                startPoint: CGPoint(x: shadeTop.x, y: mouth),
-                endPoint: CGPoint(x: shadeTop.x, y: h * 0.7)
-            ))
-            context.fill(shade, with: .color(CanopyAccent.dusk.soft))
-            context.stroke(shade, with: .color(NookInk.line), lineWidth: line * 1.5)
-            // The stand: an arm arcing from the pole to the shade, the pole, and a round foot.
-            let poleX = w * 0.9
-            var stand = Path()
-            stand.move(to: CGPoint(x: shadeTop.x, y: shadeTop.y))
-            stand.addQuadCurve(to: CGPoint(x: poleX, y: h * 0.2), control: CGPoint(x: shadeTop.x + w * 0.1, y: h * 0.06))
-            stand.addLine(to: CGPoint(x: poleX, y: h * 0.86))
-            context.stroke(stand, with: .color(NookInk.line), style: StrokeStyle(lineWidth: line * 1.5, lineCap: .round))
-            let foot = CGRect(x: poleX - w * 0.07, y: h * 0.86 - h * 0.006, width: w * 0.14, height: h * 0.012)
-            context.stroke(Path(ellipseIn: foot), with: .color(NookInk.line), lineWidth: line)
-        }
-    }
-}
-
-// MARK: - Shelves
-
-/// A wall of shelves in the upper room, drawn once: books as outlined spines of seeded widths and heights, some filled
-/// with a hairline tone, one leaning; the shelves fade out above the timer.
-private struct NookShelvesScene: View {
-    var body: some View {
-        Canvas { context, size in
-            let line = NookInk.width(size)
-            let rowHeight = size.height * 0.135
-            let top = size.height * 0.04
-            var roll: UInt64 = 0
-            func next() -> Double {
-                roll += 1
-                return InteractionMath.unit(0x5E1F, roll)
-            }
-            for row in 0..<3 {
-                let floor = top + CGFloat(row + 1) * rowHeight
-                var x = size.width * 0.06
-                while x < size.width * 0.9 {
-                    if next() < 0.08 {
-                        x += size.width * 0.06
-                        continue
-                    }
-                    let width = size.width * CGFloat(0.03 + 0.028 * next())
-                    let height = rowHeight * CGFloat(0.58 + 0.3 * next())
-                    let spine = CGRect(x: x, y: floor - height, width: width * 0.9, height: height)
-                    let shape = Path(roundedRect: spine, cornerRadius: min(2, width * 0.15))
-                    if next() < 0.35 { context.fill(shape, with: .color(NookInk.faint)) }
-                    context.stroke(shape, with: .color(NookInk.line), lineWidth: line)
-                    x += width
-                }
-                var shelf = Path()
-                shelf.move(to: CGPoint(x: size.width * 0.03, y: floor))
-                shelf.addLine(to: CGPoint(x: size.width * 0.97, y: floor))
-                context.stroke(shelf, with: .color(NookInk.line), style: StrokeStyle(lineWidth: line * 1.5, lineCap: .round))
-            }
-        }
-        .mask {
+        ZStack {
             LinearGradient(
-                stops: [.init(color: .black, location: 0.3), .init(color: .clear, location: 0.5)],
+                colors: [Color(hex: 0x1B1626), Color(hex: 0x2E1F2C), Color(hex: 0x4A2C26)],
                 startPoint: .top,
                 endPoint: .bottom
             )
+            AtmosphereScene(kind: .bokeh, calm: isLive ? calm * 0.7 : 0, density: 7, tint: Color(hex: 0xF2B66B), seed: 0x6E0)
+                .blur(radius: 10)
+                .opacity(0.9)
+            AtmosphereScene(kind: .bokeh, calm: isLive ? calm : 0, density: 12, tint: Color(hex: 0xFFD08A), seed: 0x6E1)
+                .blur(radius: 2)
+        }
+    }
+}
+
+/// Slow colour through fog: a 3×3 mesh in dusk colours whose inner points wander a few percent.
+private struct NookMistScene: View {
+    var calm: Double
+    var isLive: Bool
+
+    var body: some View {
+        NookTimeline(calm: calm, isLive: isLive) { phase in
+            mesh(at: phase)
+        }
+    }
+
+    private func mesh(at time: Double) -> some View {
+        func wander(_ seed: Double, _ reach: Double) -> Float {
+            Float(sin(time * 2 * Double.pi / (17 + seed * 5) + seed * 3.1) * reach)
+        }
+        let points: [SIMD2<Float>] = [
+            SIMD2<Float>(0, 0), SIMD2<Float>(0.5 + wander(1, 0.08), 0), SIMD2<Float>(1, 0),
+            SIMD2<Float>(0, 0.45 + wander(2, 0.07)), SIMD2<Float>(0.5 + wander(3, 0.1), 0.5 + wander(4, 0.08)), SIMD2<Float>(1, 0.55 + wander(5, 0.07)),
+            SIMD2<Float>(0, 1), SIMD2<Float>(0.5 + wander(6, 0.08), 1), SIMD2<Float>(1, 1),
+        ]
+        let colors: [Color] = [
+            Color(hex: 0x1C2238), Color(hex: 0x3B3560), Color(hex: 0x203845),
+            Color(hex: 0x5C4A78), Color(hex: 0x9A7C9E), Color(hex: 0x3E6A72),
+            Color(hex: 0x2A2236), Color(hex: 0x6E4A58), Color(hex: 0x1D2A33),
+        ]
+        return MeshGradient(width: 3, height: 3, points: points, colors: colors, smoothsColors: true)
+    }
+}
+
+/// A soft rain on a blue evening: rain on glass (`AtmosphereScene(.rain)`) softened, over a few blurred lights.
+private struct NookDrizzleScene: View {
+    var calm: Double
+    var isLive: Bool
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [Color(hex: 0x111A26), Color(hex: 0x1F3040), Color(hex: 0x2D3B44)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            AtmosphereScene(kind: .bokeh, calm: isLive ? calm * 0.4 : 0, density: 6, tint: Color(hex: 0xE7B27A), seed: 0xD21)
+                .blur(radius: 14)
+                .opacity(0.7)
+            AtmosphereScene(kind: .rain, calm: isLive ? calm : 0, density: 90, tint: .steam, seed: 0xD22)
+                .blur(radius: 1.2)
+                .environment(\.colorScheme, .dark)
         }
     }
 }
@@ -322,24 +273,23 @@ private struct NookShelvesScene: View {
 // MARK: - Previews
 
 #Preview("Nook scenes") {
-    @Previewable @State var scene = NookScene.window
+    @Previewable @State var scene = NookScene.rain
     ZStack {
         NookSceneBackdrop(scene: scene)
             .ignoresSafeArea()
         Picker("Scene", selection: $scene) {
             ForEach(NookScene.allCases) { Text($0.name).tag($0) }
         }
-        .pickerStyle(.segmented)
+        .pickerStyle(.menu)
         .padding()
         .frame(maxHeight: .infinity, alignment: .bottom)
     }
 }
 
-#Preview("Nook scenes · cards, dark") {
-    HStack(spacing: 12) {
-        ForEach(NookScene.allCases) { NookSceneThumbnail(scene: $0, isSelected: $0 == .lamp) }
+#Preview("Nook scenes · cards") {
+    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4)) {
+        ForEach(NookScene.allCases) { NookSceneThumbnail(scene: $0, isSelected: $0 == .hearth) }
     }
     .padding()
     .canopyBackdrop(.dusk)
-    .preferredColorScheme(.dark)
 }

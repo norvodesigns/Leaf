@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Choosing the session's scene, on Canopy: system sheet glass at a medium detent, four still cards, the change showing
-/// at once behind the sheet. Light only: the room's sound is chosen separately (`AmbienceSheet`), so picking the rain
+/// Choosing the session's scene: system sheet glass at a medium detent, plain on top, then the realistic and the soft
+/// scenes as cards, the change showing at once behind the sheet. Light only: the room's sound is chosen separately (`AmbienceSheet`), so picking the rain
 /// scene never starts the rain.
 struct NookSceneSheet: View {
     @AppStorage(NookScene.storageKey) private var selection: NookScene = .plain
@@ -9,23 +9,24 @@ struct NookSceneSheet: View {
     @Environment(\.dynamicTypeSize) private var typeSize
 
     private var columns: [GridItem] {
-        Array(repeating: GridItem(.flexible(), spacing: Canopy.Space.m, alignment: .top), count: typeSize.isAccessibilitySize ? 2 : 4)
+        Array(repeating: GridItem(.flexible(), spacing: Canopy.Space.m, alignment: .top), count: typeSize.isAccessibilitySize ? 2 : 3)
     }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: Canopy.Space.xl) {
-                    LazyVGrid(columns: columns, spacing: Canopy.Space.l) {
-                        ForEach(NookScene.allCases) { scene in
-                            card(scene)
-                        }
+                    CanopyChip(NookScene.plain.name, systemImage: NookScene.plain.symbol, isSelected: selection == .plain) {
+                        withAnimation(Canopy.Motion.snappy) { selection = .plain }
                     }
+                    .accessibilityHint(NookScene.plain.blurb)
+                    section("Realistic", scenes: NookScene.realistic)
+                    section("Soft", scenes: NookScene.soft)
                     VStack(alignment: .leading, spacing: Canopy.Space.xs) {
                         Text(selection.blurb)
                             .canopyText(.body)
                             .contentTransition(.opacity)
-                        Text("Scenes are quiet drawings; only the rain moves, and it stops while you pause. Sound is its own choice, under Ambience.")
+                        Text("Scenes are pictures only and hold still while you pause. Sound is its own choice, under Ambience.")
                             .canopyText(.caption)
                     }
                     .fixedSize(horizontal: false, vertical: true)
@@ -46,6 +47,17 @@ struct NookSceneSheet: View {
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+    }
+
+    private func section(_ title: String, scenes: [NookScene]) -> some View {
+        VStack(alignment: .leading, spacing: Canopy.Space.s) {
+            CanopyLabel(title)
+            LazyVGrid(columns: columns, spacing: Canopy.Space.l) {
+                ForEach(scenes) { scene in
+                    card(scene)
+                }
+            }
+        }
     }
 
     private func card(_ scene: NookScene) -> some View {

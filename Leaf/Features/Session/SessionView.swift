@@ -57,6 +57,8 @@ struct SessionView: View {
                     .transition(.opacity)
             }
         }
+        // The evening scenes take the session's text and glass light.
+        .preferredColorScheme(nookScene.isDark ? .dark : nil)
         .simultaneousGesture(TapGesture().onEnded { interaction += 1 })
         .interactiveDismissDisabled(isEnding || showShortNotice)
         .confirmationDialog("Discard this session?", isPresented: $showDiscardDialog, titleVisibility: .visible) {

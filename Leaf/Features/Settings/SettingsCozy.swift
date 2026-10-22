@@ -88,7 +88,7 @@ struct SettingsTeaSection: View {
         } header: {
             sectionHeader("Reading nook")
         } footer: {
-            settingsFooter("What sits behind a reading session. \(nookScene.blurb) Scenes are quiet drawings; sound is its own choice below.")
+            settingsFooter("What sits behind a reading session. \(nookScene.blurb) Scenes are pictures only; sound is its own choice below.")
         }
         .settingsRows()
 

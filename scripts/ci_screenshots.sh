@@ -85,11 +85,13 @@ for appearance in light dark; do
     shot 48-session-note 6 -LeafDemo YES -LeafScreen session.note
     shot 49-session-ambience 6 -LeafDemo YES -LeafScreen session.ambience
     # Nook scenes: the scene rides in the argument domain, so it isn't saved for the shots after these.
-    shot 45a-nook-rain 6 -LeafDemo YES -LeafScreen session -leaf.cozy.nookScene rain
-    shot 45b-nook-lamp 6 -LeafDemo YES -LeafScreen session -leaf.cozy.nookScene lamp
-    shot 45c-nook-library 6 -LeafDemo YES -LeafScreen session -leaf.cozy.nookScene library
-    shot 45d-nook-sheet 6 -LeafDemo YES -LeafScreen session.nook -leaf.cozy.nookScene rain
-    shot 45e-nook-large-type 6 -LeafDemo YES -LeafScreen session -leaf.cozy.nookScene library -UIPreferredContentSizeCategoryName UICTContentSizeCategoryAccessibilityL
+    shot 45a-nook-rain 7 -LeafDemo YES -LeafScreen session -leaf.cozy.nookScene rain
+    shot 45b-nook-hearth 7 -LeafDemo YES -LeafScreen session -leaf.cozy.nookScene hearth
+    shot 45c-nook-landscape 7 -LeafDemo YES -LeafScreen session -leaf.cozy.nookScene landscape
+    shot 45d-nook-glow 6 -LeafDemo YES -LeafScreen session -leaf.cozy.nookScene glow
+    shot 45e-nook-mist 6 -LeafDemo YES -LeafScreen session -leaf.cozy.nookScene mist
+    shot 45f-nook-drizzle 6 -LeafDemo YES -LeafScreen session -leaf.cozy.nookScene drizzle
+    shot 45g-nook-sheet 7 -LeafDemo YES -LeafScreen session.nook -leaf.cozy.nookScene hearth
     # The Live Activity on a stand-in Lock Screen, with the Dynamic Island regions.
     shot 50-la-reading 5 -LeafDemo YES -LeafScreen liveactivity.reading
     shot 51-la-paused 5 -LeafDemo YES -LeafScreen liveactivity.paused
