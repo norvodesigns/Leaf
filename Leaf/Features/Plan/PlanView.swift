@@ -213,8 +213,9 @@ struct PlanTimesCard: View {
         guard let first = plan.parts.first else { return "A free time today" }
         let minutes = Int(plan.minutes.rounded())
         let last = plan.parts.last ?? first
+        // No-break spaces keep "7 min" and "pp. 143–148" whole, so a narrow row wraps at the dot, never after "pp.".
         if plan.parts.count == 1 {
-            return "\(minutes) min · pp. \(first.fromPage)–\(first.toPage)"
+            return "\(minutes)\u{00A0}min · pp.\u{00A0}\(first.fromPage)–\(first.toPage)"
         }
         return "\(minutes) min · \(plan.parts.count) books, to p. \(last.toPage)"
     }
