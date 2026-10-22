@@ -151,6 +151,11 @@ struct RootView: View {
         case "plan.whatif", "plan.care", "plan.order", "plan.reading":
             router.tab = .plan
             router.planStage = String(key.dropFirst("plan.".count))
+        case "plan.slot.time", "plan.slot.book":
+            router.tab = .plan
+            if let slot = store.preferences.effectiveReadingSlots.first {
+                router.slotEdit = key == "plan.slot.time" ? .time(slot.id) : .book(slot.id)
+            }
         case "plan.finishline":
             router.tab = .plan
             router.planSheet = .finishLine(bookID: nil)

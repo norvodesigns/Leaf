@@ -162,7 +162,7 @@ extension AppRouter {
 }
 
 /// Today's reading times on Plan: which book at what time, with one tap to change the time or swap the book
-/// (both open the reading-times editor on that time until the dedicated sheets land).
+/// (`SlotTimeSheet`, `SlotBookSheet`). Edit opens the full reading-times editor (days, names, adding and removing).
 struct PlanTimesCard: View {
     @Environment(LibraryStore.self) private var store
     @Environment(AppRouter.self) private var router
@@ -192,8 +192,8 @@ struct PlanTimesCard: View {
                         detail: detail(for: plan),
                         paletteIndex: bookID(for: plan).flatMap { store.item($0) }.map { CoverPalette.index(for: $0.book) },
                         state: state(for: plan, next: next),
-                        onTime: { edit(plan) },
-                        onSwap: { edit(plan) }
+                        onTime: { router.slotEdit = .time(plan.slot.id) },
+                        onSwap: { router.slotEdit = .book(plan.slot.id) }
                     )
                 }
             }
@@ -222,11 +222,6 @@ struct PlanTimesCard: View {
 
     private func state(for plan: SlotPlan, next: SlotPlan?) -> CanopySlotState {
         plan.id == next?.id ? .next : .later
-    }
-
-    private func edit(_ plan: SlotPlan) {
-        router.readingSlotToEdit = plan.slot.id
-        router.showReadingTimes = true
     }
 }
 

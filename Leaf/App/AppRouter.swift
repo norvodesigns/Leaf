@@ -133,6 +133,8 @@ final class AppRouter {
     var showReadingTimes = false
     /// A reading time to open straight into when the editor appears (screenshots).
     var readingSlotToEdit: UUID?
+    /// A reading time's own small sheet from Plan: change its time, or swap its book.
+    var slotEdit: SlotEdit?
     /// The swipe deck as a full sheet (from Search and Today).
     var showDeck = false
     /// "Ask the Librarian" as a full sheet (from Search).

@@ -90,6 +90,9 @@ struct MainTabs: View {
         .sheet(isPresented: $router.showReadingTimes) {
             ReadingTimesSheet()
         }
+        .sheet(item: $router.slotEdit) { edit in
+            SlotEditSheet(edit: edit)
+        }
         .sheet(isPresented: $router.showDeck) {
             SwipeDeckScreen()
         }
