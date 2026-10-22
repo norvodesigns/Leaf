@@ -2,11 +2,13 @@ import Foundation
 import SwiftUI
 import Observation
 
+/// The four tabs (docs/design/REDESIGN.md §1). `search` is not a tab any more: asking for it opens Search as a sheet
+/// over Library, so older call sites keep working.
 enum AppTab: Hashable {
-    case today, library, plan, search
+    case today, plan, library, you, search
 }
 
-/// The pages of the Plan tab.
+/// The deeper pages: the forecast lives on Plan, the others on You.
 enum PlanSection: String, CaseIterable, Identifiable, Hashable {
     case forecast, insights, challenges, circles
 
@@ -94,10 +96,21 @@ enum AddBookIntent: Hashable {
 @MainActor
 @Observable
 final class AppRouter {
-    var tab: AppTab = .today
+    var tab: AppTab = .today {
+        didSet {
+            // Search opens as a sheet over Library.
+            if tab == .search {
+                tab = .library
+                showSearch = true
+            }
+        }
+    }
     var todayPath: [BookRoute] = []
     var libraryPath: [BookRoute] = []
     var planPath: [BookRoute] = []
+    var youPath: [BookRoute] = []
+    /// Search (and Discover), as a sheet over Library.
+    var showSearch = false
     /// Search pushes books, whole rows ("See all"), "More like this" and "Your taste", so its path is untyped.
     var searchPath = NavigationPath()
 
@@ -128,8 +141,13 @@ final class AppRouter {
     var librarianStage: String?
     /// "Steep and read": the session screen opens at the tea instead of the timer.
     var ritual: RitualRequest?
-    /// Which page the Plan tab shows.
-    var planSection: PlanSection = .forecast
+    /// Which deeper page is showing. The forecast is Plan's; insights, challenges and circles are You's, so asking
+    /// for one of those moves to You.
+    var planSection: PlanSection = .forecast {
+        didSet {
+            if planSection != .forecast, tab == .plan { tab = .you }
+        }
+    }
     var planSheet: PlanSheet?
     /// A what-if or scroll position to stage on the Plan tab (screenshots): "whatif", "care", "mix", "stamps"…
     var planStage: String?
@@ -178,10 +196,15 @@ final class AppRouter {
 
     func open(_ book: Book) {
         let route = BookRoute(book: book)
+        if showSearch {
+            searchPath.append(route)
+            return
+        }
         switch tab {
         case .today: todayPath.append(route)
         case .library: libraryPath.append(route)
         case .plan: planPath.append(route)
+        case .you: youPath.append(route)
         case .search: searchPath.append(route)
         }
     }
@@ -190,12 +213,13 @@ final class AppRouter {
         todayPath.removeAll()
         libraryPath.removeAll()
         planPath.removeAll()
+        youPath.removeAll()
         searchPath = NavigationPath()
     }
 
     /// The Sunday letter, from its notification.
     func openWeeklyLetter() {
-        tab = .plan
+        tab = .you
         planSection = .insights
         planSheet = .weeklyLetter
     }

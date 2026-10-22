@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The warm paper behind every screen, extended under the bars.
+/// A flat paper tone behind a screen, extended under the bars.
 struct PaperBackground: View {
     var color: Color
 
@@ -16,9 +16,16 @@ struct PaperBackground: View {
 }
 
 extension View {
-    /// Puts `paper` (or another paper tone) behind the view, edge to edge.
+    /// The page behind every screen: Canopy's cream with daylight from the top (docs/design/DESIGN_SYSTEM.md §3).
     /// For `Form` and `List`, also add `.scrollContentBackground(.hidden)`.
-    func paperBackground(_ color: Color = .paper) -> some View {
+    func paperBackground() -> some View {
+        background {
+            CanopyBackdrop()
+        }
+    }
+
+    /// A specific flat paper tone behind the view, edge to edge.
+    func paperBackground(_ color: Color) -> some View {
         background {
             PaperBackground(color)
         }

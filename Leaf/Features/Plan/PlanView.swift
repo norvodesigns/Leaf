@@ -1,60 +1,30 @@
 import SwiftUI
 
-/// The Plan tab (NEXT.md section 10): Forecast, Insights and Challenges under one switcher. The engines run once per
-/// change to the library in a shared `PlanDesk`, off the main actor, so switching pages is instant.
+/// The Plan tab (docs/design/REDESIGN.md §4.2): today's reading times, each with its book and pages, then the forecast.
+/// Insights, challenges and circles moved to You. The engines run once per change to the library in a `PlanDesk`, off
+/// the main actor.
 struct PlanView: View {
     @Environment(LibraryStore.self) private var store
     @Environment(AppRouter.self) private var router
     @State private var desk = PlanDesk()
 
-    /// Everything the forecast and the stats depend on; a change re-runs the engines.
-    private struct DataKey: Equatable {
-        var now: Date
-        var items: [String]
-        var sessions: Int
-        var journal: Int
-        var challenges: Int
-        var preferences: ReadingPreferences
-    }
-
-    private var dataKey: DataKey {
-        DataKey(
-            now: store.now,
-            items: store.data.items.map { "\($0.id)|\($0.shelf.rawValue)|\($0.currentPage)|\($0.order)|\($0.positionConfirmed)|\($0.progressMode)" },
-            sessions: store.data.sessions.count,
-            journal: store.data.journal.count,
-            challenges: store.data.challenges.count,
-            preferences: store.preferences
-        )
-    }
-
     var body: some View {
         @Bindable var router = router
         ScrollViewReader { proxy in
             ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    PlanSectionSwitcher(selection: $router.planSection)
-                        .padding(.bottom, Space.m)
-                    switch router.planSection {
-                    case .forecast:
-                        if store.plan.books.isEmpty {
-                            EmptyState(
-                                title: "Nothing to forecast yet.",
-                                message: "Add a book to Reading or To read and Leaf will work out the odds.",
-                                actionTitle: "Find a book"
-                            ) {
-                                router.tab = .search
-                            }
-                            .padding(.top, Space.xxxl)
-                        } else {
-                            ForecastPage(desk: desk)
+                VStack(alignment: .leading, spacing: Canopy.Space.section) {
+                    PlanTimesCard()
+                    if store.plan.books.isEmpty {
+                        EmptyState(
+                            title: "Nothing to forecast yet.",
+                            message: "Add a book to Reading or To read and Leaf will work out the odds.",
+                            actionTitle: "Find a book"
+                        ) {
+                            router.tab = .search
                         }
-                    case .insights:
-                        InsightsPage(desk: desk)
-                    case .challenges:
-                        ChallengesPage(desk: desk)
-                    case .circles:
-                        CirclesPage()
+                        .padding(.top, Space.xl)
+                    } else {
+                        ForecastPage(desk: desk)
                     }
                 }
                 .leafMargins()
@@ -71,10 +41,10 @@ struct PlanView: View {
         .paperBackground()
         .navigationTitle("Plan")
         .navigationBarTitleDisplayMode(.large)
-        .task(id: dataKey) {
+        .task(id: PlanDeskKey(store: store)) {
             desk.refresh(from: store)
         }
-        .sheet(item: $router.planSheet) { sheet in
+        .sheet(item: router.planSheetBinding(on: .plan)) { sheet in
             PlanSheetHost(sheet: sheet, desk: desk)
         }
     }
@@ -86,18 +56,11 @@ struct PlanView: View {
         var ready: Bool
     }
 
-    private var isReady: Bool {
-        switch router.planSection {
-        case .forecast: desk.forecast != nil
-        case .insights: desk.insights != nil
-        case .challenges: desk.challenges != nil
-        case .circles: true
-        }
-    }
+    private var isReady: Bool { desk.forecast != nil }
 
     /// Screenshots: once the page has its numbers, scroll to the part named by `router.planStage`.
     private func scrollToStage(_ proxy: ScrollViewProxy) async {
-        guard let stage = router.planStage, isReady else { return }
+        guard router.tab == .plan, let stage = router.planStage, isReady else { return }
         try? await Task.sleep(for: .milliseconds(700))
         guard !Task.isCancelled else { return }
         proxy.scrollTo(stage, anchor: .top)
@@ -168,8 +131,107 @@ struct PlanSectionSwitcher: View {
     }
 }
 
-/// The Plan tab's sheets, each waiting for the numbers it needs.
-private struct PlanSheetHost: View {
+/// Everything the forecast and the stats depend on; a change re-runs the engines (Plan and You).
+struct PlanDeskKey: Equatable {
+    var now: Date
+    var items: [String]
+    var sessions: Int
+    var journal: Int
+    var challenges: Int
+    var preferences: ReadingPreferences
+
+    @MainActor
+    init(store: LibraryStore) {
+        now = store.now
+        items = store.data.items.map { "\($0.id)|\($0.shelf.rawValue)|\($0.currentPage)|\($0.order)|\($0.positionConfirmed)|\($0.progressMode)" }
+        sessions = store.data.sessions.count
+        journal = store.data.journal.count
+        challenges = store.data.challenges.count
+        preferences = store.preferences
+    }
+}
+
+extension AppRouter {
+    /// The plan sheet, presented only by the tab that is showing, so Plan and You don't both try.
+    func planSheetBinding(on tab: AppTab) -> Binding<PlanSheet?> {
+        Binding(
+            get: { self.tab == tab ? self.planSheet : nil },
+            set: { self.planSheet = $0 }
+        )
+    }
+}
+
+/// Today's reading times on Plan: which book at what time, with one tap to change the time or swap the book
+/// (both open the reading-times editor on that time until the dedicated sheets land).
+struct PlanTimesCard: View {
+    @Environment(LibraryStore.self) private var store
+    @Environment(AppRouter.self) private var router
+
+    var body: some View {
+        let plans = store.slotPlans()
+        let next = store.nextSlotToday
+        VStack(alignment: .leading, spacing: Canopy.Space.m) {
+            CanopyLabel("Today’s reading times", linkTitle: "Edit") {
+                router.readingSlotToEdit = nil
+                router.showReadingTimes = true
+            }
+            if plans.isEmpty {
+                Text("Pick a time or two and Leaf will share each day’s pages between them, a book to each if you like.")
+                    .canopyText(.callout, color: Canopy.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                CanopyGlassButton("Add a reading time", systemImage: "plus", accent: .dusk, compact: true, feel: .planChanged) {
+                    router.readingSlotToEdit = nil
+                    router.showReadingTimes = true
+                }
+            } else {
+                ForEach(plans) { plan in
+                    CanopySlotRow(
+                        time: LeafFormat.time(hour: plan.slot.hour, minute: plan.slot.minute),
+                        period: plan.slot.label,
+                        title: title(for: plan),
+                        detail: detail(for: plan),
+                        paletteIndex: bookID(for: plan).flatMap { store.item($0) }.map { CoverPalette.index(for: $0.book) },
+                        state: state(for: plan, next: next),
+                        onTime: { edit(plan) },
+                        onSwap: { edit(plan) }
+                    )
+                }
+            }
+        }
+        .canopyCard()
+    }
+
+    private func bookID(for plan: SlotPlan) -> String? {
+        plan.slot.bookID ?? (plan.parts.count == 1 ? plan.parts.first?.bookID : nil)
+    }
+
+    private func title(for plan: SlotPlan) -> String {
+        if let id = bookID(for: plan), let item = store.item(id) { return item.book.title }
+        return plan.parts.isEmpty ? "Nothing planned" : "Shared"
+    }
+
+    private func detail(for plan: SlotPlan) -> String {
+        guard let first = plan.parts.first else { return "A free time today" }
+        let minutes = Int(plan.minutes.rounded())
+        let last = plan.parts.last ?? first
+        if plan.parts.count == 1 {
+            return "\(minutes) min · pp. \(first.fromPage)–\(first.toPage)"
+        }
+        return "\(minutes) min · \(plan.parts.count) books, to p. \(last.toPage)"
+    }
+
+    private func state(for plan: SlotPlan, next: SlotPlan?) -> CanopySlotState {
+        plan.id == next?.id ? .next : .later
+    }
+
+    private func edit(_ plan: SlotPlan) {
+        router.readingSlotToEdit = plan.slot.id
+        router.showReadingTimes = true
+    }
+}
+
+/// The plan sheets, each waiting for the numbers it needs.
+struct PlanSheetHost: View {
     let sheet: PlanSheet
     let desk: PlanDesk
 

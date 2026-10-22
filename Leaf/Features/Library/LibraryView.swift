@@ -98,6 +98,15 @@ struct LibraryView: View {
                 }
             }
             ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    CanopyFeel.play(.tap)
+                    router.tab = .search
+                } label: {
+                    Image(systemName: "magnifyingglass")
+                }
+                .accessibilityLabel("Search books")
+            }
+            ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button {
                         router.beginAddingBook(.search)

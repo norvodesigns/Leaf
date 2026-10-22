@@ -221,6 +221,7 @@ for appearance in light dark; do
   shot "C2-canopy-today-ivory$suffix" 4 -LeafDemo YES -LeafScreen gallery.canopy.today -CanopyPalette ivory
   shot "C3-canopy-plan$suffix" 4 -LeafDemo YES -LeafScreen gallery.canopy.plan
   shot "C4-canopy-palettes$suffix" 4 -LeafDemo YES -LeafScreen gallery.canopy.palettes
+  shot "C5-you$suffix" 9 -LeafDemo YES -LeafScreen you -LeafScenario year
   shot "62-gallery-blur$suffix" 6 -LeafDemo YES -LeafScreen gallery.blur
   shot "64-gallery-ribbon$suffix" 5 -LeafDemo YES -LeafScreen gallery.ribbon
   shot "65-gallery-scrub$suffix" 4 -LeafDemo YES -LeafScreen gallery.scrub

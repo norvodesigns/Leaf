@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// The shell: Today, Library, Plan and a Search role tab, each in its own navigation stack, with the
+/// The shell (docs/design/REDESIGN.md §1): Today, Plan, Library and You, each in its own navigation stack, Search as
+/// a sheet over Library, with the
 /// session accessory docked above the tab bar. Owns the session zoom, the sheets, and the hooks from
 /// reminders and the watch.
 struct MainTabs: View {
@@ -18,22 +19,12 @@ struct MainTabs: View {
             Tab("Today", systemImage: "sun.horizon", value: AppTab.today) {
                 NavigationStack(path: $router.todayPath) {
                     TodayView()
-                        .focusPull(isFocused: router.todayPath.isEmpty)
                         .navigationDestination(for: BookRoute.self) { route in
                             BookDetailView(book: route.book)
                                 .navigationTransition(.zoom(sourceID: route.book.id, in: todayBookZoom))
                         }
                 }
                 .environment(\.todayBookZoomNamespace, todayBookZoom)
-            }
-
-            Tab("Library", systemImage: "books.vertical", value: AppTab.library) {
-                NavigationStack(path: $router.libraryPath) {
-                    LibraryView()
-                        .navigationDestination(for: BookRoute.self) { route in
-                            BookDetailView(book: route.book)
-                        }
-                }
             }
 
             Tab("Plan", systemImage: "calendar.day.timeline.leading", value: AppTab.plan) {
@@ -45,9 +36,18 @@ struct MainTabs: View {
                 }
             }
 
-            Tab(value: AppTab.search, role: .search) {
-                NavigationStack(path: $router.searchPath) {
-                    SearchView()
+            Tab("Library", systemImage: "books.vertical", value: AppTab.library) {
+                NavigationStack(path: $router.libraryPath) {
+                    LibraryView()
+                        .navigationDestination(for: BookRoute.self) { route in
+                            BookDetailView(book: route.book)
+                        }
+                }
+            }
+
+            Tab("You", systemImage: "person.crop.circle", value: AppTab.you) {
+                NavigationStack(path: $router.youPath) {
+                    YouView()
                         .navigationDestination(for: BookRoute.self) { route in
                             BookDetailView(book: route.book)
                         }
@@ -75,6 +75,17 @@ struct MainTabs: View {
             if let item = store.item(request.bookID) {
                 WhereAreYouSheet(request: request, item: item, now: store.now)
             }
+        }
+        .sheet(isPresented: $router.showSearch) {
+            // Search and Discover, over Library (it isn't a tab any more).
+            NavigationStack(path: $router.searchPath) {
+                SearchView()
+                    .navigationDestination(for: BookRoute.self) { route in
+                        BookDetailView(book: route.book)
+                    }
+            }
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $router.showReadingTimes) {
             ReadingTimesSheet()

@@ -145,6 +145,8 @@ struct RootView: View {
             router.libraryShelf = .toRead
         case "plan":
             router.tab = .plan
+        case "you":
+            router.tab = .you
         case "plan.whatif", "plan.care", "plan.order", "plan.reading":
             router.tab = .plan
             router.planStage = String(key.dropFirst("plan.".count))

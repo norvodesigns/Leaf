@@ -37,30 +37,31 @@ extension UIColor {
     }
 }
 
-// MARK: - Tokens (DESIGN.md §2)
+// MARK: - Tokens (DESIGN.md §2), retuned to Canopy's Oat palette (docs/design/DESIGN_SYSTEM.md §3) so screens not yet
+// rebuilt already sit on the chosen cream and green.
 
 /// The palette as dynamic `UIColor`s, for UIKit appearance code. SwiftUI code uses the
 /// `Color` tokens below (`.paper`, `.ink`, …).
 enum LeafUIColor {
-    static let paper = UIColor.leafDynamic(light: 0xF4EFE6, dark: 0x1A1714)
-    static let paperRaised = UIColor.leafDynamic(light: 0xFBF8F2, dark: 0x24201B)
-    static let paperSunken = UIColor.leafDynamic(light: 0xEBE4D8, dark: 0x13110E)
-    static let ink = UIColor.leafDynamic(light: 0x1F1A15, dark: 0xEFE7D8)
-    static let inkSecondary = UIColor.leafDynamic(light: 0x5C554B, dark: 0xB5AB98)
+    static let paper = UIColor.leafDynamic(light: 0xF5EFE4, dark: 0x1B1916)
+    static let paperRaised = UIColor.leafDynamic(light: 0xFCF8F1, dark: 0x26231F)
+    static let paperSunken = UIColor.leafDynamic(light: 0xECE5D7, dark: 0x141210)
+    static let ink = UIColor.leafDynamic(light: 0x24201A, dark: 0xF2EADA)
+    static let inkSecondary = UIColor.leafDynamic(light: 0x665F54, dark: 0xB5AB99)
     static let inkTertiary = UIColor.leafDynamic(light: 0x6E6457, dark: 0x958B7B)
     static let inkFaint = UIColor.leafDynamic(light: 0xB9B1A3, dark: 0x5A5246)
-    static let hairline = UIColor.leafDynamic(light: 0xDDD5C7, dark: 0x36302A)
+    static let hairline = UIColor.leafDynamic(light: 0xE5DCCB, dark: 0x3A352E)
     static let hairlineStrong = UIColor.leafDynamic(light: 0xB4AA9A, dark: 0x554D42)
-    static let accent = UIColor.leafDynamic(light: 0x3E6B4F, dark: 0x8DBB98)
-    static let accentSoft = UIColor.leafDynamic(light: 0xDCE6DA, dark: 0x2A3A2F)
+    static let accent = UIColor.leafDynamic(light: 0x48705A, dark: 0xA9CDB2)
+    static let accentSoft = UIColor.leafDynamic(light: 0xDFE8DF, dark: 0x2B3A31)
     static let ribbon = UIColor.leafDynamic(light: 0xB23F2C, dark: 0xE0694F)
     static let ribbonSoft = UIColor.leafDynamic(light: 0xF3DDD5, dark: 0x3F2620)
-    static let glassTint = UIColor.leafDynamic(light: 0xF4EFE6, dark: 0x1A1714, lightAlpha: 0.22, darkAlpha: 0.30)
-    static let lamp = UIColor.leafDynamic(light: 0xFBF1DD, dark: 0x2E261C)
+    static let glassTint = UIColor.leafDynamic(light: 0xFCF8F1, dark: 0x1B1916, lightAlpha: 0.22, darkAlpha: 0.30)
+    static let lamp = UIColor.leafDynamic(light: 0xFBF6EC, dark: 0x2A2620)
     static let coverShadow = UIColor.leafDynamic(light: 0x2A1F14, dark: 0x000000)
 
     // Cozy tokens (NEXT.md section 6): warm tints for atmosphere only, never text.
-    static let teaPaper = UIColor.leafDynamic(light: 0xEADFCB, dark: 0x2A241D)
+    static let teaPaper = UIColor.leafDynamic(light: 0xEEE6D7, dark: 0x2A2620)
     static let chai = UIColor.leafDynamic(light: 0xB58456, dark: 0xC99A6E)
     static let matcha = UIColor.leafDynamic(light: 0x7F9C5A, dark: 0x9DB97A)
     static let rooibos = UIColor.leafDynamic(light: 0xA9532F, dark: 0xCC714C)

@@ -129,8 +129,8 @@ enum CanopyAccent: String, CaseIterable, Identifiable, Sendable {
 
 // MARK: - Palettes
 
-/// The cream-and-green palettes on offer . The owner chose Oat (2026-10-22), the default; a launch argument
-/// (`-CanopyPalette oat`) picks another for screenshots. Only the neutrals and the green change; Dusk, Clay and Bloom
+/// The cream-and-green palettes on offer. The owner chose Oat (2026-10-22), the default; a launch argument
+/// (`-CanopyPalette linen`) picks another for screenshots. Only the neutrals and the green change; Dusk, Clay and Bloom
 /// keep their jobs and values.
 enum CanopyPalette: String, CaseIterable, Identifiable, Sendable {
     /// A bright, clean cream with the live app's green. Recommended.
