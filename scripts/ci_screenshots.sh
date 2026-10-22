@@ -129,7 +129,7 @@ for appearance in light dark; do
     shot 98-search-first-use 10 -LeafDemo YES -LeafScreen search -LeafScenario new
     shot 99-search-undo 10 -LeafDemo YES -LeafScreen search.undo
     # Fast book adding: the toast after an add, the hand form prefilled, a typed ISBN.
-    shot a02-add-added 11 -LeafDemo YES -LeafScreen search.added
+    shot a02-add-added 16 -LeafDemo YES -LeafScreen search.added
     shot a04-add-manual 11 -LeafDemo YES -LeafScreen search.manual
     shot a05-add-isbn 9 -LeafDemo YES -LeafScreen search.isbn
     # Reading circles: starting one, moving a friend along, the schedule, the empty page, and large text.
