@@ -154,7 +154,7 @@ private struct LibrarianPickCard: View {
     }
 
     private var keepButton: some View {
-        CanopyGlassButton("To read", systemImage: "plus", accent: .forest, compact: true, feel: .keep) {
+        CanopyGlassButton("Up next", systemImage: "plus", accent: .forest, compact: true, feel: .keep) {
             add(to: .toRead)
         }
     }

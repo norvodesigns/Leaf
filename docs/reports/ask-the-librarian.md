@@ -26,7 +26,7 @@ A written, offline conversation that ends in a shelf of picks. Nothing is spoken
     the right, the answers as `CanopyChip`s (time chips in Dusk) in a wrapping layout, and new entries arriving with
     Focus In.
   - `LibrarianShelf`: a carousel of glass cards with the cover, title in New York, the "why this" line with a Forest
-    mark, and the fit line with a Dusk clock. Want to read (`.keep`) and Start (`.startNow`) are glass buttons.
+    mark, and the fit line with a Dusk clock. Up next (`.keep`) and Start (`.startNow`) are glass buttons.
     More like this and Not for me (with Undo) sit in the context menu and the VoiceOver actions.
   - "Swipe through the shelf" opens the existing swipe deck, dealt from everything that matched.
   - `LibrarianBanner` is the way in. It's on Search now, and the redesign thread is putting it at the bottom of
@@ -38,7 +38,7 @@ A written, offline conversation that ends in a shelf of picks. Nothing is spoken
 
 - Search → Ask the Librarian: tap a mood, a time and a length, and the picks scroll into view. Check that the chips
   wrap cleanly at the largest text size.
-- On a pick, tap Want to read and Start; the card should show "On your To read" or "Reading now". Long-press for
+- On a pick, tap Want to read and Start; the card should show "In Up next" or "Reading now". Long-press for
   More like this and Not for me, then Undo.
 - Show me others should bring only new books. Swipe through the shelf should keep and pass straight into the library.
 - With Reduce Motion on, replies should appear without the writing pause and arrive as a crossfade.
