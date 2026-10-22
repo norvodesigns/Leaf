@@ -5,7 +5,7 @@
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSCameraUsageDescription</key>
-	<string>Leaf uses the camera only to read a quote from the page you’re holding. Only the words you pick are kept; no photo is saved.</string>
+	<string>Leaf uses the camera to scan the barcode on a book you want to add, and to read a quote from the page you’re holding. Only the ISBN or the words you pick are kept; no photo is saved.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Leaf saves the quote cards you make to your photos. It never reads your library.</string>
 	<key>NSSupportsLiveActivities</key>
