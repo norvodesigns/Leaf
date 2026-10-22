@@ -11,6 +11,8 @@ import Observation
 final class ForecastService {
     private(set) var result: ForecastResult?
     private(set) var isWorking = false
+    /// Goes up by one each time a new result lands, so screens can tell a fresh forecast from the one they used.
+    private(set) var generation = 0
     @ObservationIgnored private var task: Task<Void, Never>?
 
     /// Recomputes from the store's current data. Cancels a run that is still going.
@@ -27,6 +29,7 @@ final class ForecastService {
             }.value
             guard !Task.isCancelled else { return }
             self?.result = computed
+            self?.generation += 1
             self?.isWorking = false
             WatchBridge.shared.forecast = computed
         }

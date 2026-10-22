@@ -13,9 +13,9 @@ struct TodayView: View {
     @Environment(BookCatalog.self) private var catalog
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    @State private var forecast = ForecastService()
-    @State private var brief: TodayBrief?
-    @State private var pinned: PinnedGreeting?
+    @State private var forecast = Self.memory.forecast
+    @State private var brief: TodayBrief? = Self.memory.brief
+    @State private var pinned: PinnedGreeting? = Self.memory.pinned
     @State private var steep: TeaSteepState? = TeaSteepState.load()
     @State private var steepReady = false
     @State private var chosenTeaID: String?
@@ -28,6 +28,22 @@ struct TodayView: View {
     /// The deck stays on Today while the reader is swiping, even once a kept book means they're no longer between books.
     @State private var keepsDeckOpen = false
     @State private var didStageScroll = false
+    /// What the brief and the forecast were last worked out from. `.task` runs again every time the tab reappears;
+    /// these keep a return to Today from redoing (and re-animating) work whose inputs haven't changed.
+    @State private var briefBuiltFrom: BriefKey? = Self.memory.briefKey
+    @State private var forecastBuiltFrom: DataKey? = Self.memory.forecastKey
+
+    /// What Today last showed, kept past the view itself: if the tab's view is rebuilt, it opens on the last brief
+    /// instead of a blank page that fills in a beat later.
+    @MainActor private final class Memory {
+        let forecast = ForecastService()
+        var brief: TodayBrief?
+        var pinned: PinnedGreeting?
+        var briefKey: BriefKey?
+        var forecastKey: DataKey?
+    }
+
+    private static let memory = Memory()
 
     /// Today's cards, in the order a mode wants them. The raw values are the `-LeafScroll` names.
     enum CardKind: String, Hashable, CaseIterable {
@@ -64,8 +80,7 @@ struct TodayView: View {
         var data: DataKey
         var live: UUID?
         var catalogReady: Bool
-        var forecastReady: Bool
-        var forecastWorking: Bool
+        var forecastGeneration: Int
     }
 
     private var dataKey: DataKey {
@@ -86,8 +101,7 @@ struct TodayView: View {
             data: dataKey,
             live: store.activeSession?.id,
             catalogReady: catalog.isLoaded,
-            forecastReady: forecast.result != nil,
-            forecastWorking: forecast.isWorking
+            forecastGeneration: forecast.generation
         )
     }
 
@@ -147,9 +161,19 @@ struct TodayView: View {
                 }
             }
             .task(id: briefKey) {
+                let key = briefKey
+                guard key != briefBuiltFrom || brief == nil else { return }
+                briefBuiltFrom = key
                 refreshBrief()
+                Self.memory.brief = brief
+                Self.memory.pinned = pinned
+                Self.memory.briefKey = key
             }
             .task(id: dataKey) {
+                let key = dataKey
+                guard key != forecastBuiltFrom || (forecast.result == nil && !forecast.isWorking) else { return }
+                forecastBuiltFrom = key
+                Self.memory.forecastKey = key
                 forecast.refresh(from: store)
             }
             .task(id: steep?.startedAt) {
