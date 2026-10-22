@@ -38,7 +38,7 @@ A written, offline conversation that ends in a shelf of picks. Nothing is spoken
 
 - Search → Ask the Librarian: tap a mood, a time and a length, and the picks scroll into view. Check that the chips
   wrap cleanly at the largest text size.
-- On a pick, tap Want to read and Start; the card should show "In Up next" or "Reading now". Long-press for
+- On a pick, tap Up next and Start; the card should show "In your Up next" or "Reading now". Long-press for
   More like this and Not for me, then Undo.
 - Show me others should bring only new books. Swipe through the shelf should keep and pass straight into the library.
 - With Reduce Motion on, replies should appear without the writing pause and arrive as a crossfade.
