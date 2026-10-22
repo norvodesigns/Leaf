@@ -3,12 +3,12 @@ import SwiftUI
 // Settings sections added in UI-5: tea and sound, the plan's kinder options, greetings and the Lock Screen, and
 // iCloud. Each is a `Section` for SettingsView's `Form`.
 
-private func settingsHeader(_ title: String) -> some View {
-    Text(title).leafStyle(.eyebrow)
+private func settingsHeader(_ title: String, accent: CanopyAccent = .forest) -> some View {
+    Text(title).settingsHeader(accent)
 }
 
 private func settingsFooter(_ text: String) -> some View {
-    Text(text).leafStyle(.caption)
+    Text(text).canopyText(.caption)
 }
 
 // MARK: - Tea and sound
@@ -35,7 +35,7 @@ struct SettingsTeaSection: View {
             NavigationLink {
                 TeaHistoryView()
             } label: {
-                Text("Tea history").leafStyle(.uiBody)
+                Text("Tea history").canopyText(.body)
             }
 
             Picker(selection: teaBinding) {
@@ -47,14 +47,14 @@ struct SettingsTeaSection: View {
                     Text(tea.name).tag(Optional(tea.teaID))
                 }
             } label: {
-                Text("Favourite tea").leafStyle(.uiBody)
+                Text("Favourite tea").canopyText(.body)
             }
             .pickerStyle(.menu)
 
             Picker(selection: $strength) {
                 ForEach(TeaStrength.allCases, id: \.self) { Text($0.title).tag($0) }
             } label: {
-                Text("Strength").leafStyle(.uiBody)
+                Text("Strength").canopyText(.body)
             }
             .pickerStyle(.segmented)
             .onChange(of: strength) { _, value in
@@ -66,11 +66,11 @@ struct SettingsTeaSection: View {
             Picker(selection: cupBinding) {
                 ForEach(Self.cupChoices, id: \.self) { Text("\($0) min").tag($0) }
             } label: {
-                Text("A cup of reading").leafStyle(.uiBody)
+                Text("A cup of reading").canopyText(.body)
             }
             .pickerStyle(.menu)
         } header: {
-            settingsHeader("Tea")
+            settingsHeader("Tea", accent: .clay)
         } footer: {
             settingsFooter("The ritual offers the teas in your cabinet, or Leaf’s when it’s empty. A cup is \(store.preferences.cupMinutes) minutes of reading; strength sets how long the tea steeps before it starts.")
         }
@@ -82,7 +82,7 @@ struct SettingsTeaSection: View {
                     Label(scene.name, systemImage: scene.symbol).tag(scene)
                 }
             } label: {
-                Text("Scene").leafStyle(.uiBody)
+                Text("Scene").canopyText(.body)
             }
             .pickerStyle(.menu)
         } header: {
@@ -98,26 +98,26 @@ struct SettingsTeaSection: View {
                     Text(ambience.name).tag(ambience.id == AmbienceCatalog.silenceID ? String?.none : Optional(ambience.id))
                 }
             } label: {
-                Text("Ambience").leafStyle(.uiBody)
+                Text("Ambience").canopyText(.body)
             }
             .pickerStyle(.menu)
 
             if store.preferences.ambienceID != nil {
-                VStack(alignment: .leading, spacing: Space.xs) {
-                    Text("Starting volume").leafStyle(.uiBody)
+                VStack(alignment: .leading, spacing: Canopy.Space.xs) {
+                    Text("Starting volume").canopyText(.body)
                     Slider(value: volumeBinding, in: 0...1) {
                         Text("Starting volume")
                     } minimumValueLabel: {
-                        Image(systemName: "speaker.fill").foregroundStyle(Color.inkTertiary)
+                        Image(systemName: "speaker.fill").foregroundStyle(Canopy.textTertiary)
                     } maximumValueLabel: {
-                        Image(systemName: "speaker.wave.3.fill").foregroundStyle(Color.inkTertiary)
+                        Image(systemName: "speaker.wave.3.fill").foregroundStyle(Canopy.textTertiary)
                     }
                 }
-                .padding(.vertical, Space.xs)
+                .padding(.vertical, Canopy.Space.xs)
             }
 
             Toggle(isOn: $cues) {
-                Text("Sound cues").leafStyle(.uiBody)
+                Text("Sound cues").canopyText(.body)
             }
             .onChange(of: cues) { _, isOn in
                 CanopyFeel.play(.select)
@@ -212,23 +212,23 @@ struct SettingsPlanSection: View {
                 Text("Shift the dates").tag(CatchUpMode.shift)
                 Text("Catch up gently").tag(CatchUpMode.compress)
             } label: {
-                Text("Missed days").leafStyle(.uiBody)
+                Text("Missed days").canopyText(.body)
             }
             .pickerStyle(.menu)
 
             Stepper(value: goalBinding, in: 0...200) {
                 HStack {
-                    Text("Books this year").leafStyle(.uiBody)
+                    Text("Books this year").canopyText(.body)
                     Spacer()
-                    Text(goalText).leafStyle(.data)
+                    Text(goalText).canopyText(.body, color: Canopy.textSecondary).monospacedDigit()
                 }
             }
             .accessibilityValue(store.preferences.yearlyGoal.map { "\($0) books" } ?? "No goal")
 
             Toggle(isOn: letterBinding) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Weekly letter").leafStyle(.uiBody)
-                    Text("A short note on Sunday evenings").leafStyle(.caption)
+                    Text("Weekly letter").canopyText(.body)
+                    Text("A short note on Sunday evenings").canopyText(.caption)
                 }
             }
         } header: {
@@ -294,17 +294,17 @@ struct SettingsExtrasSection: View {
         Section {
             Toggle(isOn: aiBinding) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Apple Intelligence greetings").leafStyle(.uiBody)
+                    Text("Apple Intelligence greetings").canopyText(.body)
                     Text(AILibrarian.isAvailable ? "Written on this iPhone, never sent anywhere" : "Needs a device with Apple Intelligence turned on")
-                        .leafStyle(.caption)
+                        .canopyText(.caption)
                 }
             }
             .disabled(!AILibrarian.isAvailable)
 
             Toggle(isOn: liveBinding) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Live Activity while reading").leafStyle(.uiBody)
-                    Text("The timer on the Lock Screen and in the Dynamic Island").leafStyle(.caption)
+                    Text("Live Activity while reading").canopyText(.body)
+                    Text("The timer on the Lock Screen and in the Dynamic Island").canopyText(.caption)
                 }
             }
         } header: {
@@ -345,15 +345,15 @@ struct SettingsCloudSection: View {
 
     var body: some View {
         Section {
-            HStack(spacing: Space.m) {
+            HStack(spacing: Canopy.Space.m) {
                 Image(systemName: symbol)
                     .foregroundStyle(tint)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(statusTitle).leafStyle(.uiBody)
+                    Text(statusTitle).canopyText(.body)
                     if let detail = statusDetail {
                         Text(detail)
-                            .leafStyle(.caption)
+                            .canopyText(.caption)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -365,7 +365,7 @@ struct SettingsCloudSection: View {
                     sync.forceFullSync()
                 } label: {
                     Text("Sync now")
-                        .leafFont(.uiBody)
+                        .font(CanopyType.body.font)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(.rect)
                 }

@@ -13,20 +13,20 @@ struct SoundLabView: View {
     var body: some View {
         Form {
             Section {
-                HStack(spacing: Space.m) {
-                    Image(systemName: "speaker.wave.1").foregroundStyle(Color.inkTertiary)
+                HStack(spacing: Canopy.Space.m) {
+                    Image(systemName: "speaker.wave.1").foregroundStyle(Canopy.textTertiary)
                     Slider(value: $volume, in: 0...1)
                         .accessibilityLabel("Volume")
-                    Image(systemName: "speaker.wave.3").foregroundStyle(Color.inkTertiary)
+                    Image(systemName: "speaker.wave.3").foregroundStyle(Canopy.textTertiary)
                 }
                 .onChange(of: volume) { _, newValue in
                     player.setVolume(Float(newValue))
                 }
             } header: {
-                Text("Volume").leafStyle(.eyebrow)
+                Text("Volume").settingsHeader()
             } footer: {
                 Text("Every sound is made to the same loudness, so moving between them at one volume should feel even. The library is quieter on purpose.")
-                    .leafStyle(.caption)
+                    .canopyText(.caption)
             }
 
             Section {
@@ -36,10 +36,10 @@ struct SoundLabView: View {
                     }
                 }
             } header: {
-                Text("Ambience").leafStyle(.eyebrow)
+                Text("Ambience").settingsHeader()
             } footer: {
                 Text("New is this version’s; Old is the first TestFlight’s, to compare. Rain is the same in both.")
-                    .leafStyle(.caption)
+                    .canopyText(.caption)
             }
 
             Section {
@@ -48,19 +48,19 @@ struct SoundLabView: View {
                         CozySounds.shared.audition(cue)
                     } label: {
                         HStack {
-                            Text(Self.title(cue)).leafStyle(.uiBody)
+                            Text(Self.title(cue)).canopyText(.body)
                             Spacer()
                             Image(systemName: "play.circle")
-                                .foregroundStyle(Color.accent)
+                                .foregroundStyle(CanopyAccent.forest.color)
                         }
-                        .frame(minHeight: Space.hitTarget)
+                        .frame(minHeight: Canopy.Space.hitTarget)
                         .contentShape(.rect)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Play \(Self.title(cue))")
                 }
             } header: {
-                Text("Cues").leafStyle(.eyebrow)
+                Text("Cues").settingsHeader()
             }
         }
         .scrollContentBackground(.hidden)
@@ -73,22 +73,22 @@ struct SoundLabView: View {
     }
 
     private func row(_ sound: Ambience, recipe: AmbienceRecipe) -> some View {
-        HStack(spacing: Space.m) {
+        HStack(spacing: Canopy.Space.m) {
             Image(systemName: sound.symbol)
                 .frame(width: 24)
-                .foregroundStyle(Color.inkSecondary)
+                .foregroundStyle(Canopy.textSecondary)
                 .accessibilityHidden(true)
             Text(sound.name)
-                .leafStyle(.uiBody)
+                .canopyText(.body)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
-            Spacer(minLength: Space.s)
+            Spacer(minLength: Canopy.Space.s)
             if recipe != .rain {
                 toggle(sound, version: .original, title: "Old")
             }
             toggle(sound, version: .current, title: "New")
         }
-        .frame(minHeight: Space.hitTarget)
+        .frame(minHeight: Canopy.Space.hitTarget)
     }
 
     private func isPlaying(_ sound: Ambience, _ version: AmbienceRecipe.Version) -> Bool {
@@ -108,11 +108,11 @@ struct SoundLabView: View {
         } label: {
             Label(title, systemImage: playing ? "stop.fill" : "play.fill")
                 .labelStyle(.titleAndIcon)
-                .font(LeafType.ui)
-                .padding(.horizontal, Space.m)
+                .font(CanopyType.callout.font)
+                .padding(.horizontal, Canopy.Space.m)
                 .frame(minHeight: 36)
-                .background(Capsule().fill(playing ? Color.accent.opacity(0.18) : Color.paperSunken))
-                .foregroundStyle(playing ? Color.accent : Color.ink)
+                .background(Capsule().fill(playing ? CanopyAccent.forest.color.opacity(0.18) : Canopy.separator))
+                .foregroundStyle(playing ? CanopyAccent.forest.color : Canopy.text)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(sound.name), \(version == .current ? "new" : "old") version")

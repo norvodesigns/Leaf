@@ -21,21 +21,21 @@ struct SettingsMinutesPage: View {
             wpm: store.wpm,
             daysPerWeek: store.preferences.readingDays.count
         )
-        return VStack(spacing: Space.xl) {
+        return VStack(spacing: Canopy.Space.xl) {
             MinutesDial(minutes: minutes)
-            VStack(spacing: Space.s) {
+            VStack(spacing: Canopy.Space.s) {
                 Text(preview.quote)
-                    .leafStyle(.pullQuote)
+                    .canopyText(.subline, color: Canopy.text)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
                 Text(preview.caption)
-                    .leafStyle(.caption)
+                    .canopyText(.caption)
                     .multilineTextAlignment(.center)
             }
             .leafMargins()
             Spacer(minLength: 0)
         }
-        .padding(.top, Space.xxl)
+        .padding(.top, Canopy.Space.xxl)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .paperBackground()
         .navigationTitle("Minutes a day")
@@ -68,27 +68,27 @@ struct SettingsDaysPage: View {
     var body: some View {
         let selected = store.preferences.readingDays
         let summary = triedToClear ? "Pick at least one day." : OnboardingCopy.weekSummary(selected)
-        return VStack(spacing: Space.xl) {
+        return VStack(spacing: Canopy.Space.xl) {
             WeekdayPicker(selection: days)
                 .leafMargins()
-            VStack(spacing: Space.s) {
+            VStack(spacing: Canopy.Space.s) {
                 Text(summary)
-                    .leafStyle(.pullQuote)
+                    .canopyText(.subline, color: Canopy.text)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
                 if !selected.isEmpty {
                     Text(OnboardingCopy.weeklyTime(minutes: store.preferences.dailyMinutes, days: selected.count))
-                        .leafStyle(.caption)
+                        .canopyText(.caption)
                         .multilineTextAlignment(.center)
                 }
                 Text("Rest days are part of the plan.")
-                    .leafStyle(.caption)
+                    .canopyText(.caption)
                     .multilineTextAlignment(.center)
             }
             .leafMargins()
             Spacer(minLength: 0)
         }
-        .padding(.top, Space.xxl)
+        .padding(.top, Canopy.Space.xxl)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .paperBackground()
         .navigationTitle("Reading days")
@@ -102,9 +102,9 @@ struct PrivacyNoteView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: Space.xl) {
+            VStack(alignment: .leading, spacing: Canopy.Space.xl) {
                 Text("Your reading stays yours.")
-                    .leafStyle(.masthead)
+                    .canopyText(.title)
                     .accessibilityAddTraits(.isHeader)
                 note("No accounts", "Leaf has no accounts, no analytics and no ads, and no servers of its own.")
                 note(
@@ -120,7 +120,7 @@ struct PrivacyNoteView: View {
                 contact
             }
             .leafMargins()
-            .padding(.vertical, Space.xl)
+            .padding(.vertical, Canopy.Space.xl)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .scrollIndicators(.hidden)
@@ -130,30 +130,30 @@ struct PrivacyNoteView: View {
     }
 
     private func note(_ title: String, _ text: String) -> some View {
-        VStack(alignment: .leading, spacing: Space.s) {
+        VStack(alignment: .leading, spacing: Canopy.Space.s) {
             Text(title)
-                .leafStyle(.eyebrow)
+                .settingsHeader()
                 .accessibilityAddTraits(.isHeader)
             Text(text)
-                .leafStyle(.body)
+                .canopyText(.body)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
 
     @ViewBuilder
     private var contact: some View {
-        VStack(alignment: .leading, spacing: Space.s) {
+        VStack(alignment: .leading, spacing: Canopy.Space.s) {
             Text("Questions")
-                .leafStyle(.eyebrow)
+                .settingsHeader()
                 .accessibilityAddTraits(.isHeader)
             if let url = URL(string: "mailto:\(contactAddress)") {
                 Link(destination: url) {
                     Text(contactAddress)
-                        .leafStyle(.body, color: .accent)
+                        .canopyText(.body, color: CanopyAccent.forest.color)
                 }
             } else {
                 Text(contactAddress)
-                    .leafStyle(.body)
+                    .canopyText(.body)
             }
         }
     }

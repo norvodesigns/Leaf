@@ -2,8 +2,9 @@ import SwiftUI
 import UIKit
 import UserNotifications
 
-/// Settings (DESIGN.md §6): a sheet with a `Form` on paper, `paperRaised` rows and eyebrow headers.
-/// Pace, schedule, reminders, feel, appearance, the watch, a privacy note and a way to start over.
+/// Settings (REDESIGN §4.9): an inset-grouped list on the Canopy backdrop, cream rows, section labels in their job's
+/// accent. Reading (pace, schedule, reading times, the plan), tea and the nook, feel, appearance, greetings, the
+/// watch, iCloud, your library and data, then about.
 struct SettingsView: View {
     @Environment(LibraryStore.self) private var store
     @Environment(AppRouter.self) private var router
@@ -39,14 +40,13 @@ struct SettingsView: View {
                     }
                     SettingsCloudSection()
                         .id("cloud")
-                    aboutSection
                     SettingsLibrarySection()
                         .id("data")
                     dataSection
+                    aboutSection
                     colophonSection
                 }
                 .scrollContentBackground(.hidden)
-                .coachMarks(.settings, bottomClearance: 40)
                 .task {
                     guard let stage = router.settingsStage else { return }
                     router.settingsStage = nil
@@ -66,9 +66,9 @@ struct SettingsView: View {
                     }
                 }
             }
-            .paperBackground()
-            .foregroundStyle(Color.ink)
-            .tint(Color.accent)
+            .canopyBackdrop()
+            .foregroundStyle(Canopy.text)
+            .tint(CanopyAccent.forest.color)
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -89,7 +89,7 @@ struct SettingsView: View {
                 Text(eraseMessage)
             }
         }
-        .presentationBackground(Color.paper)
+        .presentationBackground(Canopy.canvas)
         .onAppear {
             watch = WatchStatus.current()
         }
@@ -105,21 +105,18 @@ struct SettingsView: View {
     private var paceSection: some View {
         let wpm = Int(store.wpm.rounded())
         return Section {
-            VStack(alignment: .leading, spacing: Space.xs) {
-                HStack(alignment: .firstTextBaseline, spacing: Space.s) {
-                    Text("\(wpm)")
-                        .leafStyle(.statNumeral)
-                        .numericBlur(value: Double(wpm))
-                        .leafAnimation(Motion.paper, value: wpm)
-                    Text("wpm")
-                        .leafStyle(.ui, color: .inkSecondary)
-                    Spacer(minLength: Space.s)
-                    Chip(ReadingSpeed.descriptor(for: store.wpm), tone: .accent)
-                }
-                Text(paceDetail)
-                    .leafStyle(.caption)
+            HStack(alignment: .firstTextBaseline, spacing: Canopy.Space.s) {
+                CanopyStat(value: "\(wpm)", unit: "wpm", caption: paceDetail)
+                    .animation(Canopy.Motion.resolved(Canopy.Motion.smooth, reduceMotion: reduceMotion), value: wpm)
+                Spacer(minLength: Canopy.Space.s)
+                Text(ReadingSpeed.descriptor(for: store.wpm))
+                    .font(.system(.subheadline, weight: .semibold))
+                    .foregroundStyle(CanopyAccent.forest.color)
+                    .padding(.horizontal, Canopy.Space.m)
+                    .padding(.vertical, Canopy.Space.xs)
+                    .background(CanopyAccent.forest.soft, in: .capsule)
             }
-            .padding(.vertical, Space.xs)
+            .padding(.vertical, Canopy.Space.xs)
             .accessibilityElement(children: .combine)
 
             Button {
@@ -131,13 +128,13 @@ struct SettingsView: View {
 
             Toggle(isOn: preference(\.learnFromSessions, haptic: false)) {
                 Text("Learn from my sessions")
-                    .leafStyle(.uiBody)
+                    .canopyText(.body)
             }
         } header: {
-            header("Your pace")
+            header("Your pace", accent: .dusk)
         } footer: {
             Text("Real sessions nudge your pace up or down. The test is where it starts.")
-                .leafStyle(.caption)
+                .canopyText(.caption)
         }
         .settingsRows()
     }
@@ -182,14 +179,14 @@ struct SettingsView: View {
                 Text("Side by side").tag(PlanMode.sideBySide)
             } label: {
                 Text("Plan style")
-                    .leafStyle(.uiBody)
+                    .canopyText(.body)
             }
             .pickerStyle(.menu)
         } header: {
-            header("Your schedule")
+            header("Your schedule", accent: .dusk)
         } footer: {
             Text(OnboardingCopy.weeklyTime(minutes: prefs.dailyMinutes, days: prefs.readingDays.count))
-                .leafStyle(.caption)
+                .canopyText(.caption)
         }
         .settingsRows()
     }
@@ -219,7 +216,7 @@ struct SettingsView: View {
             header("Feel")
         } footer: {
             Text(hapticsFooter)
-                .leafStyle(.caption)
+                .canopyText(.caption)
         }
         .settingsRows()
     }
@@ -261,8 +258,8 @@ struct SettingsView: View {
         } header: {
             header("Appearance")
         } footer: {
-            Text("Night is paper at night: warm, never pure black.")
-                .leafStyle(.caption)
+            Text("Night is a warm charcoal with cream text, never pure black.")
+                .canopyText(.caption)
         }
         .settingsRows()
     }
@@ -273,11 +270,12 @@ struct SettingsView: View {
         Section {
             Label {
                 Text(watch.message)
-                    .leafStyle(.uiBody)
+                    .canopyText(.body)
                     .fixedSize(horizontal: false, vertical: true)
             } icon: {
                 Image(systemName: "applewatch")
-                    .foregroundStyle(watch.isInstalled ? Color.accent : Color.inkTertiary)
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(watch.isInstalled ? CanopyAccent.forest.color : Canopy.textTertiary)
             }
         } header: {
             header("Apple Watch")
@@ -293,13 +291,10 @@ struct SettingsView: View {
                 PrivacyNoteView()
             } label: {
                 Text("Privacy")
-                    .leafStyle(.uiBody)
+                    .canopyText(.body)
             }
             settingsLink("What’s new") {
                 showsWhatsNew = true
-            }
-            settingsLink("Replay the tour") {
-                startTour()
             }
             SettingsValueRow(title: "Version", value: versionString)
                 .contentShape(.rect)
@@ -316,11 +311,11 @@ struct SettingsView: View {
                     showsSoundLab = true
                 } label: {
                     HStack {
-                        Text("Sound lab").leafStyle(.uiBody)
+                        Text("Sound lab").canopyText(.body)
                         Spacer()
                         Image(systemName: "chevron.right")
                             .font(.footnote.weight(.semibold))
-                            .foregroundStyle(Color.inkTertiary)
+                            .foregroundStyle(Canopy.textTertiary)
                     }
                     .contentShape(.rect)
                 }
@@ -339,11 +334,11 @@ struct SettingsView: View {
             action()
         } label: {
             HStack {
-                Text(title).leafStyle(.uiBody)
+                Text(title).canopyText(.body)
                 Spacer()
                 Image(systemName: "chevron.right")
                     .font(.footnote.weight(.semibold))
-                    .foregroundStyle(Color.inkTertiary)
+                    .foregroundStyle(Canopy.textTertiary)
             }
             .contentShape(.rect)
         }
@@ -378,7 +373,7 @@ struct SettingsView: View {
                 confirmsErase = true
             } label: {
                 Text("Erase all data")
-                    .leafFont(.uiBody)
+                    .font(CanopyType.body.font)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(.rect)
             }
@@ -386,7 +381,7 @@ struct SettingsView: View {
             header("Data")
         } footer: {
             Text(eraseFooter)
-                .leafStyle(.caption)
+                .canopyText(.caption)
         }
         .settingsRows()
     }
@@ -409,10 +404,10 @@ struct SettingsView: View {
     private var colophonSection: some View {
         Section {
             Text("Set in Instrument Serif, New York and SF Pro. Book data and covers from Open Library, a project of the Internet Archive. Printed on your phone, read by you.")
-                .leafStyle(.body, color: .inkSecondary)
+                .canopyText(.body, color: Canopy.textSecondary)
                 .italic()
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.vertical, Space.xs)
+                .padding(.vertical, Canopy.Space.xs)
         } header: {
             header("Colophon")
         }
@@ -447,9 +442,9 @@ struct SettingsView: View {
 
     // MARK: Helpers
 
-    private func header(_ title: String) -> some View {
+    private func header(_ title: String, accent: CanopyAccent = .forest) -> some View {
         Text(title)
-            .leafStyle(.eyebrow)
+            .settingsHeader(accent)
     }
 
     /// A binding to one preference that plays a selection tick when it changes.
@@ -465,10 +460,10 @@ struct SettingsView: View {
 }
 
 extension View {
-    /// `paperRaised` rows with `hairline` separators.
+    /// Cream `surface` rows with `separator` hairlines.
     func settingsRows() -> some View {
-        listRowBackground(Color.paperRaised)
-            .listRowSeparatorTint(Color.hairline)
+        listRowBackground(Canopy.surface)
+            .listRowSeparatorTint(Canopy.separator)
     }
 }
 

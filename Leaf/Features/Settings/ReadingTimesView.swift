@@ -46,13 +46,13 @@ struct ReadingTimesSection: View {
                 }
             } label: {
                 Label("Add a reading time", systemImage: "plus")
-                    .leafStyle(.uiBody, color: .accent)
+                    .canopyText(.body, color: CanopyAccent.forest.color)
             }
 
             if !slots.isEmpty {
                 Toggle(isOn: reminderToggle) {
                     Text("Remind me at these times")
-                        .leafStyle(.uiBody)
+                        .canopyText(.body)
                 }
                 .task { await refreshNotificationStatus() }
                 .onChange(of: scenePhase) { _, phase in
@@ -61,9 +61,9 @@ struct ReadingTimesSection: View {
             }
 
             if showsDeniedNote {
-                VStack(alignment: .leading, spacing: Space.xs) {
+                VStack(alignment: .leading, spacing: Canopy.Space.xs) {
                     Text("Notifications are turned off for Leaf in iOS Settings, so there’s nothing to remind you with.")
-                        .leafStyle(.caption)
+                        .canopyText(.caption)
                         .fixedSize(horizontal: false, vertical: true)
                     TextButton("Open Settings") {
                         openSystemSettings()
@@ -72,9 +72,9 @@ struct ReadingTimesSection: View {
             }
 
             if needsSideBySide {
-                VStack(alignment: .leading, spacing: Space.xs) {
+                VStack(alignment: .leading, spacing: Canopy.Space.xs) {
                     Text("A time kept for one book works best side by side. One at a time plans a single book a day, so that time reads whatever is first.")
-                        .leafStyle(.caption)
+                        .canopyText(.caption)
                         .fixedSize(horizontal: false, vertical: true)
                     TextButton("Read side by side") {
                         CanopyFeel.play(.select)
@@ -84,13 +84,13 @@ struct ReadingTimesSection: View {
             }
         } header: {
             Text("Reading times")
-                .leafStyle(.eyebrow)
+                .settingsHeader(.dusk)
         } footer: {
             Text(footer)
-                .leafStyle(.caption)
+                .canopyText(.caption)
         }
-        .listRowBackground(Color.paperRaised)
-        .listRowSeparatorTint(Color.hairline)
+        .listRowBackground(Canopy.surface)
+        .listRowSeparatorTint(Canopy.separator)
     }
 
     private var footer: String {
@@ -103,7 +103,7 @@ struct ReadingTimesSection: View {
     private func delete(at offsets: IndexSet) {
         let ids = offsets.map { slots[$0].id }
         CanopyFeel.play(.warning)
-        withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
+        withAnimation(Canopy.Motion.resolved(Canopy.Motion.smooth, reduceMotion: reduceMotion)) {
             for id in ids { store.removeReadingSlot(id) }
         }
     }
@@ -129,7 +129,7 @@ struct ReadingTimesSection: View {
                 if newValue {
                     Task { await enableReminders() }
                 } else {
-                    withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
+                    withAnimation(Canopy.Motion.resolved(Canopy.Motion.smooth, reduceMotion: reduceMotion)) {
                         reminderBlocked = false
                         store.updatePreferences { $0.reminderEnabled = false }
                     }
@@ -149,11 +149,11 @@ struct ReadingTimesSection: View {
         switch status {
         case .authorized, .provisional, .ephemeral:
             reminderBlocked = false
-            withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
+            withAnimation(Canopy.Motion.resolved(Canopy.Motion.smooth, reduceMotion: reduceMotion)) {
                 store.updatePreferences { $0.reminderEnabled = true }
             }
         default:
-            withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
+            withAnimation(Canopy.Motion.resolved(Canopy.Motion.smooth, reduceMotion: reduceMotion)) {
                 reminderBlocked = true
             }
         }
@@ -188,20 +188,21 @@ struct ReadingSlotRow: View {
     let bookTitle: String?
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: Space.m) {
+        HStack(alignment: .firstTextBaseline, spacing: Canopy.Space.m) {
             Text(LeafFormat.time(hour: slot.hour, minute: slot.minute))
-                .leafStyle(.data, color: slot.isEnabled ? Color.ink : Color.inkTertiary)
+                .font(.system(.body, design: .rounded, weight: .semibold).monospacedDigit())
+                .foregroundStyle(slot.isEnabled ? CanopyAccent.dusk.color : Canopy.textTertiary)
                 .frame(minWidth: 64, alignment: .leading)
-            VStack(alignment: .leading, spacing: Space.xxs) {
+            VStack(alignment: .leading, spacing: Canopy.Space.xxs) {
                 Text(slot.label ?? ReadingSlotText.defaultLabel(hour: slot.hour))
-                    .leafStyle(.uiBody, color: slot.isEnabled ? Color.ink : Color.inkSecondary)
+                    .canopyText(.body, color: slot.isEnabled ? Canopy.text : Canopy.textSecondary)
                 Text(caption)
-                    .leafStyle(.caption)
+                    .canopyText(.caption)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 0)
         }
-        .padding(.vertical, Space.xxs)
+        .padding(.vertical, Canopy.Space.xxs)
         .accessibilityElement(children: .combine)
     }
 
@@ -245,31 +246,26 @@ struct ReadingSlotEditor: View {
             Section {
                 TimeDrum(hour: $draft.hour, minute: $draft.minute)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, Space.s)
+                    .padding(.vertical, Canopy.Space.s)
             } header: {
                 header("When")
             } footer: {
                 Text(todayShare)
-                    .leafStyle(.caption)
+                    .canopyText(.caption)
             }
-            .listRowBackground(Color.paperRaised)
+            .listRowBackground(Canopy.surface)
 
             Section {
                 TextField("Name", text: label, prompt: Text(ReadingSlotText.defaultLabel(hour: draft.hour)))
-                    .font(LeafType.uiBody)
+                    .font(CanopyType.body.font)
                     .submitLabel(.done)
                 ScrollView(.horizontal) {
-                    HStack(spacing: Space.s) {
+                    HStack(spacing: Canopy.Space.s) {
                         ForEach(Self.suggestions, id: \.self) { suggestion in
-                            Button {
-                                CanopyFeel.play(.select)
+                            CanopyChip(suggestion, accent: .dusk, isSelected: draft.label == suggestion) {
                                 draft.label = suggestion
-                            } label: {
-                                Chip(suggestion, tone: draft.label == suggestion ? .accent : .neutral)
-                                    .frame(minHeight: Space.hitTarget)
-                                    .contentShape(.rect)
                             }
-                            .buttonStyle(.pressable)
+                            .padding(.vertical, Canopy.Space.xs)
                         }
                     }
                 }
@@ -277,28 +273,28 @@ struct ReadingSlotEditor: View {
             } header: {
                 header("Name")
             }
-            .listRowBackground(Color.paperRaised)
+            .listRowBackground(Canopy.surface)
 
             Section {
-                Toggle(isOn: $everyDay.animation(Motion.paper)) {
+                Toggle(isOn: $everyDay.animation(Canopy.Motion.smooth)) {
                     Text("Every reading day")
-                        .leafStyle(.uiBody)
+                        .canopyText(.body)
                 }
                 if !everyDay {
                     WeekdayPicker(selection: $days)
-                        .padding(.vertical, Space.xs)
+                        .padding(.vertical, Canopy.Space.xs)
                     if days.isEmpty {
                         Text("Pick at least one day.")
-                            .leafStyle(.caption)
+                            .canopyText(.caption)
                     }
                 }
             } header: {
                 header("Days")
             } footer: {
                 Text("A time only rings on your reading days.")
-                    .leafStyle(.caption)
+                    .canopyText(.caption)
             }
-            .listRowBackground(Color.paperRaised)
+            .listRowBackground(Canopy.surface)
 
             Section {
                 Picker("Book", selection: $draft.bookID) {
@@ -315,9 +311,9 @@ struct ReadingSlotEditor: View {
                 header("Book")
             } footer: {
                 if draft.bookID != nil && store.preferences.planMode == .focus {
-                    VStack(alignment: .leading, spacing: Space.xs) {
+                    VStack(alignment: .leading, spacing: Canopy.Space.xs) {
                         Text("One at a time plans a single book a day, so this time would read whatever is first. Side by side gives each book its own share and keeps this time for this book.")
-                            .leafStyle(.caption)
+                            .canopyText(.caption)
                         TextButton("Read side by side") {
                             CanopyFeel.play(.select)
                             store.updatePreferences { $0.planMode = .sideBySide }
@@ -325,27 +321,27 @@ struct ReadingSlotEditor: View {
                     }
                 } else {
                     Text("Tie a time to a book: mornings for one, evenings for another.")
-                        .leafStyle(.caption)
+                        .canopyText(.caption)
                 }
             }
-            .listRowBackground(Color.paperRaised)
+            .listRowBackground(Canopy.surface)
 
             if !isNew {
                 Section {
                     Toggle(isOn: $draft.isEnabled) {
                         Text("Use this time")
-                            .leafStyle(.uiBody)
+                            .canopyText(.body)
                     }
                     Button("Delete this time", role: .destructive) {
                         confirmsDelete = true
                     }
                 }
-                .listRowBackground(Color.paperRaised)
+                .listRowBackground(Canopy.surface)
             }
         }
         .scrollContentBackground(.hidden)
         .paperBackground()
-        .tint(Color.accent)
+        .tint(CanopyAccent.forest.color)
         .navigationTitle(isNew ? "New reading time" : "Reading time")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -368,7 +364,7 @@ struct ReadingSlotEditor: View {
 
     private func header(_ title: String) -> some View {
         Text(title)
-            .leafStyle(.eyebrow)
+            .settingsHeader(.dusk)
     }
 
     private var label: Binding<String> {
@@ -420,17 +416,17 @@ struct ReadingTimesSheet: View {
             Form {
                 Section {
                     Text("When do you like to read? Add a time or a few. Leaf shares each day’s pages between them, and a time can belong to one book.")
-                        .leafStyle(.body, color: .inkSecondary)
+                        .canopyText(.body, color: Canopy.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                         .listRowBackground(Color.clear)
-                        .listRowInsets(EdgeInsets(top: Space.s, leading: Space.xl, bottom: Space.s, trailing: Space.xl))
+                        .listRowInsets(EdgeInsets(top: Canopy.Space.s, leading: Canopy.Space.xl, bottom: Canopy.Space.s, trailing: Canopy.Space.xl))
                 }
                 ReadingTimesSection()
             }
             .scrollContentBackground(.hidden)
             .paperBackground()
-            .foregroundStyle(Color.ink)
-            .tint(Color.accent)
+            .foregroundStyle(Canopy.text)
+            .tint(CanopyAccent.forest.color)
             .navigationTitle("Reading times")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -450,7 +446,7 @@ struct ReadingTimesSheet: View {
         }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
-        .presentationBackground(Color.paper)
+        .presentationBackground(Canopy.canvas)
         .onAppear {
             if let id = router.readingSlotToEdit {
                 router.readingSlotToEdit = nil

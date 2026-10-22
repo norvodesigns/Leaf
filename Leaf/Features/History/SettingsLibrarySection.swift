@@ -21,7 +21,7 @@ struct SettingsLibrarySection: View {
             NavigationLink {
                 ReadingLogView()
             } label: {
-                Text("Reading log").leafStyle(.uiBody)
+                Text("Reading log").canopyText(.body)
             }
 
             ShareLink(
@@ -40,10 +40,10 @@ struct SettingsLibrarySection: View {
             }
             .buttonStyle(.plain)
         } header: {
-            Text("Your library").leafStyle(.eyebrow)
+            Text("Your library").settingsHeader()
         } footer: {
             Text(restoreMessage ?? "A backup is one file with everything: books, sittings, notes, teas and settings. Keep it wherever you like. Restoring adds what’s missing; nothing newer here is replaced.")
-                .leafStyle(.caption)
+                .canopyText(.caption)
         }
         .settingsRows()
         .fileImporter(isPresented: $importsBackup, allowedContentTypes: [.json]) { result in

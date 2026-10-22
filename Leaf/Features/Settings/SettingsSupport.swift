@@ -1,18 +1,26 @@
 import SwiftUI
 import WatchConnectivity
 
+extension View {
+    /// A Settings section header in Canopy: the section's accent, sentence case (REDESIGN §4.9).
+    func settingsHeader(_ accent: CanopyAccent = .forest) -> some View {
+        canopyText(.label, color: accent.color)
+            .accessibilityAddTraits(.isHeader)
+    }
+}
+
 /// A Form row with a title and a quieter value on the right ("Minutes a day · 25 min").
 struct SettingsValueRow: View {
     let title: String
     let value: String
 
     var body: some View {
-        HStack(spacing: Space.s) {
+        HStack(spacing: Canopy.Space.s) {
             Text(title)
-                .leafStyle(.uiBody)
-            Spacer(minLength: Space.s)
+                .canopyText(.body)
+            Spacer(minLength: Canopy.Space.s)
             Text(value)
-                .leafStyle(.uiBody, color: .inkSecondary)
+                .canopyText(.body, color: Canopy.textSecondary)
                 .multilineTextAlignment(.trailing)
         }
         .accessibilityElement(children: .combine)
@@ -28,13 +36,13 @@ struct SettingsDisclosureRow: View {
     }
 
     var body: some View {
-        HStack(spacing: Space.s) {
+        HStack(spacing: Canopy.Space.s) {
             Text(title)
-                .leafStyle(.uiBody)
-            Spacer(minLength: Space.s)
+                .canopyText(.body)
+            Spacer(minLength: Canopy.Space.s)
             Image(systemName: "chevron.right")
                 .font(.footnote.weight(.semibold))
-                .foregroundStyle(Color.inkTertiary)
+                .foregroundStyle(Canopy.textTertiary)
                 .accessibilityHidden(true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
