@@ -15,7 +15,8 @@ struct LeafApp: App {
         let store = LibraryStore(persistence: options.isScripted ? .ephemeral() : .shared, now: now)
         if options.demo {
             let scenario = options.scenario.flatMap(DemoData.Scenario.init(rawValue:)) ?? .standard
-            store.replaceAll(with: DemoData.make(now: now, scenario: scenario))
+            let demo = DemoData.make(now: now, scenario: scenario)
+            store.replaceAll(with: options.publicDomain ? DemoData.publicDomain(demo) : demo)
         }
         _store = State(initialValue: store)
         let router = AppRouter()

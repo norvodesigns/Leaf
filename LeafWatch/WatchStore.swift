@@ -372,8 +372,10 @@ enum WatchDemo {
             let isToday = calendar.isDate(date, inSameDayAs: now)
             return WatchDay(date: date, minutes: isToday ? 12 : (isPast ? [28, 25, 31, 0, 26, 35, 24][offset] : 0), goal: 25, isReadingDay: true)
         }
-        let hobbit = WatchBook(id: "OL27482W", title: "The Hobbit", author: "J. R. R. Tolkien", currentPage: 142, pages: 310, wordsPerPage: 306, paletteSeed: 3, finish: calendar.date(byAdding: .day, value: 9, to: now))
-        let circe = WatchBook(id: "OL18012166W", title: "Circe", author: "Madeline Miller", currentPage: 88, pages: 404, wordsPerPage: 270, paletteSeed: 6, finish: calendar.date(byAdding: .day, value: 26, to: now))
+        // `-LeafPublicDomain YES` (App Store screenshots): the same books as public-domain stand-ins, as on the phone.
+        let pd = LaunchScreen.publicDomain
+        let hobbit = WatchBook(id: "OL27482W", title: pd ? "The Wind in the Willows" : "The Hobbit", author: pd ? "Kenneth Grahame" : "J. R. R. Tolkien", currentPage: 142, pages: 310, wordsPerPage: 306, paletteSeed: 3, finish: calendar.date(byAdding: .day, value: 9, to: now))
+        let circe = WatchBook(id: "OL18012166W", title: pd ? "Pride and Prejudice" : "Circe", author: pd ? "Jane Austen" : "Madeline Miller", currentPage: 88, pages: 404, wordsPerPage: 270, paletteSeed: 6, finish: calendar.date(byAdding: .day, value: 26, to: now))
         var snapshot = WatchSnapshot(
             generatedAt: now, dailyMinutes: 25, minutesReadToday: 12, isReadingDay: true, streak: 6, wpm: 262,
             today: [WatchAssignment(bookID: hobbit.id, title: hobbit.title, minutes: 13, fromPage: 143, toPage: 154)],
@@ -382,8 +384,8 @@ enum WatchDemo {
         snapshot.greeting = WatchGreeting(headline: "Tea o’clock.", subline: "Thirteen minutes to today’s goal.")
         snapshot.tea = WatchTea(id: "earl-grey", name: "Earl Grey", steepSeconds: 240)
         snapshot.queue = [
-            WatchBook(id: "OL20893680W", title: "Piranesi", author: "Susanna Clarke", currentPage: 0, pages: 272, wordsPerPage: 270, paletteSeed: 8, finish: calendar.date(byAdding: .day, value: 40, to: now)),
-            WatchBook(id: "OL21745884W", title: "Project Hail Mary", author: "Andy Weir", currentPage: 0, pages: 496, wordsPerPage: 270, paletteSeed: 1, finish: calendar.date(byAdding: .day, value: 58, to: now)),
+            WatchBook(id: "OL20893680W", title: pd ? "Alice’s Adventures in Wonderland" : "Piranesi", author: pd ? "Lewis Carroll" : "Susanna Clarke", currentPage: 0, pages: 272, wordsPerPage: 270, paletteSeed: 8, finish: calendar.date(byAdding: .day, value: 40, to: now)),
+            WatchBook(id: "OL21745884W", title: pd ? "The War of the Worlds" : "Project Hail Mary", author: pd ? "H. G. Wells" : "Andy Weir", currentPage: 0, pages: 496, wordsPerPage: 270, paletteSeed: 1, finish: calendar.date(byAdding: .day, value: 58, to: now)),
         ]
         snapshot.forecasts = [
             WatchForecast(bookID: hobbit.id, sentence: "Probably done next Saturday.", median: hobbit.finish),
@@ -423,6 +425,14 @@ enum LaunchScreen {
     static var isDemo: Bool {
         #if DEBUG
         UserDefaults.standard.bool(forKey: "LeafDemo")
+        #else
+        false
+        #endif
+    }
+
+    static var publicDomain: Bool {
+        #if DEBUG
+        UserDefaults.standard.bool(forKey: "LeafPublicDomain")
         #else
         false
         #endif

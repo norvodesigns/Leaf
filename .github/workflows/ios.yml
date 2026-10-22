@@ -19,8 +19,8 @@ concurrency:
 jobs:
   build:
     runs-on: macos-26
-    # Build and tests take about 35 minutes and the screenshots (iPhone, then watch) up to 80 more.
-    timeout-minutes: 150
+    # Build and tests take about 35 minutes; the App Store set, the watch and the design screenshots up to 120 more.
+    timeout-minutes: 180
     permissions:
       contents: write
     steps:
@@ -145,10 +145,24 @@ jobs:
         if: always()
         run: grep -h -E "warning:" build-*.log 2>/dev/null | grep -v -E "appintents|Metadata extraction" | sort -u | head -150 || true
 
+      # The App Store set first (6.9-inch iPhone at 1320x2868 and the watch, public-domain books only: store-*.png),
+      # then the watch, each in its own step so the long design run can't cut them off.
+      - name: App Store screenshots
+        if: success()
+        continue-on-error: true
+        timeout-minutes: 20
+        run: bash scripts/ci_screenshots.sh screenshots store
+
+      - name: Watch screenshots
+        if: success()
+        continue-on-error: true
+        timeout-minutes: 15
+        run: bash scripts/ci_screenshots.sh screenshots watch
+
       - name: Screenshots
         if: success()
         timeout-minutes: 85
-        run: bash scripts/ci_screenshots.sh screenshots
+        run: bash scripts/ci_screenshots.sh screenshots design
 
       # Some machines that review the design can reach github.com but not the storage that serves logs and artifacts.
       # The JPEG copies also go to a hidden ref (not a branch or a tag), replaced on every run:

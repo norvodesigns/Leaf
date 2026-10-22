@@ -124,3 +124,8 @@ screen (see `scripts/ci_screenshots.sh`). `RootView` maps keys to router state:
 `onboarding.<step>`, `today`, `library`, `library.finished`, `plan`, `search`,
 `search.query`, `book:<id>`, `session`, `session.outcome`, `settings`. Each screen must look
 complete and correct in that state with the demo library, in both light and dark mode.
+
+The script has three modes, each its own CI step: `store` (the App Store set, `store-*.png`: an iPhone 17 Pro Max at
+1320×2868 and the watch, with `-LeafPublicDomain YES` so the demo books are public-domain stand-ins with generated
+covers, `DemoPublicDomain.swift`), `watch` (every watch screen) and `design` (every iPhone screen, light and dark).
+The store and watch steps run first so the long design run can never cut them off.

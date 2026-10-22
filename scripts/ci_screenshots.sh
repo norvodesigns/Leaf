@@ -1,7 +1,13 @@
 #!/bin/bash
 # Stages screens with debug launch arguments and captures them on the simulators.
+#
+#   ci_screenshots.sh OUT design   every iPhone screen, light and dark, for design review (IOS_SIM)
+#   ci_screenshots.sh OUT watch    every watch screen (WATCH_SIM)
+#   ci_screenshots.sh OUT store    the App Store set: 6.9-inch iPhone (STORE_SIM, 1320x2868) and the watch, with the
+#                                  public-domain demo library (-LeafPublicDomain YES)
 set -uo pipefail
 OUT="${1:-screenshots}"
+MODE="${2:-design}"
 mkdir -p "$OUT"
 APP="build/Build/Products/Debug-iphonesimulator/Leaf.app"
 WATCH_APP="build/Build/Products/Debug-watchsimulator/LeafWatch.app"
@@ -13,9 +19,13 @@ boot() {
   xcrun simctl bootstatus "$1" -b >/dev/null
 }
 
-boot "$IOS_SIM"
-xcrun simctl status_bar "$IOS_SIM" override --time "9:41" --batteryState charged --batteryLevel 100 --wifiBars 3 --cellularBars 4 --cellularMode active || true
-xcrun simctl install "$IOS_SIM" "$APP"
+PHONE=""
+prepare_phone() { # udid
+  PHONE=$1
+  boot "$PHONE"
+  xcrun simctl status_bar "$PHONE" override --time "9:41" --batteryState charged --batteryLevel 100 --wifiBars 3 --cellularBars 4 --cellularMode active || true
+  xcrun simctl install "$PHONE" "$APP"
+}
 
 # A smaller JPEG copy of one shot, printed as base64 right away so it can be read from the job log even if the step
 # is cut short (scripts/ci.py shots).
@@ -30,21 +40,100 @@ emit() { # name
 
 shot() { # name wait args...
   local name=$1 wait=$2; shift 2
-  xcrun simctl terminate "$IOS_SIM" "$BUNDLE" >/dev/null 2>&1 || true
-  xcrun simctl launch "$IOS_SIM" "$BUNDLE" "$@" >/dev/null
+  xcrun simctl terminate "$PHONE" "$BUNDLE" >/dev/null 2>&1 || true
+  xcrun simctl launch "$PHONE" "$BUNDLE" "$@" >/dev/null
   sleep "$wait"
-  if xcrun simctl io "$IOS_SIM" screenshot --type=png "$OUT/$name.png" >/dev/null 2>&1; then
+  if xcrun simctl io "$PHONE" screenshot --type=png "$OUT/$name.png" >/dev/null 2>&1; then
     echo "captured $name"
     [ "$name" = 00-warmup ] || emit "$name"
   fi
 }
+
+WATCH_READY=""
+prepare_watch() {
+  [ -n "${WATCH_SIM:-}" ] && [ -d "$WATCH_APP" ] || { echo "no watch simulator or watch build: skipping the watch"; return 1; }
+  if [ -z "$WATCH_READY" ]; then
+    boot "$WATCH_SIM"
+    xcrun simctl install "$WATCH_SIM" "$WATCH_APP"
+    WATCH_READY=1
+  fi
+}
+
+wshot() { # name args...
+  local name=$1; shift
+  xcrun simctl terminate "$WATCH_SIM" "$WATCH_BUNDLE" >/dev/null 2>&1 || true
+  xcrun simctl launch "$WATCH_SIM" "$WATCH_BUNDLE" "$@" >/dev/null
+  sleep 5
+  if xcrun simctl io "$WATCH_SIM" screenshot --type=png "$OUT/$name.png" >/dev/null 2>&1; then
+    echo "captured $name"
+    emit "$name"
+  fi
+}
+
+if [ "$MODE" = store ]; then
+  # App Store Connect takes 1320x2868 for the 6.9-inch set; any one accepted watch size covers the watch.
+  [ -n "${STORE_SIM:-}" ] || { echo "::error::no iPhone 17 Pro Max simulator (STORE_SIM) for the App Store set"; exit 1; }
+  prepare_phone "$STORE_SIM"
+  xcrun simctl ui "$PHONE" appearance light
+  pd=(-LeafDemo YES -LeafPublicDomain YES)
+  shot 00-warmup 8 "${pd[@]}" -LeafScreen today
+  rm -f "$OUT/00-warmup.png"
+  shot store-1-today 7 "${pd[@]}" -LeafScreen today -LeafTime 20:30
+  shot store-2-session 8 "${pd[@]}" -LeafScreen session -leaf.cozy.nookScene hearth
+  shot store-3-plan 9 "${pd[@]}" -LeafScreen plan -LeafScenario sidebyside
+  shot store-4-insights 10 "${pd[@]}" -LeafScreen plan.insights -LeafScenario year
+  shot store-5-library 6 "${pd[@]}" -LeafScreen library
+  shot store-6-tea 6 "${pd[@]}" -LeafScreen tea.cabinet
+  shot store-7-circles 7 "${pd[@]}" -LeafScreen plan.circles
+  for f in "$OUT"/store-[0-9]*.png; do
+    [ -f "$f" ] || continue
+    size="$(sips -g pixelWidth -g pixelHeight "$f" | awk '/pixelWidth/{w=$2} /pixelHeight/{h=$2} END{print w "x" h}')"
+    [ "$size" = 1320x2868 ] || echo "::warning::$(basename "$f") is $size, not the 6.9-inch 1320x2868"
+  done
+  if prepare_watch; then
+    wshot store-w1-today "${pd[@]}" -LeafScreen today
+    wshot store-w2-session "${pd[@]}" -LeafScreen session.cup
+    wshot store-w3-steep "${pd[@]}" -LeafScreen steep
+    wshot store-w4-forecast "${pd[@]}" -LeafScreen forecast
+    wshot store-w5-week "${pd[@]}" -LeafScreen week
+  fi
+  exit 0
+fi
+
+if [ "$MODE" = watch ]; then
+  prepare_watch || exit 0
+  wshot w1-today -LeafDemo YES -LeafScreen today
+  wshot w2-session -LeafDemo YES -LeafScreen session
+  wshot w3-pages -LeafDemo YES -LeafScreen pages
+  wshot w4-shelf -LeafDemo YES -LeafScreen shelf
+  wshot w5-steep -LeafDemo YES -LeafScreen steep
+  wshot w6-steep-ready -LeafDemo YES -LeafScreen steepready
+  wshot w7-session-cup -LeafDemo YES -LeafScreen session.cup
+  wshot w8-always-on -LeafDemo YES -LeafScreen aod
+  wshot w9-log -LeafDemo YES -LeafScreen log
+  wshot w10-quicklog -LeafDemo YES -LeafScreen quicklog
+  wshot w11-where -LeafDemo YES -LeafScreen where
+  wshot w12-forecast -LeafDemo YES -LeafScreen forecast
+  wshot w13-week -LeafDemo YES -LeafScreen week
+  wshot w14-shelf-actions -LeafDemo YES -LeafScreen shelf.actions
+  wshot w15-add -LeafDemo YES -LeafScreen add.sent
+  wshot w16-complications -LeafDemo YES -LeafScreen complications
+  wshot w17-timers -LeafDemo YES -LeafScreen timers
+  wshot w18-timers-steep -LeafDemo YES -LeafScreen timers.steep
+  # Polish pass: the watch at its largest text size.
+  wshot lt-w1-today -LeafDemo YES -LeafScreen today -UIPreferredContentSizeCategoryName UICTContentSizeCategoryXXXL
+  wshot lt-w2-session -LeafDemo YES -LeafScreen session -UIPreferredContentSizeCategoryName UICTContentSizeCategoryXXXL
+  exit 0
+fi
+
+prepare_phone "$IOS_SIM"
 
 # Warm-up launch so Open Library covers are cached for the real shots.
 shot 00-warmup 8 -LeafDemo YES -LeafScreen today
 rm -f "$OUT/00-warmup.png"
 
 for appearance in light dark; do
-  xcrun simctl ui "$IOS_SIM" appearance "$appearance"
+  xcrun simctl ui "$PHONE" appearance "$appearance"
   suffix=""; [ "$appearance" = dark ] && suffix="-dark"
   if [ "$appearance" = light ]; then
     shot 01-welcome 4 -LeafScreen onboarding.welcome
@@ -248,40 +337,4 @@ for appearance in light dark; do
   shot "wg-2-home$suffix" 6 -LeafDemo YES -LeafScreen widgets.home -LeafTime 20:30
   shot "wg-3-timer$suffix" 6 -LeafDemo YES -LeafScreen widgets.timer -LeafTime 20:30
 done
-xcrun simctl ui "$IOS_SIM" appearance light
-
-if [ -n "${WATCH_SIM:-}" ] && [ -d "$WATCH_APP" ]; then
-  boot "$WATCH_SIM"
-  xcrun simctl install "$WATCH_SIM" "$WATCH_APP"
-  wshot() {
-    local name=$1; shift
-    xcrun simctl terminate "$WATCH_SIM" "$WATCH_BUNDLE" >/dev/null 2>&1 || true
-    xcrun simctl launch "$WATCH_SIM" "$WATCH_BUNDLE" "$@" >/dev/null
-    sleep 5
-    if xcrun simctl io "$WATCH_SIM" screenshot --type=png "$OUT/$name.png" >/dev/null 2>&1; then
-      echo "captured $name"
-      emit "$name"
-    fi
-  }
-  wshot w1-today -LeafDemo YES -LeafScreen today
-  wshot w2-session -LeafDemo YES -LeafScreen session
-  wshot w3-pages -LeafDemo YES -LeafScreen pages
-  wshot w4-shelf -LeafDemo YES -LeafScreen shelf
-  wshot w5-steep -LeafDemo YES -LeafScreen steep
-  wshot w6-steep-ready -LeafDemo YES -LeafScreen steepready
-  wshot w7-session-cup -LeafDemo YES -LeafScreen session.cup
-  wshot w8-always-on -LeafDemo YES -LeafScreen aod
-  wshot w9-log -LeafDemo YES -LeafScreen log
-  wshot w10-quicklog -LeafDemo YES -LeafScreen quicklog
-  wshot w11-where -LeafDemo YES -LeafScreen where
-  wshot w12-forecast -LeafDemo YES -LeafScreen forecast
-  wshot w13-week -LeafDemo YES -LeafScreen week
-  wshot w14-shelf-actions -LeafDemo YES -LeafScreen shelf.actions
-  wshot w15-add -LeafDemo YES -LeafScreen add.sent
-  wshot w16-complications -LeafDemo YES -LeafScreen complications
-  wshot w17-timers -LeafDemo YES -LeafScreen timers
-  wshot w18-timers-steep -LeafDemo YES -LeafScreen timers.steep
-  # Polish pass: the watch at its largest text size.
-  wshot lt-w1-today -LeafDemo YES -LeafScreen today -UIPreferredContentSizeCategoryName UICTContentSizeCategoryXXXL
-  wshot lt-w2-session -LeafDemo YES -LeafScreen session -UIPreferredContentSizeCategoryName UICTContentSizeCategoryXXXL
-fi
+xcrun simctl ui "$PHONE" appearance light

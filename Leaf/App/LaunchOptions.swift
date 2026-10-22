@@ -6,6 +6,7 @@ import Foundation
 /// - `-LeafScenario goalmet` picks a variant of the demo library (`DemoData.Scenario`).
 /// - `-LeafTime 07:40` makes "now" that time today, so Today can be staged at any hour.
 /// - `-LeafScroll week` scrolls Today to one of its cards after it appears.
+/// - `-LeafPublicDomain YES` swaps the demo books for public-domain ones (App Store screenshots).
 struct LaunchOptions {
     var demo: Bool
     var screen: String?
@@ -13,6 +14,7 @@ struct LaunchOptions {
     var scenario: String?
     var time: String?
     var scroll: String?
+    var publicDomain = false
 
     static let current: LaunchOptions = {
         #if DEBUG
@@ -23,7 +25,8 @@ struct LaunchOptions {
             appearance: defaults.string(forKey: "LeafAppearance"),
             scenario: defaults.string(forKey: "LeafScenario"),
             time: defaults.string(forKey: "LeafTime"),
-            scroll: defaults.string(forKey: "LeafScroll")
+            scroll: defaults.string(forKey: "LeafScroll"),
+            publicDomain: defaults.bool(forKey: "LeafPublicDomain")
         )
         #else
         return LaunchOptions(demo: false, screen: nil, appearance: nil, scenario: nil, time: nil, scroll: nil)
