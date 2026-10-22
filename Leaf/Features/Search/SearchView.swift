@@ -38,6 +38,8 @@ struct SearchView: View {
     @State private var searchActive = false
     /// The book just added, while it can still be taken back.
     @State private var lastAdd: AddedNote?
+    /// How long a toast stays; screenshot runs hold it long enough to be captured.
+    @State private var toastSeconds = 5.0
     /// The error haptic plays once per stretch offline, not on every keystroke.
     @State private var hasBuzzedOffline = false
     /// The book just marked "Not for me", while it can still be taken back.
@@ -112,7 +114,7 @@ struct SearchView: View {
                 .padding(.bottom, Canopy.Space.s)
                 .canopyFocusInTransition()
                 .task(id: note.id) {
-                    try? await Task.sleep(for: .seconds(5))
+                    try? await Task.sleep(for: .seconds(toastSeconds))
                     guard !Task.isCancelled, lastAdd?.id == note.id else { return }
                     withAnimation(Canopy.Motion.resolved(Canopy.Motion.smooth, reduceMotion: reduceMotion)) { lastAdd = nil }
                 }
@@ -680,6 +682,7 @@ struct SearchView: View {
         case "quickadd":
             quickAdd = QuickAddRequest(book: catalog.search("the name of the wind", limit: 1).first ?? DemoData.dune)
         case "added":
+            toastSeconds = 60
             applyQuickAdd(catalog.search("the name of the wind", limit: 1).first ?? DemoData.dune, .wantToRead(next: true))
         case "scan":
             showsScanner = true

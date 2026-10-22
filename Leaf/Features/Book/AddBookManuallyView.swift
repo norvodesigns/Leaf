@@ -68,7 +68,8 @@ struct AddBookManuallyView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: Canopy.Space.xl) {
-                    BookCover(book: draft, size: .l)
+                    // Medium, so the whole form still fits above the keyboard.
+                    BookCover(book: draft, size: .m)
                         .frame(maxWidth: .infinity)
                         .padding(.top, Canopy.Space.l)
                         .accessibilityHidden(true)
