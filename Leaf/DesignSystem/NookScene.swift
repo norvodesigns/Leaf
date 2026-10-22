@@ -25,7 +25,7 @@ enum NookScene: String, CaseIterable, Identifiable {
         case .plain: "Plain"
         case .rain: "Rain"
         case .hearth: "Fireplace"
-        case .landscape: "Mountains"
+        case .landscape: "Dawn"
         case .glow: "Glow"
         case .mist: "Mist"
         case .drizzle: "Drizzle"
@@ -210,11 +210,12 @@ private struct NookGlowScene: View {
                 startPoint: .top,
                 endPoint: .bottom
             )
-            AtmosphereScene(kind: .bokeh, calm: isLive ? calm * 0.7 : 0, density: 7, tint: Color(hex: 0xF2B66B), seed: 0x6E0)
+            AtmosphereScene(kind: .bokeh, calm: isLive ? calm * 0.7 : 0, density: 8, tint: Color(hex: 0xF2B66B), seed: 0x6E0)
                 .blur(radius: 10)
-                .opacity(0.9)
-            AtmosphereScene(kind: .bokeh, calm: isLive ? calm : 0, density: 12, tint: Color(hex: 0xFFD08A), seed: 0x6E1)
+                .blendMode(.plusLighter)
+            AtmosphereScene(kind: .bokeh, calm: isLive ? calm : 0, density: 14, tint: Color(hex: 0xFFD08A), seed: 0x6E1)
                 .blur(radius: 2)
+                .blendMode(.plusLighter)
         }
     }
 }

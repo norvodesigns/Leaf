@@ -301,10 +301,10 @@ enum NookShaderSource {
         float scale = 26.0;
         float2 id = floor(p * scale);
         float h = hash21(id + 4.1);
-        if (h < 0.3) { return; }
+        if (h < 0.58) { return; }
         float life = fract(t * (0.015 + 0.03 * h) + h * 9.1);
         float alive = smoothstep(0.0, 0.06, life) * smoothstep(1.0, 0.9, life);
-        float r = (0.1 + 0.24 * fract(h * 17.3)) * alive / scale;
+        float r = (0.08 + 0.22 * fract(h * 17.3)) * alive / scale;
         if (r < 0.0005) { return; }
         float2 c = (id + 0.5 + (hash22(id) - 0.5) * 0.5) / scale;
         lens(p, c, float2(r, r * 1.08), 1.0, drop);
@@ -376,11 +376,14 @@ enum NookShaderSource {
         float3 col = behind;
         if (drop.cover > 0.0) {
             float2 ruv = uv + float2(drop.offset.x / aspect, drop.offset.y);
-            float3 through = city(ruv, aspect, 0.1, t) * 1.1;
+            // A drop is a small lens: the city, upside down and in focus, a little brighter than the glass around
+            // it, lit along its lower edge by the street below, with a thin dark rim and a glint at the top.
+            float3 through = city(ruv, aspect, 0.1, t) * 1.45 + float3(0.07, 0.07, 0.09);
             float l = length(drop.normal);
-            through *= 1.0 - smoothstep(0.55, 1.0, l) * 0.6;
-            float spec = smoothstep(0.28, 0.0, length(drop.normal - float2(-0.35, -0.45)));
-            through += float3(0.9, 0.92, 1.0) * spec * 0.55;
+            through += float3(0.42, 0.26, 0.16) * smoothstep(0.45, 0.95, l) * saturate(drop.normal.y) * 0.8;
+            through *= 1.0 - smoothstep(0.85, 1.0, l) * 0.55;
+            float spec = smoothstep(0.24, 0.0, length(drop.normal - float2(-0.3, -0.5)));
+            through += float3(0.95, 0.96, 1.0) * spec * 0.8;
             col = mix(behind, through, drop.cover);
         }
         col = tonemap(col) * vignette(uv);
@@ -396,9 +399,10 @@ enum NookShaderSource {
 
     static float3 fireRamp(float heat) {
         float3 c = float3(0.0);
-        c += float3(1.0, 0.28, 0.04) * smoothstep(0.05, 0.4, heat);
-        c += float3(0.0, 0.42, 0.14) * smoothstep(0.35, 0.72, heat);
-        c += float3(0.0, 0.25, 0.45) * smoothstep(0.72, 1.0, heat);
+        c += float3(0.9, 0.2, 0.03) * smoothstep(0.1, 0.18, heat);
+        c += float3(0.1, 0.32, 0.06) * smoothstep(0.28, 0.5, heat);
+        c += float3(0.0, 0.3, 0.16) * smoothstep(0.55, 0.8, heat);
+        c += float3(0.0, 0.1, 0.4) * smoothstep(0.82, 1.0, heat);
         return c;
     }
 
@@ -449,10 +453,15 @@ enum NookShaderSource {
 
             float h = q.y / 0.34;
             float side = abs(q.x) / (halfWidth * 0.62 * (1.0 - 0.5 * clamp(h, 0.0, 1.0)) + 0.0001);
-            float turb = fbm(float2(q.x * 7.0, q.y * 5.0 - t * 2.4)) + 0.5 * fbm(float2(q.x * 15.0 + 5.0, q.y * 11.0 - t * 3.8));
-            float heat = 1.3 - h * 1.15 - side * side * 0.85 + (turb - 0.75) * 1.25;
+            // Tongues of flame: noise rising with time, its domain warped by a slower noise so the edges curl.
+            float2 fp = float2(q.x * 10.0, q.y * 6.5 - t * 2.9);
+            float warp = fbm(fp * 0.6 + float2(3.1, -t * 0.4));
+            float turb = fbm(fp + float2(warp * 1.8, 0.0));
+            float detail = fbm(fp * 2.4 + float2(warp * 2.2, -t * 1.7));
+            float heat = 1.38 - h * 1.3 - side * side * 1.05 + (turb - 0.5) * 1.5 + (detail - 0.5) * 0.7;
             heat = clamp(heat, 0.0, 1.0) * smoothstep(-0.02, 0.02, q.y);
-            col += fireRamp(heat) * 1.7;
+            col += fireRamp(heat) * 1.55;
+            col += float3(0.55, 0.18, 0.03) * exp(-length(q - float2(0.0, 0.07)) * 9.0) * flicker * 0.5;
 
             // Logs, crossed low in the fire, with embers glowing in their cracks.
             for (int i = 0; i < 2; i++) {
@@ -485,7 +494,7 @@ enum NookShaderSource {
         float a = 0.5;
         float f = freq;
         for (int i = 0; i < 5; i++) {
-            v += a * (noise2(float2(x * f + seed, seed * 3.1)) * 2.0 - 1.0);
+            v += a * (1.0 - abs(noise2(float2(x * f + seed, seed * 3.1)) * 2.0 - 1.0));
             f *= 2.1;
             a *= 0.48;
         }
@@ -513,18 +522,20 @@ enum NookShaderSource {
         for (int i = 0; i < 5; i++) {
             float fi = float(i);
             float base = 0.47 + fi * 0.06;
-            float height = 0.13 - fi * 0.012;
-            float y = base - height * (0.55 + 0.5 * ridge(uv.x * aspect, 11.0 + fi * 7.3, 1.3 + fi * 0.5));
+            float height = 0.2 - fi * 0.025;
+            float r = ridge(uv.x * aspect, 11.0 + fi * 7.3, 1.1 + fi * 0.45);
+            float y = base - height * (r * r * 1.6 - 0.15);
             float depth = fi / 4.0;
             float3 rock = mix(float3(0.42, 0.36, 0.5), float3(0.07, 0.09, 0.11), depth);
             float3 layer = mix(rock, haze, (1.0 - depth) * 0.45);
-            // Light on the faces toward the sun.
-            float slope = ridge(uv.x * aspect + 0.01, 11.0 + fi * 7.3, 1.3 + fi * 0.5) - ridge(uv.x * aspect, 11.0 + fi * 7.3, 1.3 + fi * 0.5);
-            layer += float3(0.3, 0.16, 0.08) * saturate(-slope * 60.0) * (1.0 - depth) * 0.6;
-            float inside = smoothstep(y - 0.0015, y + 0.0015, uv.y);
+            // Sunlit just under the ridge, darker down the face.
+            float below = max(uv.y - y, 0.0);
+            layer += float3(0.32, 0.17, 0.09) * exp(-below * 40.0) * (1.0 - depth) * 0.7;
+            layer *= 1.0 - saturate(below * 3.0) * 0.25;
+            float inside = smoothstep(y - 0.001, y + 0.001, uv.y);
             col = mix(col, layer, inside);
             // Mist pooling in the valley below each ridge, drifting slowly.
-            float mist = fbm(float2(uv.x * aspect * 3.0 + t * 0.01 * (1.0 + fi), uv.y * 9.0 + fi * 4.0));
+            float mist = fbm(float2(uv.x * aspect * 1.4 + t * 0.012 * (1.0 + fi), uv.y * 26.0 + fi * 4.0));
             float band = smoothstep(base + 0.06, base, uv.y) * smoothstep(base - 0.05, base + 0.02, uv.y);
             col = mix(col, haze * (1.05 - depth * 0.3), band * mist * 0.55 * (1.0 - depth * 0.5));
         }
