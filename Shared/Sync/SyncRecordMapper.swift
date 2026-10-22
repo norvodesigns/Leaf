@@ -46,6 +46,7 @@ enum SyncRecordMapper {
         case .tombstone(let value): return encode(value)
         case .cabinetTea(let value): return encode(value)
         case .tasting(let value): return encode(value)
+        case .circle(let value): return encode(value)
         }
     }
 
@@ -72,6 +73,7 @@ enum SyncRecordMapper {
         case .tombstone: return decode(Tombstone.self, from: payload).map(SyncEntity.tombstone)
         case .cabinetTea: return decode(CabinetTea.self, from: payload).map(SyncEntity.cabinetTea)
         case .tasting: return decode(TastingNote.self, from: payload).map(SyncEntity.tasting)
+        case .circle: return decode(ReadingCircle.self, from: payload).map(SyncEntity.circle)
         }
     }
 
@@ -95,6 +97,7 @@ enum SyncRecordMapper {
             case .tombstone(let value): delta.tombstones.append(value)
             case .cabinetTea(let value): delta.cabinet.append(value)
             case .tasting(let value): delta.tastings.append(value)
+            case .circle(let value): delta.circles.append(value)
             }
         }
         return delta

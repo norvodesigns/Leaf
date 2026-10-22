@@ -1,65 +1,27 @@
 import Foundation
-import Observation
 
-/// The reader's reading circles, in their own small file beside the library.
+/// The reader's reading circles, as the circle screens see them.
 ///
-/// Circles are local for now: friends are added by name and moved along by hand, and nothing here talks to iCloud.
-/// They live outside `LeafData` on purpose, so the library's sync and backup formats don't change until a shared
-/// version is designed. The model (`ReadingCircle`) already carries stable ids, `updatedAt` stamps and a `remoteID`
-/// per member, so that version can take these circles over without the screens changing.
+/// Circles live in the library (`LeafData.circles`), so they are in the library file and its rolling backup, in
+/// exported backups, and in iCloud sync when that is on (as `LeafCircle` records). This is a thin view over
+/// `LibraryStore` that keeps the circle rules (normalised schedules, who can be removed, palette tokens) in one place;
+/// each change is stamped here and saved through the store, which records the deletions other devices need.
+///
+/// Before 2026-10-22 circles had their own `circles.json` beside the library. `importLegacyFile(into:)` moves such a
+/// file in once, with the sync merge rules, and keeps the old file renamed until "Erase all data".
 @MainActor
-@Observable
-final class CircleStore {
-    private(set) var circles: [ReadingCircle] = []
+struct CircleStore {
+    let library: LibraryStore
 
-    @ObservationIgnored private let url: URL?
-
-    static let shared: CircleStore = {
-        let options = LaunchOptions.current
-        if options.isScripted {
-            let store = CircleStore(url: nil)
-            if options.demo, options.scenario != "new" { store.circles = DemoData.circles(now: options.now()) }
-            return store
-        }
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Leaf", isDirectory: true)
-        return CircleStore(url: base.appendingPathComponent("circles.json"))
-    }()
-
-    /// The file is there but couldn't be read yet (a launch before the first unlock). Nothing is written over it
-    /// until it has been read.
-    @ObservationIgnored private var isLoadDeferred = false
-
-    /// `url` nil keeps everything in memory (previews and screenshot runs).
-    init(url: URL?, circles: [ReadingCircle] = []) {
-        self.url = url
-        self.circles = circles
-        if url != nil, circles.isEmpty { load() }
+    init(library: LibraryStore) {
+        self.library = library
     }
 
-    /// Reads the file again if the first try came before the phone was unlocked.
+    var circles: [ReadingCircle] { library.data.circles }
+
+    /// Finishes moving an old circles.json in if the first try came before the phone was unlocked.
     func loadIfDeferred() {
-        if isLoadDeferred { load() }
-    }
-
-    private func load() {
-        guard let url else { return }
-        guard FileManager.default.fileExists(atPath: url.path) else {
-            isLoadDeferred = false
-            return
-        }
-        guard let data = try? Data(contentsOf: url) else {
-            isLoadDeferred = true
-            return
-        }
-        isLoadDeferred = false
-        if let saved = try? JSONDecoder().decode([ReadingCircle].self, from: data) {
-            circles = saved
-        } else {
-            // Keep a file this version can't read for recovery, rather than saving an empty list over it.
-            let stamp = Int(Date().timeIntervalSince1970)
-            try? FileManager.default.moveItem(at: url, to: url.deletingPathExtension().appendingPathExtension("damaged-\(stamp).json"))
-        }
+        Self.importLegacyFile(into: library)
     }
 
     // MARK: Reading
@@ -89,7 +51,6 @@ final class CircleStore {
             .enumerated()
             .map { CircleMember(name: $1, paletteToken: tokens[$0 % tokens.count], updatedAt: now) }
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        loadIfDeferred()
         let circle = ReadingCircle(
             name: trimmed.isEmpty ? "\(book.title) circle" : trimmed,
             book: book,
@@ -98,19 +59,16 @@ final class CircleStore {
             members: [me] + others,
             createdAt: now
         )
-        circles.append(circle)
-        save()
+        library.saveCircle(circle)
         return circle
     }
 
     func update(_ circle: ReadingCircle, now: Date = Date()) {
-        loadIfDeferred()
-        guard let index = circles.firstIndex(where: { $0.id == circle.id }) else { return }
+        guard self.circle(circle.id) != nil else { return }
         var circle = circle
         circle.meetings = CirclePlanner.normalized(circle.meetings, pages: circle.book.pages)
         circle.updatedAt = now
-        circles[index] = circle
-        save()
+        library.saveCircle(circle)
     }
 
     func setPage(_ page: Int, member memberID: UUID, in circleID: UUID, now: Date = Date()) {
@@ -151,16 +109,45 @@ final class CircleStore {
     }
 
     func delete(_ circleID: UUID) {
-        loadIfDeferred()
-        circles.removeAll { $0.id == circleID }
-        save()
+        library.deleteCircle(circleID)
     }
 
-    /// Erase everything (Settings › Erase all data).
-    func eraseAll() {
-        circles = []
-        isLoadDeferred = false
-        if let url { try? FileManager.default.removeItem(at: url) }
+    // MARK: The old circles.json
+
+    /// Where circles lived before they joined the library.
+    nonisolated static var legacyURL: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Leaf", isDirectory: true)
+            .appendingPathComponent("circles.json")
+    }
+
+    /// The old file once its circles are in the library. Kept for recovery until "Erase all data".
+    nonisolated static var importedURL: URL {
+        legacyURL.deletingLastPathComponent().appendingPathComponent("circles.imported.json")
+    }
+
+    /// Moves the circles of an old circles.json into the library, once. Does nothing while the library itself is
+    /// not readable yet (its stand-in would be saved over it), or while the file can't be read before the first
+    /// unlock; call again later. A file this version can't decode is set aside, never deleted.
+    static func importLegacyFile(into library: LibraryStore, from url: URL = legacyURL, importedTo done: URL = importedURL) {
+        guard !library.isLoadDeferred, FileManager.default.fileExists(atPath: url.path) else { return }
+        guard let bytes = try? Data(contentsOf: url) else { return }
+        guard let saved = try? JSONDecoder().decode([ReadingCircle].self, from: bytes) else {
+            let stamp = Int(Date().timeIntervalSince1970)
+            try? FileManager.default.moveItem(at: url, to: url.deletingPathExtension().appendingPathExtension("damaged-\(stamp).json"))
+            return
+        }
+        library.mergeCircles(saved)
+        library.flush()
+        try? FileManager.default.removeItem(at: done)
+        try? FileManager.default.moveItem(at: url, to: done)
+    }
+
+    /// Erase everything (Settings › Erase all data). The circles themselves go with the library; this removes the old
+    /// file and its imported copy.
+    static func eraseLegacyFiles() {
+        try? FileManager.default.removeItem(at: legacyURL)
+        try? FileManager.default.removeItem(at: importedURL)
     }
 
     // MARK: Internals
@@ -169,21 +156,14 @@ final class CircleStore {
     static let friendTokens = [CozyPalette.chai, CozyPalette.rooibos, CozyPalette.steam, CozyPalette.amber, CozyPalette.rose]
 
     private func edit(_ circleID: UUID, now: Date, _ change: (inout ReadingCircle) -> Void) {
-        loadIfDeferred()
-        guard let index = circles.firstIndex(where: { $0.id == circleID }) else { return }
-        change(&circles[index])
-        circles[index].updatedAt = now
-        save()
+        guard var circle = circle(circleID) else { return }
+        change(&circle)
+        circle.updatedAt = now
+        library.saveCircle(circle)
     }
+}
 
-    private func save() {
-        guard let url, !isLoadDeferred else { return }
-        do {
-            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-            let data = try JSONEncoder().encode(circles)
-            try data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
-        } catch {
-            // A failed write keeps the circles in memory; the next change tries again.
-        }
-    }
+extension LibraryStore {
+    /// The reader's reading circles and the changes the circle screens make.
+    var circleStore: CircleStore { CircleStore(library: self) }
 }

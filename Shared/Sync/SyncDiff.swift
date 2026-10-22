@@ -21,6 +21,7 @@ enum SyncDiff {
         collect(old.tombstones, new.tombstones, as: SyncEntity.tombstone, saves: &saves, deletes: &deletes)
         collect(old.cabinet, new.cabinet, as: SyncEntity.cabinetTea, saves: &saves, deletes: &deletes)
         collect(old.tastings, new.tastings, as: SyncEntity.tasting, saves: &saves, deletes: &deletes)
+        collect(old.circles, new.circles, as: SyncEntity.circle, saves: &saves, deletes: &deletes)
         if !old.preferences.hasSameSyncedFields(as: new.preferences) { saves.insert(SyncRecordName.preferences.string) }
         return (saves.sorted(), deletes.sorted())
     }
@@ -67,6 +68,7 @@ enum SyncDiff {
         for tombstone in data.tombstones where newer(tombstone.deletedAt) { entities.append(.tombstone(tombstone)) }
         for tea in data.cabinet where newer(tea.updatedAt) { entities.append(.cabinetTea(tea)) }
         for note in data.tastings where newer(note.updatedAt) { entities.append(.tasting(note)) }
+        for circle in data.circles where newer(circle.updatedAt) { entities.append(.circle(circle)) }
         if includeUndated || date == nil {
             for id in data.dismissed { entities.append(.dismissal(id)) }
             for enrollment in data.challenges { entities.append(.challenge(enrollment)) }

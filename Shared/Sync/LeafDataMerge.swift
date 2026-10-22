@@ -46,6 +46,7 @@ extension LeafData {
         out.tastings = SyncMerge.newest(self.tastings, remote.tastings, kind: .tasting, deletedAt: deletedAt, stamp: \.updatedAt) {
             $0.createdAt != $1.createdAt ? $0.createdAt < $1.createdAt : $0.id.uuidString < $1.id.uuidString
         }
+        out.circles = SyncMerge.circles(self.circles, remote.circles, deletedAt: deletedAt)
         out.preferences = SyncMerge.preferences(local: preferences, remote: remote.preferences)
         // The live session never syncs. It also cannot outlive its book: if the book was deleted elsewhere there is
         // nothing left to log it against.
@@ -241,6 +242,58 @@ enum SyncMerge {
                 return !(deleted > element[keyPath: stamp])
             }
             .sorted(by: order)
+    }
+
+    // MARK: Circles
+
+    /// The newest copy of each circle wins as a whole (so a removed friend or a changed schedule sticks), except that
+    /// each member still in it takes the newest copy of that member from either side. In a shared circle everyone
+    /// moves only their own page, so two people reading at once both keep their progress. A tombstone removes a
+    /// circle only if it is strictly later than the circle's stamp. Oldest circle first.
+    static func circles(_ a: [ReadingCircle], _ b: [ReadingCircle], deletedAt: [SyncTombstoneKey: Date]) -> [ReadingCircle] {
+        // A tie on the stamp is broken by the circle without its members' contents (only who is in it), so a copy
+        // whose members were already brought up to date picks the same winner: the merge stays associative.
+        func tieKey(_ circle: ReadingCircle) -> [UInt8] {
+            var bare = circle
+            bare.members = circle.members.map { CircleMember(id: $0.id, name: "", updatedAt: .distantPast) }
+            return canonicalBytes(bare)
+        }
+        var best: [UUID: ReadingCircle] = [:]
+        for circle in a + b {
+            guard let existing = best[circle.id] else {
+                best[circle.id] = circle
+                continue
+            }
+            if existing.updatedAt != circle.updatedAt {
+                if circle.updatedAt > existing.updatedAt { best[circle.id] = circle }
+            } else if tieKey(existing).lexicographicallyPrecedes(tieKey(circle)) {
+                best[circle.id] = circle
+            }
+        }
+        let winners = best.values
+            .filter { circle in
+                guard let deleted = deletedAt[SyncTombstoneKey(kind: .circle, key: circle.id.uuidString)] else { return true }
+                return !(deleted > circle.updatedAt)
+            }
+            .sorted { $0.createdAt != $1.createdAt ? $0.createdAt < $1.createdAt : $0.id.uuidString < $1.id.uuidString }
+        var membersByID: [UUID: CircleMember] = [:]
+        for member in (a + b).flatMap(\.members) {
+            guard let existing = membersByID[member.id] else {
+                membersByID[member.id] = member
+                continue
+            }
+            if existing == member { continue }
+            if existing.updatedAt != member.updatedAt {
+                membersByID[member.id] = existing.updatedAt > member.updatedAt ? existing : member
+            } else {
+                membersByID[member.id] = larger(existing, member)
+            }
+        }
+        return winners.map { circle in
+            var merged = circle
+            merged.members = circle.members.map { membersByID[$0.id] ?? $0 }
+            return merged
+        }
     }
 
     // MARK: Journal

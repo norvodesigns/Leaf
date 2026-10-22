@@ -242,7 +242,7 @@ struct NewCircleSheet: View {
         if !trimmedPlace.isEmpty {
             for index in planned.indices { planned[index].place = trimmedPlace }
         }
-        let circle = CircleStore.shared.create(
+        let circle = store.circleStore.create(
             name: name, book: book, startsOn: startsOn, meetings: planned, friends: friends, now: store.now
         )
         CanopyFeel.play(.planChanged)
@@ -268,7 +268,7 @@ struct CircleMemberSheet: View {
     @State private var didLoad = false
     @State private var confirmsRemove = false
 
-    private var circle: ReadingCircle? { CircleStore.shared.circle(circleID) }
+    private var circle: ReadingCircle? { store.circleStore.circle(circleID) }
     private var member: CircleMember? { circle?.members.first { $0.id == memberID } }
     private var followsLibrary: Bool { member?.kind == .me && store.item(circle?.book.id ?? "") != nil }
 
@@ -296,7 +296,7 @@ struct CircleMemberSheet: View {
         .confirmationDialog("Take \(member?.name ?? "them") out of the circle?", isPresented: $confirmsRemove, titleVisibility: .visible) {
             Button("Remove", role: .destructive) {
                 CanopyFeel.play(.warning)
-                CircleStore.shared.removeMember(memberID, from: circleID, now: store.now)
+                store.circleStore.removeMember(memberID, from: circleID, now: store.now)
                 dismiss()
             }
         }
@@ -408,10 +408,10 @@ struct CircleMemberSheet: View {
         guard let member else { return }
         if page != member.page {
             CanopyFeel.play(.pageLogged)
-            CircleStore.shared.setPage(page, member: memberID, in: circleID, now: store.now)
+            store.circleStore.setPage(page, member: memberID, in: circleID, now: store.now)
         }
         if name != member.name {
-            CircleStore.shared.renameMember(memberID, to: name, in: circleID, now: store.now)
+            store.circleStore.renameMember(memberID, to: name, in: circleID, now: store.now)
         }
         dismiss()
     }
@@ -465,7 +465,7 @@ struct CircleAddFriendSheet: View {
     private func add() {
         guard !trimmed.isEmpty else { return }
         CanopyFeel.play(.planChanged)
-        CircleStore.shared.addFriend(trimmed, to: circleID, now: store.now)
+        store.circleStore.addFriend(trimmed, to: circleID, now: store.now)
         dismiss()
     }
 }
@@ -481,7 +481,7 @@ struct CircleScheduleSheet: View {
     @State private var meetings: [CircleMeeting] = []
     @State private var didLoad = false
 
-    private var circle: ReadingCircle? { CircleStore.shared.circle(circleID) }
+    private var circle: ReadingCircle? { store.circleStore.circle(circleID) }
 
     var body: some View {
         let pages = max(1, circle?.book.pages ?? 1)
@@ -577,7 +577,7 @@ struct CircleScheduleSheet: View {
             return meeting
         }
         CanopyFeel.play(.planChanged)
-        CircleStore.shared.update(circle, now: now)
+        store.circleStore.update(circle, now: now)
         dismiss()
     }
 }

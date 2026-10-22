@@ -456,6 +456,8 @@ struct Tombstone: Codable, Hashable, Sendable {
         case tasting
         /// An earlier read-through taken off a book (key is the read-through's UUID string).
         case read
+        /// A reading circle deleted (key is its UUID string).
+        case circle
     }
 
     var kind: Kind
@@ -593,6 +595,9 @@ struct LeafData: Codable, Sendable {
     var cabinet: [CabinetTea] = []
     /// Notes on cups, written after reading with tea.
     var tastings: [TastingNote] = []
+    /// Reading circles (book clubs). They lived in their own circles.json before 2026-10-22; `CircleStore` moves an
+    /// old file in once.
+    var circles: [ReadingCircle] = []
 
     init() {}
 
@@ -613,6 +618,7 @@ struct LeafData: Codable, Sendable {
         tombstones = try c.decodeList(Tombstone.self, forKey: .tombstones, skips: s)
         cabinet = try c.decodeList(CabinetTea.self, forKey: .cabinet, skips: s)
         tastings = try c.decodeList(TastingNote.self, forKey: .tastings, skips: s)
+        circles = try c.decodeList(ReadingCircle.self, forKey: .circles, skips: s)
     }
 
     func items(on shelf: Shelf) -> [LibraryItem] {

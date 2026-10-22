@@ -302,6 +302,46 @@ struct LibraryStoreTests {
         #expect(store.finished.filter { $0.id == "old" }.count == 1)
     }
 
+    @Test func circlesLiveInTheLibraryAndLeaveATombstone() {
+        let store = makeStore()
+        let circles = store.circleStore
+        let made = circles.create(name: " Book club ", book: book("c", pages: 200), startsOn: Date(), meetings: [], friends: ["Sam", " "])
+        #expect(store.data.circles.map(\.id) == [made.id])
+        #expect(made.name == "Book club")
+        #expect(made.members.map(\.name) == ["You", "Sam"])
+        let sam = made.members[1].id
+        circles.setPage(500, member: sam, in: made.id, now: Date().addingTimeInterval(5))
+        #expect(circles.circle(made.id)?.members[1].page == 200)
+        circles.removeMember(made.members[0].id, from: made.id)
+        #expect(circles.circle(made.id)?.members.count == 2, "the reader can't be removed")
+        circles.delete(made.id)
+        #expect(store.data.circles.isEmpty)
+        #expect(store.data.tombstones.contains { $0.kind == .circle && $0.key == made.id.uuidString })
+    }
+
+    @Test func anOldCirclesFileMovesIntoTheLibraryOnce() throws {
+        let store = makeStore()
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("circles-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let legacy = folder.appendingPathComponent("circles.json")
+        let imported = folder.appendingPathComponent("circles.imported.json")
+        let old = ReadingCircle(name: "Old club", book: book("o"), startsOn: Date(), members: [CircleMember(name: "You", kind: .me)])
+        try JSONEncoder().encode([old]).write(to: legacy)
+
+        CircleStore.importLegacyFile(into: store, from: legacy, importedTo: imported)
+        #expect(store.data.circles == [old])
+        #expect(!FileManager.default.fileExists(atPath: legacy.path))
+        #expect(FileManager.default.fileExists(atPath: imported.path))
+        CircleStore.importLegacyFile(into: store, from: legacy, importedTo: imported)
+        #expect(store.data.circles.count == 1)
+
+        try Data("not json".utf8).write(to: legacy)
+        CircleStore.importLegacyFile(into: store, from: legacy, importedTo: imported)
+        #expect(store.data.circles.count == 1)
+        #expect(!FileManager.default.fileExists(atPath: legacy.path), "an unreadable file is set aside, not read again")
+    }
+
     @Test func aDamagedFileFallsBackToTheBackupAndIsKept() throws {
         let persistence = Persistence.ephemeral()
         var good = LeafData()

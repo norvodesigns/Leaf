@@ -260,6 +260,7 @@ enum DemoData {
         ]
         data.speedTests = [SpeedTestResult(date: daysAgo(30), passageID: "scandal", words: 302, seconds: 69, correct: 3, total: 3)]
         addTeaCabinet(to: &data, daysAgo: daysAgo)
+        data.circles = circles(now: now, calendar: calendar)
         return data
     }
 

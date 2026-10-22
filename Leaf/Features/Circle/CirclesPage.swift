@@ -13,7 +13,7 @@ struct CirclesPage: View {
     @Environment(AppRouter.self) private var router
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var circles: CircleStore { CircleStore.shared }
+    private var circles: CircleStore { store.circleStore }
 
     @State private var selectedID: UUID?
     @State private var sheet: CircleSheet?

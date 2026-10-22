@@ -79,6 +79,7 @@ enum SyncRecordName: Hashable, Sendable {
     case tombstone(Tombstone.Kind, String)
     case cabinetTea(UUID)
     case tasting(UUID)
+    case circle(UUID)
 
     private static let itemPrefix = "item."
     private static let sessionPrefix = "session."
@@ -90,6 +91,7 @@ enum SyncRecordName: Hashable, Sendable {
     private static let tombstonePrefix = "tombstone."
     private static let cabinetTeaPrefix = "tea."
     private static let tastingPrefix = "tasting."
+    private static let circlePrefix = "circle."
 
     var string: String {
         switch self {
@@ -105,6 +107,7 @@ enum SyncRecordName: Hashable, Sendable {
             return SyncRecordName.tombstonePrefix + kind.rawValue + "." + SyncKey.escape(key)
         case .cabinetTea(let id): return SyncRecordName.cabinetTeaPrefix + id.uuidString
         case .tasting(let id): return SyncRecordName.tastingPrefix + id.uuidString
+        case .circle(let id): return SyncRecordName.circlePrefix + id.uuidString
         }
     }
 
@@ -120,6 +123,7 @@ enum SyncRecordName: Hashable, Sendable {
         case .tombstone: return .tombstone
         case .cabinetTea: return .cabinetTea
         case .tasting: return .tasting
+        case .circle: return .circle
         }
     }
 
@@ -167,6 +171,9 @@ enum SyncRecordName: Hashable, Sendable {
         } else if let rest = SyncRecordName.rest(of: string, after: SyncRecordName.cabinetTeaPrefix) {
             guard let id = UUID(uuidString: rest) else { return nil }
             self = .cabinetTea(id)
+        } else if let rest = SyncRecordName.rest(of: string, after: SyncRecordName.circlePrefix) {
+            guard let id = UUID(uuidString: rest) else { return nil }
+            self = .circle(id)
         } else {
             return nil
         }

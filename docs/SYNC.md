@@ -43,6 +43,7 @@ One CloudKit record per thing, in the custom zone `LeafZone` of the private data
 | `tombstone.<kind>.<key>` | `LeafTombstone` | `Tombstone` |
 | `tea.<uuid>` | `LeafTea` | `CabinetTea` (a tea in the reader's cabinet) |
 | `tasting.<uuid>` | `LeafTasting` | `TastingNote` |
+| `circle.<uuid>` | `LeafCircle` | `ReadingCircle` (a reading circle, with its meetings and members) |
 
 Record names must be ASCII and at most 255 characters, so ids are escaped (`%XX` for anything but letters, digits,
 `-` and `_`, which also frees the dot to separate parts). A name that would still be too long, or a payload over
@@ -67,6 +68,7 @@ are the live session and the device's own settings, which stay local. Output is 
 | Journal | Newest `updatedAt` per id, plus tombstones, same rule as items. |
 | Read-throughs (`LibraryItem.reads`) | Merged one by one whichever copy of the book wins: newest `updatedAt` per read-through, a `read` tombstone removes one only if strictly later. A read-through's id comes from the book and its finish (to the second), so two devices that keep the same finish keep one. Earlier read-throughs from before reads were kept are recovered from sessions on load, unstamped, on every device alike. |
 | Tea cabinet, tasting notes | Newest `updatedAt` per id wins as a whole (a tie goes to the larger JSON); a `cabinetTea` / `tasting` tombstone removes one only if strictly later. Cabinet in `addedAt` order, notes in `createdAt` order. A book's pinned tea (`LibraryItem.pairedTeaID`) travels with the item. Sessions save a catalog id, or `custom.<uuid>` for a tea of the reader's own, so a session outlives the tea it names. |
+| Reading circles | Newest `updatedAt` per circle wins as a whole (a tie goes to the larger JSON of the circle with its members reduced to their ids), so a removed friend, a new schedule or putting it away sticks. Then each member still in the winning copy takes the newest copy of that member from either side (by the member's own `updatedAt`), so two people moving their own pages at once both keep them. A `circle` tombstone removes one only if strictly later. Oldest circle first. |
 | Dismissed ids | Union, minus any id with a dismissal tombstone on either side. Rare ambiguity: a dismissal has no timestamp, so if one device takes "not for me" back while another dismisses the same book again before hearing of it, the tombstone wins. Devices still agree, and the worst case is a book that can be suggested again. |
 | Challenges | Union by (id, year); if both sides joined, the later join counts. A tombstone removes an enrollment only if it is later than that enrollment's `joinedAt`. A tombstone keyed by the bare challenge id (what the store writes today) covers every year joined before it; `SyncKey.challengeTombstoneKey(id:year:)` targets one year. |
 | Speed tests | Union keyed by date (to the millisecond) and passage. Kept oldest first so `speedTests.last` is the latest. |
@@ -153,7 +155,7 @@ deletes nothing, switching on catches up.
 - **Deploy the schema to Production** in the CloudKit console before any TestFlight or App Store build. In
   Development the record types appear on first save; Production does not create them. Types: `LeafItem`,
   `LeafSession`, `LeafJournal`, `LeafPreferences`, `LeafSpeedTest`, `LeafDismissal`, `LeafChallenge`,
-  `LeafTombstone`, `LeafTea`, `LeafTasting` (the last two new with books and tea), each with `payload` (encrypted bytes), `updatedAt` (date/time) and `schema` (int64).
+  `LeafTombstone`, `LeafTea`, `LeafTasting` (the last two new with books and tea), `LeafCircle` (new 2026-10-22), each with `payload` (encrypted bytes), `updatedAt` (date/time) and `schema` (int64).
 
 ## Testing it on two devices
 

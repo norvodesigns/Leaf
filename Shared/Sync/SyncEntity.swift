@@ -37,6 +37,7 @@ enum SyncEntity: Equatable, Sendable {
     case tombstone(Tombstone)
     case cabinetTea(CabinetTea)
     case tasting(TastingNote)
+    case circle(ReadingCircle)
 
     var name: SyncRecordName {
         switch self {
@@ -50,6 +51,7 @@ enum SyncEntity: Equatable, Sendable {
         case .tombstone(let tombstone): return .tombstone(tombstone.kind, tombstone.key)
         case .cabinetTea(let tea): return .cabinetTea(tea.id)
         case .tasting(let note): return .tasting(note.id)
+        case .circle(let circle): return .circle(circle.id)
         }
     }
 
@@ -69,6 +71,7 @@ enum SyncEntity: Equatable, Sendable {
         case .tombstone(let tombstone): return tombstone.deletedAt
         case .cabinetTea(let tea): return tea.updatedAt
         case .tasting(let note): return note.updatedAt
+        case .circle(let circle): return circle.updatedAt
         }
     }
 
@@ -96,6 +99,7 @@ struct SyncSnapshot: Sendable {
         for tombstone in data.tombstones { SyncSnapshot.add(.tombstone(tombstone), to: &map) }
         for tea in data.cabinet { SyncSnapshot.add(.cabinetTea(tea), to: &map) }
         for note in data.tastings { SyncSnapshot.add(.tasting(note), to: &map) }
+        for circle in data.circles { SyncSnapshot.add(.circle(circle), to: &map) }
         SyncSnapshot.add(.preferences(data.preferences), to: &map)
         entities = map
     }

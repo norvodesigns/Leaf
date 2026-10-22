@@ -131,7 +131,7 @@ private struct SyncReplica {
     private func nextOrder(on shelf: Shelf) -> Double { (data.items.filter { $0.shelf == shelf }.map(\.order).max() ?? 0) + 1 }
 
     mutating func step() {
-        switch pick(22) {
+        switch pick(24) {
         case 0, 1: addBook()
         case 2: moveBook()
         case 3: setPage()
@@ -150,6 +150,8 @@ private struct SyncReplica {
         case 19: tasting()
         case 20: deleteTeaOrTasting()
         case 21: removeRead()
+        case 22: circle()
+        case 23: deleteCircle()
         default: touchBook()
         }
     }
@@ -329,6 +331,43 @@ private struct SyncReplica {
             data.tombstones.removeAll { $0.kind == .tasting && $0.key == id }
             data.tombstones.append(Tombstone(kind: .tasting, key: id, deletedAt: now))
         }
+    }
+
+    /// Starts a circle, or moves one along the way `CircleStore` does: a member's page (stamping the member and the
+    /// circle), a friend added or removed, or the circle put away.
+    private mutating func circle() {
+        let now = stamp()
+        guard !data.circles.isEmpty, pick(3) != 0 else {
+            let book = SyncReplica.catalog[pick(SyncReplica.catalog.count)]
+            let members = [CircleMember(id: SyncFixtures.uuid(&rng), name: "You", kind: .me, updatedAt: now),
+                           CircleMember(id: SyncFixtures.uuid(&rng), name: "Sam", updatedAt: now)]
+            data.circles.append(ReadingCircle(id: SyncFixtures.uuid(&rng), name: "Club", book: book, startsOn: now, members: members, createdAt: now))
+            return
+        }
+        let index = pick(data.circles.count)
+        switch pick(4) {
+        case 0, 1:
+            guard !data.circles[index].members.isEmpty else { break }
+            let member = pick(data.circles[index].members.count)
+            data.circles[index].members[member].page = pick(data.circles[index].book.pages + 1)
+            data.circles[index].members[member].updatedAt = now
+        case 2:
+            if pick(2) == 0, data.circles[index].members.count > 1 {
+                data.circles[index].members.removeLast()
+            } else {
+                data.circles[index].members.append(CircleMember(id: SyncFixtures.uuid(&rng), name: "Jo", updatedAt: now))
+            }
+        default:
+            data.circles[index].archivedAt = data.circles[index].archivedAt == nil ? now : nil
+        }
+        data.circles[index].updatedAt = now
+    }
+
+    private mutating func deleteCircle() {
+        guard !data.circles.isEmpty else { return }
+        let id = data.circles.remove(at: pick(data.circles.count)).id.uuidString
+        data.tombstones.removeAll { $0.kind == .circle && $0.key == id }
+        data.tombstones.append(Tombstone(kind: .circle, key: id, deletedAt: stamp()))
     }
 
     /// Takes an earlier read-through off a book, with a tombstone, as the store does.
@@ -639,6 +678,12 @@ struct SyncRecordMappingTests {
             .cabinetTea(CabinetTea(name: "Grandma’s blend", family: .herbal, steepSeconds: 420, addedAt: SyncFixtures.at(6))),
             .tasting(TastingNote(teaID: "sencha", teaName: "Sencha", family: .green, bookID: "OL1", sessionID: session.id, strength: .strong, aromas: ["grassy", "citrus"], rating: 5, text: "Bright", createdAt: SyncFixtures.at(7), updatedAt: SyncFixtures.at(11))),
             .tombstone(SyncFixtures.tomb(.tasting, UUID().uuidString, 21)),
+            .circle(ReadingCircle(name: "Thursday Club", book: SyncFixtures.book("OL1"), startsOn: SyncFixtures.at(1),
+                                  meetings: [CircleMeeting(date: SyncFixtures.at(90), throughPage: 120, place: "Sam’s", updatedAt: SyncFixtures.at(2))],
+                                  members: [CircleMember(name: "You", kind: .me, page: 30, paletteToken: "matcha", updatedAt: SyncFixtures.at(3)),
+                                            CircleMember(name: "Sam", page: 44, remoteID: "_abc123", updatedAt: SyncFixtures.at(4))],
+                                  createdAt: SyncFixtures.at(1), updatedAt: SyncFixtures.at(4), archivedAt: SyncFixtures.at(5))),
+            .tombstone(SyncFixtures.tomb(.circle, UUID().uuidString, 22)),
         ]
     }
 

@@ -193,4 +193,99 @@ struct CircleTests {
         #expect(back.members.isEmpty)
         #expect(back.name.isEmpty)
     }
+
+    // MARK: In the library
+
+    private func shared(updated: Int, me: Int, sam: Int, meUpdated: Int = 0, samUpdated: Int = 0) -> ReadingCircle {
+        var c = circle(meetings: [CircleMeeting(date: day(7), throughPage: 100, updatedAt: day(0))], members: [
+            CircleMember(id: UUID(uuidString: "00000000-0000-0000-0000-0000000000E1") ?? UUID(), name: "You", kind: .me, page: me, updatedAt: day(meUpdated)),
+            CircleMember(id: UUID(uuidString: "00000000-0000-0000-0000-0000000000E2") ?? UUID(), name: "Sam", page: sam, updatedAt: day(samUpdated)),
+        ])
+        c.updatedAt = day(updated)
+        return c
+    }
+
+    @Test func twoPeopleReadingAtOnceBothKeepTheirPages() {
+        // This phone moved its own page (and so the circle); Sam's phone moved Sam's, a little earlier.
+        let mine = shared(updated: 2, me: 60, sam: 0, meUpdated: 2)
+        let sams = shared(updated: 1, me: 0, sam: 45, samUpdated: 1)
+        var a = LeafData(), b = LeafData()
+        a.circles = [mine]
+        b.circles = [sams]
+        let merged = a.merged(with: b, now: day(3))
+        #expect(merged.circles.count == 1)
+        #expect(merged.circles.first?.members.map(\.page) == [60, 45])
+        #expect(merged.circles == b.merged(with: a, now: day(3)).circles)
+        #expect(merged.merged(with: b, now: day(3)).circles == merged.circles)
+    }
+
+    @Test func aRemovedFriendStaysRemovedAndADeletedCircleStaysDeleted() {
+        let before = shared(updated: 1, me: 10, sam: 30, samUpdated: 1)
+        var after = before
+        after.members.removeAll { $0.kind != .me }
+        after.updatedAt = day(2)
+        var a = LeafData(), b = LeafData()
+        a.circles = [after]
+        b.circles = [before]
+        #expect(a.merged(with: b, now: day(3)).circles.first?.members.count == 1)
+
+        var gone = LeafData()
+        gone.tombstones = [Tombstone(kind: .circle, key: before.id.uuidString, deletedAt: day(2))]
+        #expect(gone.merged(with: b, now: day(3)).circles.isEmpty)
+        // A change after the deletion brings it back, as a book re-added after a delete does.
+        var later = before
+        later.updatedAt = day(4)
+        b.circles = [later]
+        #expect(gone.merged(with: b, now: day(5)).circles.count == 1)
+    }
+
+    @Test func aTieOnTheStampPicksTheSameCircleInAnyOrder() {
+        var x = shared(updated: 1, me: 5, sam: 0, meUpdated: 1)
+        var y = shared(updated: 1, me: 0, sam: 7, samUpdated: 1)
+        var z = shared(updated: 1, me: 0, sam: 0)
+        x.name = "Club A"
+        y.name = "Club B"
+        z.name = "Club C"
+        func data(_ c: ReadingCircle) -> LeafData { var d = LeafData(); d.circles = [c]; return d }
+        let now = day(2)
+        let left = data(x).merged(with: data(y), now: now).merged(with: data(z), now: now)
+        let right = data(x).merged(with: data(y).merged(with: data(z), now: now), now: now)
+        let swapped = data(z).merged(with: data(x), now: now).merged(with: data(y), now: now)
+        #expect(left.circles == right.circles)
+        #expect(left.circles == swapped.circles)
+        #expect(left.circles.first?.members.map(\.page) == [5, 7])
+    }
+
+    @Test func circlesTravelAsRecordsAndInBackups() throws {
+        let c = shared(updated: 1, me: 12, sam: 30)
+        let record = try #require(SyncRecordMapper.record(for: .circle(c)))
+        #expect(record.type == .circle)
+        #expect(record.type.rawValue == "LeafCircle")
+        #expect(record.name == "circle." + c.id.uuidString)
+        #expect(SyncRecordName(record.name) == .circle(c.id))
+        #expect(SyncRecordMapper.entity(from: record) == .circle(c))
+
+        var old = LeafData(), new = LeafData()
+        new.circles = [c]
+        #expect(SyncDiff.changes(from: old, to: new).saves == [record.name])
+        old = new
+        new.circles = []
+        new.tombstones = [Tombstone(kind: .circle, key: c.id.uuidString, deletedAt: day(2))]
+        let gone = SyncDiff.changes(from: old, to: new)
+        #expect(gone.deletes == [record.name])
+        #expect(gone.saves == [SyncRecordName.tombstone(.circle, c.id.uuidString).string])
+
+        var library = LeafData()
+        library.circles = [c]
+        let bytes = try LeafBackup.encode(library, exportedAt: day(3))
+        let back = try LeafBackup.decode(bytes)
+        #expect(back.circles == [c])
+        #expect(LeafBackup.preview(of: back, against: LeafData()).circles == 1)
+        #expect(!LeafBackup.preview(of: back, against: LeafData()).isEmpty)
+    }
+
+    @Test func aLibraryFromBeforeCirclesStillLoads() throws {
+        let back = try JSONDecoder().decode(LeafData.self, from: Data(#"{"version":2,"items":[]}"#.utf8))
+        #expect(back.circles.isEmpty)
+    }
 }

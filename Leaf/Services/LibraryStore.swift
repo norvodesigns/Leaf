@@ -862,6 +862,40 @@ final class LibraryStore {
     }
 
     /// Replaces all data (demo seeding and screenshot runs).
+    // MARK: - Reading circles
+
+    /// Saves a new or changed circle (`CircleStore` builds the change and stamps it). A circle saved again after it
+    /// was deleted elsewhere comes back, as a re-added book does.
+    func saveCircle(_ circle: ReadingCircle) {
+        if let index = data.circles.firstIndex(where: { $0.id == circle.id }) {
+            guard data.circles[index] != circle else { return }
+            data.circles[index] = circle
+        } else {
+            data.circles.append(circle)
+        }
+        clearTombstone(.circle, circle.id.uuidString)
+        commit()
+    }
+
+    func deleteCircle(_ id: UUID) {
+        guard data.circles.contains(where: { $0.id == id }) else { return }
+        data.circles.removeAll { $0.id == id }
+        addTombstone(.circle, id.uuidString)
+        commit()
+    }
+
+    /// Brings in circles from elsewhere (the old circles.json, a shared circle's latest copy) with the sync rules:
+    /// the newer copy of a circle wins, members by their own stamps, and a later deletion here keeps it deleted.
+    func mergeCircles(_ incoming: [ReadingCircle]) {
+        guard !incoming.isEmpty else { return }
+        var deletedAt: [SyncTombstoneKey: Date] = [:]
+        for tombstone in data.tombstones { deletedAt[SyncTombstoneKey(kind: tombstone.kind, key: tombstone.key)] = tombstone.deletedAt }
+        let merged = SyncMerge.circles(data.circles, incoming, deletedAt: deletedAt)
+        guard merged != data.circles else { return }
+        data.circles = merged
+        commit()
+    }
+
     func replaceAll(with newData: LeafData) {
         data = newData
         commit()

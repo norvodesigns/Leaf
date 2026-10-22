@@ -102,6 +102,7 @@ struct SettingsLibrarySection: View {
         add(preview.notes, "note", "notes")
         add(preview.teas, "tea", "teas")
         add(preview.tastings, "tasting note", "tasting notes")
+        add(preview.circles, "reading circle", "reading circles")
         guard !parts.isEmpty else { return "nothing new" }
         if parts.count == 1 { return parts[0] }
         return parts.dropLast().joined(separator: ", ") + " and " + (parts.last ?? "")

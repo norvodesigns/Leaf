@@ -31,7 +31,10 @@ struct LeafApp: App {
             })
         }
 
-        if !options.isScripted { Self.startSyncIfReady(store) }
+        if !options.isScripted {
+            CircleStore.importLegacyFile(into: store)
+            Self.startSyncIfReady(store)
+        }
 
         Reminders.shared.configure(store: store)
         Reminders.shared.onOpenWeeklyLetter = { [weak router] in router?.openWeeklyLetter() }
@@ -66,7 +69,10 @@ struct LeafApp: App {
     private func loadDeferredLibrary() {
         guard store.loadIfDeferred() else { return }
         WatchBridge.shared.applyHeldEvents()
-        if !LaunchOptions.current.isScripted { Self.startSyncIfReady(store) }
+        if !LaunchOptions.current.isScripted {
+            CircleStore.importLegacyFile(into: store)
+            Self.startSyncIfReady(store)
+        }
     }
 
     private var colorScheme: ColorScheme? {

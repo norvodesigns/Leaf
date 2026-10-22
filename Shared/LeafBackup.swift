@@ -63,9 +63,10 @@ enum LeafBackup {
         var notes: Int
         var teas: Int
         var tastings: Int
+        var circles: Int = 0
         var exportedAt: Date?
 
-        var isEmpty: Bool { books == 0 && sittings == 0 && notes == 0 && teas == 0 && tastings == 0 }
+        var isEmpty: Bool { books == 0 && sittings == 0 && notes == 0 && teas == 0 && tastings == 0 && circles == 0 }
     }
 
     static func preview(of backup: LeafData, against local: LeafData, exportedAt: Date? = nil) -> Preview {
@@ -74,12 +75,14 @@ enum LeafBackup {
         let notes = Set(local.journal.map(\.id))
         let teas = Set(local.cabinet.map(\.id))
         let tastings = Set(local.tastings.map(\.id))
+        let circles = Set(local.circles.map(\.id))
         return Preview(
             books: backup.items.filter { !books.contains($0.id) }.count,
             sittings: backup.sessions.filter { !sittings.contains($0.id) }.count,
             notes: backup.journal.filter { !notes.contains($0.id) }.count,
             teas: backup.cabinet.filter { !teas.contains($0.id) }.count,
             tastings: backup.tastings.filter { !tastings.contains($0.id) }.count,
+            circles: backup.circles.filter { !circles.contains($0.id) }.count,
             exportedAt: exportedAt
         )
     }
