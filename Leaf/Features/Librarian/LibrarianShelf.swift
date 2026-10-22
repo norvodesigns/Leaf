@@ -66,7 +66,7 @@ private struct LibrarianPickCard: View {
                             .canopyText(.caption)
                             .lineLimit(1)
                     }
-                    note(pick.why, systemImage: pick.isPersonal ? "sparkles" : "bookmark", accent: .forest)
+                    note(pick.why, systemImage: pick.isPersonal && pick.why == pick.reason.text ? "sparkles" : "bookmark", accent: .forest)
                     note(pick.fit, systemImage: "clock", accent: .dusk)
                 }
                 .contentShape(Rectangle())
@@ -154,7 +154,7 @@ private struct LibrarianPickCard: View {
     }
 
     private var keepButton: some View {
-        CanopyGlassButton("Want to read", systemImage: "plus", accent: .forest, compact: true, feel: .keep) {
+        CanopyGlassButton("To read", systemImage: "plus", accent: .forest, compact: true, feel: .keep) {
             add(to: .toRead)
         }
     }

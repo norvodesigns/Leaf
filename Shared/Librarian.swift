@@ -224,12 +224,15 @@ struct Librarian {
 
     private func pick(from recommendation: Recommendation, ask: LibrarianAsk) -> LibrarianPick {
         let book = recommendation.book
-        let personal: Bool
+        // A reason tied to a real book (finished, reading, same author or series) beats the mood; a general taste
+        // ("fits your taste for literary") or popularity says less than how the book answers what was asked.
+        let anchored: Bool
         switch recommendation.reason {
-        case .popular, .popularInGenre: personal = false
-        default: personal = true
+        case .becauseYouFinished, .becauseYouAreReading, .moreBy, .sameSeries: anchored = true
+        default: anchored = false
         }
-        let why = personal ? recommendation.reason.text : (moodLine(for: book, moodID: ask.moodID) ?? recommendation.reason.text)
+        let mood = moodLine(for: book, moodID: ask.moodID)
+        let why = anchored ? recommendation.reason.text : (mood ?? recommendation.reason.text)
         return LibrarianPick(
             book: book,
             reason: recommendation.reason,
@@ -312,8 +315,8 @@ enum LibrarianLines {
 
     /// When the time already settles the length.
     static let skipLength = [
-        "Then we’ll keep it slim. Here’s what I found.",
-        "Short and sweet, then. Have a look at these.",
+        "That settles the length. Here’s what I found.",
+        "Then I know just the size. Have a look at these.",
     ]
 
     static let answers = [
