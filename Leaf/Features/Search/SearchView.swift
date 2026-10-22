@@ -28,6 +28,8 @@ struct SearchView: View {
     @State private var showsScanner = false
     /// Ask the Librarian, presented from here because Search is itself a sheet over Library.
     @State private var showsLibrarian = false
+    /// Search is itself a sheet now, so the deck opens from here rather than from the tabs.
+    @State private var showsDeck = false
     /// What the scanner found, presented once its sheet has gone.
     @State private var scanOutcome: ISBNScanOutcome?
     /// A typed ISBN that Open Library knows without a page count, so the form can start from it.
@@ -212,6 +214,9 @@ struct SearchView: View {
         .sheet(isPresented: $showsLibrarian) {
             LibrarianScreen()
         }
+        .sheet(isPresented: $showsDeck) {
+            SwipeDeckScreen()
+        }
     }
 
     // MARK: Browse
@@ -240,7 +245,7 @@ struct SearchView: View {
             }
             .padding(.top, Space.s)
             DeckBanner(covers: Array(collections.first?.books.prefix(3) ?? [])) {
-                router.showDeck = true
+                showsDeck = true
             }
             .coachMarkAnchor("search.deck")
             .padding(.top, Space.s)
