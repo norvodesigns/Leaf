@@ -91,7 +91,14 @@ extension LibraryStore {
             upNext: upNext.map(book),
             week: week.map { LeafWidgetSnapshot.Day(date: $0.date, minutes: $0.minutes, isReadingDay: $0.isReadingDay) },
             session: live,
-            steep: steep
+            steep: steep,
+            slots: slotPlans().compactMap { plan -> LeafWidgetSnapshot.Slot? in
+                guard let part = plan.parts.first, let item = item(part.bookID) else { return nil }
+                return LeafWidgetSnapshot.Slot(
+                    id: plan.slot.id.uuidString, minuteOfDay: plan.slot.minuteOfDay, bookID: part.bookID, title: item.book.title,
+                    minutes: plan.minutes.rounded(), fromPage: part.fromPage, toPage: plan.parts.last?.toPage ?? part.toPage
+                )
+            }
         )
     }
 }

@@ -68,7 +68,7 @@ struct WidgetSnapshotTests {
         let phase = snapshot.phase(at: evening.addingTimeInterval(3600))
         #expect(phase == .paused)
         let changes = snapshot.changes(after: evening, calendar: calendar)
-        #expect(changes.count == 1)
+        #expect(!changes.contains(evening.addingTimeInterval(600)))
     }
 
     @Test func steepGoesReadyThenCold() {
@@ -95,6 +95,29 @@ struct WidgetSnapshotTests {
         #expect(sameDay)
         #expect(tomorrow.minutesReadToday == 0)
         #expect(tomorrow.fromPage == nil)
+    }
+
+    @Test func nextReadingTimeMovesOnAQuarterHourAfterItStarts() {
+        let snapshot = sample()
+        let atSeven = calendar.date(bySettingHour: 7, minute: 0, second: 0, of: evening) ?? evening
+        let morning = snapshot.nextSlot(at: atSeven, calendar: calendar)?.id
+        let tonight = snapshot.nextSlot(at: evening, calendar: calendar)?.id
+        let late = calendar.date(bySettingHour: 21, minute: 46, second: 0, of: evening) ?? evening
+        let none = snapshot.nextSlot(at: late, calendar: calendar)
+        #expect(morning == "morning")
+        #expect(tonight == "evening")
+        #expect(none == nil)
+        let changes = snapshot.changes(after: evening, calendar: calendar)
+        let quarterPast = calendar.date(bySettingHour: 21, minute: 45, second: 0, of: evening) ?? evening
+        #expect(changes.contains(quarterPast))
+    }
+
+    @Test func aSnapshotWithoutReadingTimesStillDecodes() throws {
+        var snapshot = sample()
+        snapshot.slots = nil
+        let data = try JSONEncoder().encode(snapshot)
+        let decoded = try JSONDecoder().decode(LeafWidgetSnapshot.self, from: data)
+        #expect(decoded.slots == nil)
     }
 
     @Test func roundTripsThroughJSON() throws {

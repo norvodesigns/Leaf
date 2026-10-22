@@ -44,6 +44,20 @@ struct LeafWidgetSnapshot: Codable, Hashable, Sendable {
         var teaName: String?
     }
 
+    /// One of today's reading times, with the book planned for it.
+    struct Slot: Codable, Hashable, Sendable, Identifiable {
+        var id: String
+        var minuteOfDay: Int
+        var bookID: String
+        var title: String
+        var minutes: Double
+        var fromPage: Int
+        var toPage: Int
+
+        /// "pp. 143–154", or the one page.
+        var pagesText: String { toPage > fromPage ? "pp. \(fromPage)–\(toPage)" : "p. \(fromPage)" }
+    }
+
     /// A pot steeping before the cup of reading.
     struct Steep: Codable, Hashable, Sendable {
         var teaName: String
@@ -73,6 +87,8 @@ struct LeafWidgetSnapshot: Codable, Hashable, Sendable {
     var week: [Day]
     var session: Session?
     var steep: Steep?
+    /// Today's reading times in order. Optional so a snapshot written before they existed still reads.
+    var slots: [Slot]? = nil
 
     var minutesLeft: Double { max(0, Double(dailyMinutes) - minutesReadToday) }
     var goalProgress: Double { dailyMinutes > 0 ? min(1, minutesReadToday / Double(dailyMinutes)) : 0 }
@@ -89,6 +105,8 @@ struct LeafWidgetSnapshot: Codable, Hashable, Sendable {
         next.minutesReadToday = 0
         next.fromPage = nil
         next.toPage = nil
+        // Tomorrow's plan isn't known until the app writes it; yesterday's times would be wrong.
+        next.slots = nil
         let weekday = calendar.component(.weekday, from: date)
         next.isReadingDay = week.first { calendar.component(.weekday, from: $0.date) == weekday }?.isReadingDay ?? isReadingDay
         // Past the end of the week the strip would show last week's days; start the new one empty.
@@ -112,6 +130,18 @@ struct LeafWidgetSnapshot: Codable, Hashable, Sendable {
         if isGoalMet { return .goalMet }
         if isRestDay || dailyMinutes == 0 { return .rest }
         return .today
+    }
+
+    /// The moment a reading time starts on the snapshot's day.
+    func date(of slot: Slot, calendar: Calendar = .current) -> Date {
+        calendar.date(bySettingHour: slot.minuteOfDay / 60, minute: slot.minuteOfDay % 60, second: 0, of: day)
+            ?? day.addingTimeInterval(TimeInterval(slot.minuteOfDay * 60))
+    }
+
+    /// The next reading time still to come at `date`. A time stays "next" for 15 minutes after it starts, so it
+    /// doesn't vanish the moment the reader sits down.
+    func nextSlot(at date: Date, calendar: Calendar = .current) -> Slot? {
+        (slots ?? []).first { self.date(of: $0, calendar: calendar).addingTimeInterval(15 * 60) > date }
     }
 
     /// "13 min · p. 143", as the watch face writes it, with the goal-met and rest-day variants.
@@ -150,6 +180,10 @@ struct LeafWidgetSnapshot: Codable, Hashable, Sendable {
             dates.append(steep.readyAt)
             dates.append(steep.coldAt)
         }
+        // Each reading time stops being "next" a quarter of an hour after it starts.
+        for slot in slots ?? [] {
+            dates.append(date(of: slot, calendar: calendar).addingTimeInterval(15 * 60))
+        }
         let today = calendar.startOfDay(for: now)
         if let midnight = calendar.date(byAdding: .day, value: 1, to: today) { dates.append(midnight) }
         return Array(Set(dates.filter { $0 > now })).sorted()
@@ -181,7 +215,11 @@ struct LeafWidgetSnapshot: Codable, Hashable, Sendable {
                 Book(id: "piranesi", title: "Piranesi", author: "Susanna Clarke", currentPage: 0, pages: 245, paletteSeed: 1, coverFileName: nil, finish: later(41), isReading: false),
                 Book(id: "remains", title: "The Remains of the Day", author: "Kazuo Ishiguro", currentPage: 0, pages: 258, paletteSeed: 9, coverFileName: nil, finish: nil, isReading: false),
             ],
-            week: week, session: nil, steep: nil
+            week: week, session: nil, steep: nil,
+            slots: [
+                Slot(id: "morning", minuteOfDay: 7 * 60 + 30, bookID: "circe", title: "Circe", minutes: 15, fromPage: 58, toPage: 66),
+                Slot(id: "evening", minuteOfDay: 21 * 60 + 30, bookID: "OL27482W", title: "The Hobbit", minutes: 20, fromPage: 143, toPage: 154),
+            ]
         )
     }
 }
