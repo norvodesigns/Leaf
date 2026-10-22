@@ -88,16 +88,9 @@ struct StatsDepthView: View {
     }
 
     private func chip(_ title: String, isOn: Bool, action: @escaping () -> Void) -> some View {
-        Button {
-            CanopyFeel.play(.select)
-            action()
-        } label: {
-            Chip(title, systemImage: isOn ? "checkmark" : nil, tone: isOn ? .accent : .neutral)
-                .frame(minHeight: Space.hitTarget)
-                .contentShape(.rect)
-        }
-        .buttonStyle(.pressable)
-        .accessibilityAddTraits(isOn ? AccessibilityTraits.isSelected : AccessibilityTraits())
+        // Glass chips, 36 pt with 4 pt of hit area above and below for 44.
+        CanopyChip(title, accent: .bloom, isSelected: isOn, action: action)
+            .padding(.vertical, Space.xs)
     }
 
     /// "1 Jan 2026 to 20 Oct 2026"
