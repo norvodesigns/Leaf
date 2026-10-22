@@ -78,7 +78,8 @@ struct LogPagesControlConfiguration: ControlConfigurationIntent {
     static var title: LocalizedStringResource = "Log pages"
     static var description: IntentDescription? = IntentDescription("How many pages each press moves your bookmark.")
 
-    @Parameter(title: "Pages", default: 5)
+    /// The same bounds `LogPagesIntent` keeps to, so the control never reads "Log 0 pages".
+    @Parameter(title: "Pages", default: 5, inclusiveRange: (1, 200))
     var pages: Int
 
     init() {}
@@ -95,11 +96,12 @@ struct LeafLogPagesValue: Sendable {
 
 struct LeafLogPagesProvider: AppIntentControlValueProvider {
     func previewValue(configuration: LogPagesControlConfiguration) -> LeafLogPagesValue {
-        LeafLogPagesValue(pages: configuration.pages, subtitle: "The Hobbit · p. 143")
+        LeafLogPagesValue(pages: max(1, configuration.pages), subtitle: "The Hobbit · p. 143")
     }
 
     func currentValue(configuration: LogPagesControlConfiguration) async throws -> LeafLogPagesValue {
-        LeafLogPagesValue(pages: configuration.pages, subtitle: LeafControlValue.current(pages: configuration.pages).subtitle)
+        let pages = max(1, min(configuration.pages, 200))
+        return LeafLogPagesValue(pages: pages, subtitle: LeafControlValue.current(pages: pages).subtitle)
     }
 }
 
