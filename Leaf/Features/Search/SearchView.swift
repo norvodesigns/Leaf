@@ -100,7 +100,6 @@ struct SearchView: View {
                 .padding(.top, Space.s)
                 .padding(.bottom, Space.xxl)
             }
-            .coachMarks(.search)
             .task(id: collectionsBuilt) {
                 await applyStage(proxy)
             }
@@ -247,7 +246,6 @@ struct SearchView: View {
             DeckBanner(covers: Array(collections.first?.books.prefix(3) ?? [])) {
                 showsDeck = true
             }
-            .coachMarkAnchor("search.deck")
             .padding(.top, Space.s)
             .padding(.bottom, Space.l)
             Section {
@@ -261,7 +259,6 @@ struct SearchView: View {
                         onAdd: { book, shelf, front in applyQuickAdd(book, Self.choice(shelf, atFront: front), feel: .keep) },
                         onDismiss: { dismiss($0) }
                     )
-                    .coachMarkAnchor(index == 0 ? "search.rows" : "search.row.\(index)")
                     .id(collection.id)
                 }
                 OpenLibraryCredit()

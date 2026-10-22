@@ -168,11 +168,6 @@ for appearance in light dark; do
     shot 142-settings-soundlab 6 -LeafDemo YES -LeafScreen settings.soundlab
     shot 143-today-largetype 7 -LeafDemo YES -LeafScreen today -UIPreferredContentSizeCategoryName UICTContentSizeCategoryAccessibilityM
     shot 144-today-rest-largetype 7 -LeafDemo YES -LeafScreen today -LeafScenario rest -UIPreferredContentSizeCategoryName UICTContentSizeCategoryAccessibilityM
-    shot 147-tour-today-steep 7 -LeafDemo YES -LeafScreen tour.today.steep
-    shot 148-tour-library 6 -LeafDemo YES -LeafScreen tour.library
-    shot 149-tour-plan 8 -LeafDemo YES -LeafScreen tour.plan
-    shot 150-tour-search 8 -LeafDemo YES -LeafScreen tour.search
-    shot 151-tour-settings 6 -LeafDemo YES -LeafScreen tour.settings
     shot 152-liveactivity-steeping 6 -LeafDemo YES -LeafScreen liveactivity.steeping
     shot 153-liveactivity-watch 6 -LeafDemo YES -LeafScreen liveactivity.watch
     # Widgets: the Lock Screen accessories and StandBy, and the Home Screen at a large text size.
@@ -200,7 +195,6 @@ for appearance in light dark; do
     shot lt-110-tea-cabinet 6 -LeafDemo YES -LeafScreen tea.cabinet "${lt[@]}"
     shot lt-121-log 6 -LeafDemo YES -LeafScreen log -LeafScenario year "${lt[@]}"
     shot lt-145-whatsnew 6 -LeafDemo YES -LeafScreen whatsnew "${lt[@]}"
-    shot lt-146-tour-today 7 -LeafDemo YES -LeafScreen tour.today "${lt[@]}"
     shot 88-insights-large-type 9 -LeafDemo YES -LeafScreen plan.insights -LeafScenario year -UIPreferredContentSizeCategoryName UICTContentSizeCategoryAccessibilityL
   fi
   shot "10-today$suffix" 5 -LeafDemo YES -LeafScreen today -LeafTime 20:30
@@ -251,7 +245,6 @@ for appearance in light dark; do
   shot "139-wrapped-shelf$suffix" 7 -LeafDemo YES -LeafScreen wrapped.7 -LeafScenario year
   shot "141-today-wrapped$suffix" 7 -LeafDemo YES -LeafScreen wrapped.offer -LeafScroll wrapped
   shot "145-whatsnew$suffix" 6 -LeafDemo YES -LeafScreen whatsnew
-  shot "146-tour-today$suffix" 7 -LeafDemo YES -LeafScreen tour.today
   shot "wg-2-home$suffix" 6 -LeafDemo YES -LeafScreen widgets.home -LeafTime 20:30
   shot "wg-3-timer$suffix" 6 -LeafDemo YES -LeafScreen widgets.timer -LeafTime 20:30
 done

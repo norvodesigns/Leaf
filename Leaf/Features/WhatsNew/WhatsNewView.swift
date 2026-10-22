@@ -1,11 +1,10 @@
 import SwiftUI
 
 /// What's new: once after an update (`WhatsNewGate`), and from Settings any time. A calm sheet of paper: the version,
-/// a serif headline, a small card for each change, "Continue" and "Take the tour".
+/// a serif headline, a small card for each change, and "Continue". No tour: the app explains itself.
 struct WhatsNewView: View {
     let releases: [WhatsNewRelease]
     let build: AppBuild
-    let takeTour: () -> Void
 
     @Environment(\.dismiss) private var dismiss
 
@@ -38,11 +37,6 @@ struct WhatsNewView: View {
                 PrimaryGlassButton("Continue") {
                     dismiss()
                 }
-                TextButton("Take the tour") {
-                    dismiss()
-                    takeTour()
-                }
-                .frame(minHeight: Space.hitTarget)
             }
             .leafMargins()
             .padding(.top, Space.m)

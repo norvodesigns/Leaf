@@ -64,22 +64,3 @@ enum WhatsNew {
         UserDefaults.standard.set(data, forKey: stateKey)
     }
 }
-
-/// The tour's coach marks, in order. Each id is also the anchor the mark points at.
-enum TourSteps {
-    static let all: [TourStep] = [
-        TourStep(id: "today.nook", area: .today, title: "Your nook", text: "The day’s light, the book on the table, and a cup that fills as the day’s minutes come in."),
-        TourStep(id: "today.steep", area: .today, title: "Steep and read", text: "Steep your tea and Leaf counts it down, then a cup of reading. Or begin straight away."),
-        TourStep(id: "today.page", area: .today, title: "Your page", text: "Tap the page to tell Leaf where you are, whenever it has drifted."),
-        TourStep(id: "today.times", area: .today, title: "Reading times", text: "A few times a day, each with its own book. Leaf plans around them."),
-        TourStep(id: "library.shelves", area: .library, title: "Your shelves", text: "Reading, Up next and Finished. Finished can also be a wall of spines."),
-        TourStep(id: "library.hold", area: .library, title: "Hold to move", text: "Hold a book to move it to another shelf, or to change the order you’ll read in."),
-        TourStep(id: "plan.forecast", area: .plan, title: "The forecast", text: "A range, not a promise: what’s likely, and how early or late it could land. Each book has its own below."),
-        TourStep(id: "plan.whatif", area: .plan, title: "What if", text: "Try a few more minutes, or another day, and watch the dates move."),
-        TourStep(id: "search.rows", area: .search, title: "Rows to browse", text: "Shelves picked for you. Each book says why it’s there, and “Not for me” teaches Leaf what to skip."),
-        TourStep(id: "search.deck", area: .search, title: "The deck", text: "One book at a time: keep it, or pass."),
-        TourStep(id: "settings.times", area: .settings, title: "Reading times and pace", text: "Your daily minutes, the days you read and your reading times live here.", canFloat: true),
-        TourStep(id: "settings.tea", area: .settings, title: "Tea and sound", text: "Your cup length, your teas, and the sounds, all off until you turn them on.", canFloat: true),
-        TourStep(id: "settings.cloud", area: .settings, title: "iCloud", text: "Keeps your library the same on every device you use.", canFloat: true),
-    ]
-}

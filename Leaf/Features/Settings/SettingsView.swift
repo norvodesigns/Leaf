@@ -61,9 +61,7 @@ struct SettingsView: View {
                     SoundLabView()
                 }
                 .sheet(isPresented: $showsWhatsNew) {
-                    WhatsNewView(releases: WhatsNew.releases, build: WhatsNew.currentBuild) {
-                        startTour()
-                    }
+                    WhatsNewView(releases: WhatsNew.releases, build: WhatsNew.currentBuild)
                 }
             }
             .canopyBackdrop()
@@ -343,13 +341,6 @@ struct SettingsView: View {
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
-    }
-
-    /// The tour from the start, beginning on Today.
-    private func startTour() {
-        CoachTour.shared.start()
-        router.showSettings = false
-        router.tab = .today
     }
 
     private var showsSoundLabRow: Bool {

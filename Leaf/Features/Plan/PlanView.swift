@@ -31,7 +31,6 @@ struct PlanView: View {
                 .padding(.top, Space.s)
                 .padding(.bottom, Space.xxl)
             }
-            .coachMarks(.plan)
             .task(id: StageKey(stage: router.planStage, ready: isReady)) {
                 await scrollToStage(proxy)
             }

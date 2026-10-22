@@ -97,7 +97,6 @@ struct LeftOffCard: View {
                         Text(item.book.author)
                             .leafStyle(.author)
                         PageChip(item: item, needsPosition: today.needsPosition, action: onPosition)
-                            .coachMarkAnchor("today.page")
                             .padding(.top, -Space.xs)
                     }
                     Spacer(minLength: 0)

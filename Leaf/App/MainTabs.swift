@@ -109,10 +109,7 @@ struct MainTabs: View {
             WhatsNewView(
                 releases: request.releaseIDs.compactMap { WhatsNew.release(id: $0) },
                 build: WhatsNew.currentBuild
-            ) {
-                CoachTour.shared.start()
-                router.tab = .today
-            }
+            )
         }
         .sheet(isPresented: $router.showSettings) {
             SettingsView()

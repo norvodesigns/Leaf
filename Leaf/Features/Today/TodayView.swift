@@ -111,7 +111,6 @@ struct TodayView: View {
             }
             .scrollIndicators(.hidden)
             .scrollEdgeEffectStyle(.soft, for: .top)
-            .coachMarks(.today)
             .onScrollGeometryChange(for: CGFloat.self) { geometry in
                 geometry.contentInsets.top
             } action: { _, inset in
@@ -427,7 +426,6 @@ struct TodayView: View {
                 onEdit: { router.showReadingTimes = true },
                 onStart: { start(bookID: $0) }
             )
-            .coachMarkAnchor("today.times")
         case .forecast:
             if let sentence = brief.forecastSentence {
                 ForecastCard(sentence: sentence) {

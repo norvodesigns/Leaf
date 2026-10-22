@@ -4,8 +4,9 @@ enum OnboardingStep: String, CaseIterable {
     case welcome, speedtest, quiz, result, minutes, days, reminder, deck, books
 }
 
-/// First-run onboarding (DESIGN.md §6): welcome, a reading-speed test, the daily minutes, the
-/// reading days, a reminder time and the first books. Everything is saved through `LibraryStore`
+/// First-run onboarding (docs/design/REDESIGN.md §4.10): welcome, the daily minutes, the reading days, a reading
+/// time and the first books. The speed test is no longer on the way in: Leaf starts from a typical pace and learns
+/// from real sessions, and the test stays in Settings. Its steps remain here for `startAt` (screenshots, previews). Everything is saved through `LibraryStore`
 /// as the reader goes; `onFinish` runs when they leave the last step.
 ///
 /// `startAt` lands directly on a step with plausible state, for screenshots and previews:
@@ -104,8 +105,11 @@ private struct OnboardingFlowBody: View {
         AnyHashable(PageKey(step: displayStep, stage: step == .speedtest ? test.progress.stage : nil))
     }
 
+    /// The steps a first run walks through; the speed test is off the path.
+    private static let path: [OnboardingStep] = [.welcome, .minutes, .days, .reminder, .deck, .books]
+
     private var folio: Int {
-        OnboardingStep.allCases.firstIndex(of: displayStep) ?? 0
+        Self.path.firstIndex(of: displayStep) ?? 0
     }
 
     // MARK: - Body
@@ -119,7 +123,7 @@ private struct OnboardingFlowBody: View {
             secondary: secondaryAction,
             secondaryColor: displayStep == .result ? Color.accent : Color.inkSecondary,
             folio: folio,
-            folioCount: OnboardingStep.allCases.count
+            folioCount: Self.path.count
         ) {
             page
         }
@@ -186,7 +190,7 @@ private struct OnboardingFlowBody: View {
     private var primaryAction: OnboardingAction? {
         switch displayStep {
         case .welcome:
-            return OnboardingAction("Begin") { step = .speedtest }
+            return OnboardingAction("Get started") { step = .minutes }
         case .speedtest, .quiz, .result:
             return testActions.primary
         case .minutes:
@@ -234,9 +238,7 @@ private struct OnboardingFlowBody: View {
                 step = .welcome
             }
         case .minutes:
-            // Back to the result, or to the intro if the test was skipped.
-            if test.result == nil { test.showIntro() }
-            step = .speedtest
+            step = .welcome
         case .days:
             step = .minutes
         case .reminder:
