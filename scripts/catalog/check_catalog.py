@@ -18,7 +18,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("database")
     ap.add_argument("--min-rows", type=int, default=150_000)
-    ap.add_argument("--max-mb", type=float, default=60.0)
+    ap.add_argument("--max-mb", type=float, default=70.0)
     ap.add_argument("--max-p95-ms", type=float, default=30.0)
     ap.add_argument("--probes", type=int, default=300)
     ap.add_argument("--require-full", action="store_true", help="fail if built from a truncated sample")

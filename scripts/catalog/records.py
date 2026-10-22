@@ -157,6 +157,41 @@ def pages_of(obj):
     return value if MIN_PAGES <= value <= MAX_PAGES else None
 
 
+def isbn13(text):
+    """The ISBN-13 in `text` as an int, or None. Takes either form (hyphens and spaces allowed) and checks the check
+    digit, so the app's `ISBN.parse` and the catalog agree on every key. An ISBN-10 becomes its 978 form."""
+    if not isinstance(text, str):
+        return None
+    kept = text.upper().replace("-", "").replace(" ", "")
+    if len(kept) == 13 and kept.isdigit():
+        d = [int(c) for c in kept]
+        if kept[:3] in ("978", "979") and sum(x * (1 if i % 2 == 0 else 3) for i, x in enumerate(d)) % 10 == 0:
+            return int(kept)
+        return None
+    if len(kept) == 10 and kept[:9].isdigit() and (kept[9].isdigit() or kept[9] == "X"):
+        d = [10 if c == "X" else int(c) for c in kept]
+        if sum(x * (10 - i) for i, x in enumerate(d)) % 11 != 0:
+            return None
+        body = [9, 7, 8] + d[:9]
+        check = (10 - sum(x * (1 if i % 2 == 0 else 3) for i, x in enumerate(body)) % 10) % 10
+        return int("".join(map(str, body + [check])))
+    return None
+
+
+def isbns_of(obj):
+    """Distinct ISBN-13s (ints) of an edition, from both isbn_13 and isbn_10, in the order they appear."""
+    out = []
+    for field in ("isbn_13", "isbn_10"):
+        values = obj.get(field)
+        if not isinstance(values, list):
+            continue
+        for value in values:
+            number = isbn13(value)
+            if number is not None and number not in out:
+                out.append(number)
+    return out
+
+
 def edition_work_number(line):
     """Work number an edition line points at, found without parsing the JSON (the cheap pre-filter).
 
@@ -174,7 +209,7 @@ def edition_work_number(line):
 
 
 def parse_edition(obj):
-    """(work number, language codes, pages or None, cover, year, title) of a printed edition, or None.
+    """(work number, language codes, pages or None, cover, year, title, ISBN-13s) of a printed edition, or None.
 
     Pages is None when the edition has no believable page count; the edition still counts for its publication year.
     Audio, video and other non-book formats return None: their page counts and dates say nothing about the book.
@@ -190,7 +225,7 @@ def parse_edition(obj):
         return None
     title = obj.get("title")
     return (work, language_codes(obj), pages_of(obj), first_cover(obj.get("covers")), year_of(obj.get("publish_date")),
-            title if isinstance(title, str) else None)
+            title if isinstance(title, str) else None, isbns_of(obj))
 
 
 def parse_author(obj):

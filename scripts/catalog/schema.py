@@ -11,6 +11,9 @@ Design notes (the numbers are in docs/CATALOG.md):
   matches "th*". The app re-ranks that short list with match quality.
 * Genres and themes are ids into `vocab`, not names: a theme list is about 25 bytes instead of 60, which is most of
   the difference between a 35 MB and a 50 MB file at 250,000 books.
+* `isbns` maps ISBN-13s (as integers, the table's rowid, so there is no separate index) to a `books` rowid, so a
+  scanned barcode finds its book offline. A few per work, newest editions first; an ISBN two works claim goes to the
+  more popular one. Files built before it existed have no such table; the app treats that as "not found".
 * `words` is NULL unless the word count is known; the app estimates it from pages and genre exactly as the build
   scripts do, so nothing is lost.
 """
@@ -47,6 +50,10 @@ CREATE TABLE vocab (
     id   INTEGER NOT NULL PRIMARY KEY,
     kind TEXT NOT NULL,
     name TEXT NOT NULL
+);
+CREATE TABLE isbns (
+    isbn INTEGER NOT NULL PRIMARY KEY,
+    book INTEGER NOT NULL
 );
 CREATE TABLE meta (
     key   TEXT NOT NULL PRIMARY KEY,
@@ -101,6 +108,7 @@ class BookRow:
     page_counts: list = field(default_factory=list)
     page_sources: int = 0
     in_pool: bool = False
+    isbns: list = field(default_factory=list)
 
 
 def work_number(book_id):
@@ -178,6 +186,10 @@ def write_database(out_path, rows, genre_order, meta=None, fts_extra=FTS_DETAIL,
         db.executemany(
             "INSERT INTO books(rowid, id, title, author, year, pages, words, cover_id, genres, themes, popularity,"
             " language, page_counts, page_sources, in_pool) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", values())
+        # Rank order, so when two works list the same ISBN the more popular one keeps it.
+        db.executemany("INSERT OR IGNORE INTO isbns(isbn, book) VALUES (?,?)",
+                       ((number, rank) for rank, r in enumerate(rows, 1) for number in r.isbns))
+        isbn_count = db.execute("SELECT COUNT(*) FROM isbns").fetchone()[0]
         vocab_rows = [(i, "genre", g) for g, i in genre_ids.items()] + [(i, "theme", t) for t, i in theme_ids.items()]
         db.executemany("INSERT INTO vocab(id, kind, name) VALUES (?,?,?)", sorted(vocab_rows))
         db.execute("COMMIT")
@@ -195,6 +207,7 @@ def write_database(out_path, rows, genre_order, meta=None, fts_extra=FTS_DETAIL,
             "built_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "books": str(len(rows)),
             "pool": str(pool),
+            "isbns": str(isbn_count),
             "genres": " ".join(genre_order),
         }
         info.update(meta or {})
@@ -210,7 +223,7 @@ def write_database(out_path, rows, genre_order, meta=None, fts_extra=FTS_DETAIL,
             os.remove(tmp)
         raise
     os.replace(tmp, out_path)
-    return {"books": len(rows), "pool": pool, "bytes": os.path.getsize(out_path)}
+    return {"books": len(rows), "pool": pool, "isbns": isbn_count, "bytes": os.path.getsize(out_path)}
 
 
 def read_vocab(db):

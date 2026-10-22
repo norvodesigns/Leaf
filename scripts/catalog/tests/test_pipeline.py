@@ -28,10 +28,13 @@ def write_dumps(directory):
         W(112, "No Author At All", 2, ["Fiction"], authors=[]),
     ]
     editions = [
-        E(1, 101, 300, date="2001", cover=9), E(2, 101, 300, date="1999"), E(3, 101, 320), E(4, 101, 280, cover=12),
-        E(5, 101, 500, langs=("fre",)), E(6, 101, 9999, fmt="Audio CD"), E(7, 101, None, date="1997"),
+        E(1, 101, 300, date="2001", cover=9, isbn13=["978-0-00-000001-9"]), E(2, 101, 300, date="1999"),
+        E(3, 101, 320), E(4, 101, 280, cover=12),
+        E(5, 101, 500, langs=("fre",), isbn13=["9780000000040"]), E(6, 101, 9999, fmt="Audio CD", isbn13=["9780000000057"]),
+        E(7, 101, None, date="1997", isbn10=["0306406152"]),
         E(8, 102, 200), E(10, 104, 20), E(11, 105, 300, langs=("fre",)),
-        E(12, 106, 250), E(13, 107, 350), E(14, 108, 350, date="2010"),   # 108 redirects to 107
+        E(12, 106, 250, isbn13=["9780000000033"]), E(13, 107, 350),
+        E(14, 108, 350, date="2010", isbn13=["9780000000026", "9780000000020"]),   # 108 redirects to 107
         E(15, 109, 100), E(16, 110, 220, langs=()), E(17, 111, 400), E(18, 112, 100),
     ]
     authors = [support.author(1, "Ann Lee"), support.author(2, "Bo Chan"), support.author(4, "Cy Day")]
@@ -108,6 +111,25 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(book.themes, [])              # a theme must be shared by five books; this catalog has three
         self.assertTrue(book.in_pool)
         self.assertEqual(self.stats["result"]["books"], 3)
+
+    def test_isbns_name_the_work_offline(self):
+        found = dict(self.db.execute("SELECT i.isbn, b.id FROM isbns i JOIN books b ON b.rowid = i.book"))
+        self.assertEqual(found, {
+            9780000000019: "OL101W",
+            9780306406157: "OL101W",   # an ISBN-10 on an edition without pages, folded to 978
+            9780000000026: "OL107W",   # filed under the merged work; the bad check digit beside it is dropped
+        })                             # French, audio and the dropped duplicate's ISBNs are not there
+        self.assertEqual(schema.read_meta(self.db)["isbns"], "3")
+
+    def test_isbns_per_work_keeps_the_newest(self):
+        out = os.path.join(self._tmp.name, "one-isbn.sqlite")
+        run(self._tmp.name, out, resume=True, isbns_per_work=1)
+        db = schema.open_readonly(out)
+        try:
+            self.assertEqual(db.execute("SELECT isbn FROM isbns i JOIN books b ON b.rowid = i.book WHERE b.id = 'OL101W'").fetchall(),
+                             [(9780000000019,)])   # 2001 beats 1997
+        finally:
+            db.close()
 
     def test_metadata(self):
         meta = schema.read_meta(self.db)

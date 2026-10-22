@@ -72,7 +72,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 -I scripts/catalog/check_catalog.py build/catalog.sqlite \
-            --min-rows 150000 --max-mb 60 --max-p95-ms 30 --require-full | tee build/checks.log
+            --min-rows 150000 --max-mb 70 --max-p95-ms 30 --require-full | tee build/checks.log
 
       - name: Keep the database and logs
         if: always()

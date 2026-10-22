@@ -30,9 +30,11 @@ enum ISBNLookupResult: Hashable {
 
 @MainActor
 enum ISBNLookup {
-    /// Open Library finds the work; the catalog's copy of it is preferred, since it has the word count, themes and
-    /// edition page counts. The catalog has no ISBNs, so this needs a connection.
+    /// The catalog answers first, offline and instantly, for the editions it lists (a few recent ones per work).
+    /// Anything else goes to Open Library, whose work is matched back to the catalog's copy when there is one, since
+    /// that has the word count, themes and edition page counts.
     static func resolve(_ isbn: String, catalog: BookCatalog) async -> ISBNLookupResult {
+        if let known = catalog.book(isbn: isbn) { return .found(known) }
         do {
             guard let match = try await OpenLibrary.lookup(isbn: isbn) else { return .notFound }
             if let known = catalog.book(id: match.workID) { return .found(known) }
@@ -255,7 +257,7 @@ struct ISBNScanSheet: View {
     private func missingMessage(_ result: ISBNLookupResult) -> String {
         switch result {
         case .partial(let match): return "Found “\(match.title)”, but not how long it is. Add the page count and it’s on your shelf."
-        case .offline: return "Open Library couldn’t be reached, and the books on this device don’t carry ISBNs. Add it by hand, or try again when you’re online."
+        case .offline: return "This edition isn’t among the books on this device, and Open Library couldn’t be reached. Add it by hand, or try again when you’re online."
         default: return "Open Library doesn’t know this one. Add it by hand; it only takes a title and a page count."
         }
     }

@@ -79,11 +79,23 @@ class EditionTests(unittest.TestCase):
             self.assertIsNotNone(self.parse(pages=300, fmt=fmt), fmt)
 
     def test_language_year_cover_work(self):
-        work, langs, pages, cover, year, title = self.parse(pages=200, langs=("eng", "fre"), cover=9, date="1901", title="T")
+        work, langs, pages, cover, year, title, isbns = self.parse(pages=200, langs=("eng", "fre"), cover=9, date="1901", title="T")
+        self.assertEqual(isbns, [])
         self.assertEqual((work, langs, pages, cover, year, title), (5, ["eng", "fre"], 200, 9, 1901, "T"))
         self.assertEqual(self.parse(pages=200, langs=())[1], [])
         self.assertIsNone(records.parse_edition({"number_of_pages": 100}))
         self.assertIsNone(records.parse_edition({"works": [], "number_of_pages": 100}))
+
+    def test_isbns_are_checked_and_folded_to_isbn13(self):
+        # The Hobbit: 0-261-10221-4 is the ISBN-10 of 978-0-261-10221-7.
+        self.assertEqual(records.isbn13("978-0-261-10221-7"), 9780261102217)
+        self.assertEqual(records.isbn13("0261102214"), 9780261102217)
+        self.assertEqual(records.isbn13("080442957X"), 9780804429573)
+        for bad in ("9780261102218", "0261102215", "12345", "9771234567003", None, 9780261102217, "X261102214"):
+            self.assertIsNone(records.isbn13(bad), bad)
+        obj = {"works": [{"key": "/works/OL5W"}], "isbn_13": ["9780261102217", "junk"], "isbn_10": ["0261102214", "080442957X"]}
+        self.assertEqual(records.parse_edition(obj)[6], [9780261102217, 9780804429573])
+        self.assertEqual(records.isbns_of({"isbn_13": "9780261102217"}), [])
 
     def test_prefilter_finds_the_work_without_parsing(self):
         line = support.edition(1, 12345, pages=100).encode()

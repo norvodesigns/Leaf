@@ -115,6 +115,16 @@ def check(path, min_rows=150_000, max_mb=60.0, max_p95_ms=30.0, probes=300, deep
         unknown += sum(1 for i in schema.decode_ids(g) if i not in genres) + sum(1 for i in schema.decode_ids(t) if i not in themes)
     if unknown:
         report.fail("%d genre or theme ids missing from vocab" % unknown)
+    has_isbns = db.execute("SELECT 1 FROM sqlite_master WHERE name = 'isbns'").fetchone() is not None
+    isbns = db.execute("SELECT COUNT(*) FROM isbns").fetchone()[0] if has_isbns else 0
+    if has_isbns:
+        dangling = db.execute("SELECT COUNT(*) FROM isbns WHERE book NOT IN (SELECT rowid FROM books)").fetchone()[0]
+        if dangling:
+            report.fail("%d ISBNs point at no book" % dangling)
+        with_isbn = db.execute("SELECT COUNT(DISTINCT book) FROM isbns").fetchone()[0]
+        report.info("ISBNs: %d for %.1f%% of the books" % (isbns, 100.0 * with_isbn / max(rows, 1)))
+    if require_full and not isbns:
+        report.fail("no ISBNs, so barcode scans need a connection")
     with_genre = db.execute("SELECT COUNT(*) FROM books WHERE genres != ''").fetchone()[0]
     report.info("with genres: %.1f%%   languages: %s" % (
         100.0 * with_genre / max(rows, 1), dict(db.execute("SELECT language, COUNT(*) FROM books GROUP BY language"))))

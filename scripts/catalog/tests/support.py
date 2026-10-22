@@ -32,7 +32,7 @@ def work(num, title, author_num, subjects=(), covers=None, date=None, authors=No
     return tsv("/type/work", obj["key"], obj)
 
 
-def edition(num, work_num, pages=None, langs=("eng",), cover=None, date=None, fmt=None, title=None):
+def edition(num, work_num, pages=None, langs=("eng",), cover=None, date=None, fmt=None, title=None, isbn13=(), isbn10=()):
     obj = {"key": "/books/OL%dM" % num, "type": {"key": "/type/edition"}, "works": [{"key": "/works/OL%dW" % work_num}],
            "languages": [{"key": "/languages/%s" % c} for c in langs]}
     if pages is not None:
@@ -45,6 +45,10 @@ def edition(num, work_num, pages=None, langs=("eng",), cover=None, date=None, fm
         obj["physical_format"] = fmt
     if title:
         obj["title"] = title
+    if isbn13:
+        obj["isbn_13"] = list(isbn13)
+    if isbn10:
+        obj["isbn_10"] = list(isbn10)
     return tsv("/type/edition", obj["key"], obj)
 
 

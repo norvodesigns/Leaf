@@ -463,7 +463,7 @@ struct SearchView: View {
         if let isbnMatch { return "Open Library knows “\(isbnMatch.title)” but not its page count. Add that and it’s yours." }
         if ISBN.parse(trimmedQuery) != nil {
             return phase == .offline
-                ? "Looking up an ISBN needs a connection; the books on this device don’t carry them."
+                ? "This edition isn’t among the books on this device; looking it up needs a connection."
                 : "Open Library has no book with this ISBN."
         }
         return phase == .offline ? "You’re offline, so only books on this device were searched." : ""
@@ -536,7 +536,7 @@ struct SearchView: View {
         }
     }
 
-    /// A typed ISBN skips the title search: Open Library finds the work, the catalog's copy is preferred.
+    /// A typed ISBN skips the title search: the catalog answers offline when it lists the edition, else Open Library.
     private func lookUpISBN(_ isbn: String, typed text: String) async {
         localResults = []
         remoteResults = []

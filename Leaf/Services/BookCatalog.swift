@@ -73,6 +73,13 @@ final class BookCatalog {
         return found
     }
 
+    /// The catalog book a scanned or typed ISBN-13 belongs to, without a connection. Nil when the catalog doesn't
+    /// list it; Open Library may still know it.
+    func book(isbn: String) -> Book? {
+        guard let found = database?.book(isbn: isbn) else { return nil }
+        return byID[found.id] ?? found
+    }
+
     /// Ranked search over every title and author. Every word typed must start a word in the title or author; exact
     /// titles come first, then titles that start with the query, then the rest, best-known first. A few milliseconds
     /// at 250,000 books, so it is fine to call on the main actor for each keystroke.

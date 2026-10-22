@@ -45,8 +45,8 @@ Adding a book should take seconds. Built first on the paper design (27df227), th
 
 ## NEEDS FROM ENGINE
 
-- The catalog has no ISBN column, so scanning and typed ISBNs need a connection. An `isbn → work id` table in
-  `catalog.sqlite` (many ISBNs per work) would make them offline and instant.
+- ~~The catalog has no ISBN column, so scanning and typed ISBNs need a connection.~~ Done 2026-10-22: `isbns` table
+  in `catalog.sqlite` (see docs/CATALOG.md); `ISBNLookup` asks the catalog first.
 - "Already read" from Search uses `store.add(book, to: .finished)`, which dates the finish today. That counts toward
   this year's stats. A "read before Leaf" add (`addEarlierRead` without a date, or a flag) would be more honest.
 

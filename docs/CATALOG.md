@@ -48,8 +48,9 @@ Open Library dumps (streamed, never stored)             scripts/data/books.seed.
 |---|---|
 | `books` | `id` TEXT primary key (Open Library work id, `OL27482W`), `title`, `author`, `year`, `pages`, `words` (NULL unless known), `cover_id`, `genres`, `themes`, `popularity`, `language` (ISO 639-1), `page_counts` (`330,366`, other editions' counts, most common first), `page_sources` (editions with a page count behind `pages`), `in_pool` |
 | `books_fts` | FTS5 over `title` and `author`, `content='books'` (text is not stored twice), `unicode61 remove_diacritics 2`, `prefix='2 3 4'`, `detail=none` |
+| `isbns` | `isbn` INTEGER primary key (the ISBN-13 as a number, so it is the rowid and needs no index), `book` (a `books` rowid). Added 2026-10-22; older files lack it and the app reads that as "not found" |
 | `vocab` | `id`, `kind` (`genre` or `theme`), `name` |
-| `meta` | `schema_version`, `built_at`, `source_dump` (release date, or `seed`), `books`, `pool`, `languages`, `min_popularity`, `truncated_sample`, `source`, `source_url`, `license`, `genres` |
+| `meta` | `schema_version`, `built_at`, `source_dump` (release date, or `seed`), `books`, `pool`, `isbns`, `languages`, `min_popularity`, `truncated_sample`, `source`, `source_url`, `license`, `genres` |
 
 Choices that matter:
 
@@ -65,6 +66,10 @@ Choices that matter:
   code otherwise.
 * **`detail=none`** removes word positions from the index. We only run "all of these prefixes" queries, bm25 still works,
   and it saves about a third of the file. Phrase and column queries are therefore unavailable; nothing uses them.
+* **ISBNs make barcode scans offline.** Every printed edition in a wanted language contributes its `isbn_13` and
+  `isbn_10` (checked, folded to 978), up to six per work, newest editions first: the copy someone scans is far more often
+  a recent printing. An ISBN two works claim goes to the more popular one. About a million rows cost about 16 MB, which
+  is why the size budget in `catalog.yml` is 70 MB. `ISBNLookup` asks the catalog first and Open Library only on a miss.
 * Optimised for one reader: no WAL, `journal_mode=DELETE`, vacuumed, opened with `immutable=1`.
 
 ## Search

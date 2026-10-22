@@ -5,7 +5,7 @@ Order matters, because each step shrinks what the next one has to look at:
 1. redirects      merged works and authors, so popularity and editions land on the surviving record
 2. popularity     reading-log and ratings counts per work; works below `min_popularity` never get further
 3. works          titles, first author, cover, subjects, only for works that passed step 2
-4. editions       page counts, language, cover and year, only for works that passed step 3 (the 12 GB dump)
+4. editions       page counts, language, cover, year and ISBNs, only for works that passed step 3 (the 12 GB dump)
 5. authors        names, only for authors of works that passed step 3
 6. build          quality rules, dedupe, genres and themes, the browse pool, then the database
 
@@ -36,6 +36,7 @@ class Options:
     min_popularity: int = 3
     max_books: int = 250_000
     pool_size: int = 25_000
+    isbns_per_work: int = 6
     min_per_genre: int = 60
     resume: bool = False
     keep_work_dir: bool = True
@@ -50,6 +51,7 @@ CREATE TABLE IF NOT EXISTS work (
 CREATE TABLE IF NOT EXISTS ed (work INTEGER NOT NULL, lang TEXT NOT NULL, pages INTEGER NOT NULL, cover INTEGER);
 CREATE TABLE IF NOT EXISTS yr (work INTEGER NOT NULL, year INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS en_title (work INTEGER NOT NULL, title TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS isbn (work INTEGER NOT NULL, isbn INTEGER NOT NULL, year INTEGER);
 CREATE TABLE IF NOT EXISTS author (author INTEGER PRIMARY KEY, name TEXT NOT NULL);
 """
 
@@ -198,7 +200,7 @@ def stage_works(db, source, candidates, reasons):
 # --------------------------------------------------------------------------------------------------------------
 
 def stage_editions(db, source, work_redirects, languages):
-    """Collect per-edition facts for candidate works: (work, language, pages, cover) and publication years.
+    """Collect per-edition facts for candidate works: (work, language, pages, cover), publication years and ISBNs.
 
     Every edition of a candidate work is parsed, because an old edition without a page count still tells us the book is
     old. Editions in a language nobody asked for are skipped, and so are audio and other non-book formats.
@@ -206,20 +208,22 @@ def stage_editions(db, source, work_redirects, languages):
     wanted = {row[0] for row in db.execute("SELECT work FROM work")}
     wants_title = {row[0] for row in db.execute("SELECT work FROM work WHERE wants_title = 1")}
     allowed = {records.LANG2_TO_3.get(code, code) for code in languages}
-    rows, years, titles = [], set(), []
+    rows, years, titles, isbns = [], set(), [], []
     kept = seen = 0
     started = time.time()
     n = 0
 
     def flush():
-        nonlocal rows, years, titles
+        nonlocal rows, years, titles, isbns
+        if isbns:
+            db.executemany("INSERT INTO isbn VALUES (?,?,?)", isbns)
         if rows:
             db.executemany("INSERT INTO ed VALUES (?,?,?,?)", rows)
         if years:
             db.executemany("INSERT INTO yr VALUES (?,?)", years)
         if titles:
             db.executemany("INSERT INTO en_title VALUES (?,?)", titles)
-        rows, years, titles = [], set(), []
+        rows, years, titles, isbns = [], set(), [], []
 
     for n, line in enumerate(source.lines("editions"), 1):
         number = records.edition_work_number(line)
@@ -238,7 +242,7 @@ def stage_editions(db, source, work_redirects, languages):
             continue
         if parsed is None:
             continue
-        work, langs, pages, cover, year, title = parsed
+        work, langs, pages, cover, year, title, edition_isbns = parsed
         work = resolve(work_redirects, work)
         if work not in wanted:
             continue
@@ -248,12 +252,14 @@ def stage_editions(db, source, work_redirects, languages):
         seen += 1
         if year:
             years.add((work, year))
+        # Any printed edition in a wanted language, with or without a page count: a barcode names the work either way.
+        isbns.extend((work, number, year) for number in edition_isbns)
         if pages:
             rows.append((work, chosen or "", pages, cover))
             kept += 1
             if chosen and title and work in wants_title:
                 titles.append((work, title))
-        if len(rows) >= 50000 or len(years) >= 200000:
+        if len(rows) >= 50000 or len(years) >= 200000 or len(isbns) >= 200000:
             flush()
         tick("editions", n, started, every=5_000_000)
     flush()
@@ -376,6 +382,25 @@ def collect_candidates(db, author_redirects, preferred, reasons):
     return out
 
 
+def load_isbns(db, wanted, per_work):
+    """{work number: up to `per_work` ISBN-13s} for the selected works, newest editions first.
+
+    A reader scans the copy in their hands, which is far more often a recent printing than a 1970s one, so when a
+    famous work has hundreds of ISBNs the newest are the ones worth their bytes. Undated editions come last.
+    """
+    out = {}
+    if per_work <= 0:
+        return out
+    for work, number in db.execute(
+            "SELECT work, isbn FROM isbn GROUP BY work, isbn ORDER BY work, MAX(COALESCE(year, 0)) DESC, isbn"):
+        if work not in wanted:
+            continue
+        kept = out.setdefault(work, [])
+        if len(kept) < per_work:
+            kept.append(number)
+    return out
+
+
 def load_subjects(db, wanted):
     """{work number: subjects} for the selected works only."""
     out = {}
@@ -400,7 +425,7 @@ def must_have_ids(rows):
     return found
 
 
-def build_rows(candidates, subjects_by_work, max_books, pool_size, min_per_genre, reasons):
+def build_rows(candidates, subjects_by_work, max_books, pool_size, min_per_genre, reasons, isbns_by_work=None):
     """Select, classify and theme the best `max_books` candidates; returns BookRow objects in popularity order."""
     themes = legacy.themes()
     ordered = sorted(quality.dedupe(candidates, reasons), key=lambda c: (-c.popularity, c.work))[:max_books]
@@ -417,7 +442,8 @@ def build_rows(candidates, subjects_by_work, max_books, pool_size, min_per_genre
         rows.append(schema.BookRow(
             id=c.id, title=c.title, author=c.author, pages=c.pages, year=c.year, words=known_words, cover_id=c.cover,
             genres=genres, themes=themes.choose_themes(hits, universes, df, len(ordered)),
-            popularity=c.popularity, language=c.language, page_counts=c.page_counts, page_sources=c.page_sources))
+            popularity=c.popularity, language=c.language, page_counts=c.page_counts, page_sources=c.page_sources,
+            isbns=(isbns_by_work or {}).get(c.work, [])))
     pool = quality.choose_pool(rows, pool_size, legacy.rules().GENRES, min_per_genre, must_have_ids(rows))
     log("pool: %s books" % format(pool, ","))
     return rows
@@ -429,7 +455,7 @@ def run(options):
     started = time.time()
     db = open_staging(options.work_dir)
     if not options.resume:
-        for table in ("popularity", "work", "ed", "yr", "en_title", "author", "stage"):
+        for table in ("popularity", "work", "ed", "yr", "en_title", "isbn", "author", "stage"):
             db.execute("DELETE FROM %s" % table)
         db.commit()
     reasons = Counter()
@@ -467,7 +493,7 @@ def run(options):
     candidates = collect_candidates(db, author_redirects, options.languages, reasons)
     wanted = {c.work for c in candidates}
     rows = build_rows(candidates, load_subjects(db, wanted), options.max_books, options.pool_size,
-                      options.min_per_genre, reasons)
+                      options.min_per_genre, reasons, load_isbns(db, wanted, options.isbns_per_work))
     meta = {
         "source": "Open Library data dumps",
         "source_dump": source.dump_date(),
@@ -484,6 +510,7 @@ def run(options):
     stats["seconds"] = round(time.time() - started)
     db.close()
     log("rejected by the rules: %s" % dict(reasons.most_common()))
-    log("done: %s books, %s in the pool, %.1f MB, %ds" % (
-        format(result["books"], ","), format(result["pool"], ","), result["bytes"] / 1e6, stats["seconds"]))
+    log("done: %s books, %s in the pool, %s ISBNs, %.1f MB, %ds" % (
+        format(result["books"], ","), format(result["pool"], ","), format(result["isbns"], ","), result["bytes"] / 1e6,
+        stats["seconds"]))
     return stats

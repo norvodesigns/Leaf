@@ -93,6 +93,14 @@ final class CatalogDatabase: @unchecked Sendable {
         books("SELECT \(Self.bookColumns) FROM books b WHERE b.id = ?1", bind: { sqlite3_bind_text($0, 1, id, -1, Self.transient) }).first
     }
 
+    /// The book an ISBN-13 (from `ISBN.parse` or a scanned barcode) belongs to. Nil when no catalog work lists it, or
+    /// when the file predates the `isbns` table (the statement then fails to prepare, which `books` reads as empty).
+    func book(isbn: String) -> Book? {
+        guard let number = Int64(isbn) else { return nil }
+        return books("SELECT \(Self.bookColumns) FROM isbns i JOIN books b ON b.rowid = i.book WHERE i.isbn = ?1",
+                     bind: { sqlite3_bind_int64($0, 1, number) }).first
+    }
+
     func count() -> Int { info.bookCount }
 
     /// Up to `limit` books matching an FTS5 expression from `CatalogQuery.ftsExpression`, most popular first, each with
