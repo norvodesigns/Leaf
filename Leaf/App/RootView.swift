@@ -129,7 +129,8 @@ struct RootView: View {
             router.tab = .search
             router.showDeck = true
         case "librarian", "librarian.answer":
-            router.tab = .search
+            // Over Library on its own: Search is a sheet now, and a second sheet can't stack on it from the tabs.
+            router.tab = .library
             if key == "librarian.answer" { router.librarianStage = "answer" }
             router.showLibrarian = true
         case "library":

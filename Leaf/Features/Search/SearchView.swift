@@ -26,6 +26,8 @@ struct SearchView: View {
     @State private var manualDraft: ManualBookDraft?
     @State private var quickAdd: QuickAddRequest?
     @State private var showsScanner = false
+    /// Ask the Librarian, presented from here because Search is itself a sheet over Library.
+    @State private var showsLibrarian = false
     /// What the scanner found, presented once its sheet has gone.
     @State private var scanOutcome: ISBNScanOutcome?
     /// A typed ISBN that Open Library knows without a page count, so the form can start from it.
@@ -196,6 +198,9 @@ struct SearchView: View {
                 scanOutcome = outcome
             }
         }
+        .sheet(isPresented: $showsLibrarian) {
+            LibrarianScreen()
+        }
     }
 
     // MARK: Browse
@@ -220,7 +225,7 @@ struct SearchView: View {
                 .padding(.top, Space.s)
             }
             LibrarianBanner {
-                router.showLibrarian = true
+                showsLibrarian = true
             }
             .padding(.top, Space.s)
             DeckBanner(covers: Array(collections.first?.books.prefix(3) ?? [])) {
