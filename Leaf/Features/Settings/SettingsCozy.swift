@@ -3,7 +3,7 @@ import SwiftUI
 // Settings sections added in UI-5: tea and sound, the plan's kinder options, greetings and the Lock Screen, and
 // iCloud. Each is a `Section` for SettingsView's `Form`.
 
-private func settingsHeader(_ title: String, accent: CanopyAccent = .forest) -> some View {
+private func sectionHeader(_ title: String, accent: CanopyAccent = .forest) -> some View {
     Text(title).settingsHeader(accent)
 }
 
@@ -70,7 +70,7 @@ struct SettingsTeaSection: View {
             }
             .pickerStyle(.menu)
         } header: {
-            settingsHeader("Tea", accent: .clay)
+            sectionHeader("Tea", accent: .clay)
         } footer: {
             settingsFooter("The ritual offers the teas in your cabinet, or Leaf’s when it’s empty. A cup is \(store.preferences.cupMinutes) minutes of reading; strength sets how long the tea steeps before it starts.")
         }
@@ -86,7 +86,7 @@ struct SettingsTeaSection: View {
             }
             .pickerStyle(.menu)
         } header: {
-            settingsHeader("Reading nook")
+            sectionHeader("Reading nook")
         } footer: {
             settingsFooter("What sits behind a reading session. \(nookScene.blurb) Scenes are quiet drawings; sound is its own choice below.")
         }
@@ -124,7 +124,7 @@ struct SettingsTeaSection: View {
                 CozySettings.soundCues = isOn
             }
         } header: {
-            settingsHeader("Sound")
+            sectionHeader("Sound")
         } footer: {
             settingsFooter("Leaf is silent unless you choose a sound. Your ambience is offered first when you read and only plays once you tap it; cues (the kettle, the pour) follow the silent switch.")
         }
@@ -232,7 +232,7 @@ struct SettingsPlanSection: View {
                 }
             }
         } header: {
-            settingsHeader("Plan")
+            sectionHeader("Plan")
         } footer: {
             settingsFooter(catchUpFooter + " Pages or percent is set per book: open a book and tap its page line.")
         }
@@ -308,7 +308,7 @@ struct SettingsExtrasSection: View {
                 }
             }
         } header: {
-            settingsHeader("Greetings and Lock Screen")
+            sectionHeader("Greetings and Lock Screen")
         } footer: {
             settingsFooter("Greetings fall back to Leaf’s own when Apple Intelligence is off.")
         }
@@ -372,7 +372,7 @@ struct SettingsCloudSection: View {
                 .disabled(sync.status == .syncing)
             }
         } header: {
-            settingsHeader("iCloud")
+            sectionHeader("iCloud")
         } footer: {
             settingsFooter(cloudFooter)
         }
