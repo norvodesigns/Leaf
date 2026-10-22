@@ -1,6 +1,6 @@
 # Leaf redesign: Phase 1
 
-Chief of Design, 2026-10-21. Status: **revision 2, waiting for the owner's OK before Phase 2 (rebuild)**. Revision 2 (2026-10-22) follows the
+Chief of Design, 2026-10-21. Status: **revision 2 approved with the Oat palette (2026-10-22); Phase 2 under way**. Revision 2 (2026-10-22) follows the
 owner's note that the green was too heavy and the cream not prominent: it evolves the live look instead of replacing
 it, and offers three cream palettes to choose from (Linen, Oat, Ivory).
 

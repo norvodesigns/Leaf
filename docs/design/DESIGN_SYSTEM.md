@@ -40,10 +40,10 @@ Every screen follows these, in this order.
 ## 3. Colour
 
 Cream is the page, green the ink you act with. Three candidate palettes are built in for the owner to choose from
-(`CanopyPalette`, default **Linen**; `-CanopyPalette oat|ivory` for screenshots). Only the neutrals and the green differ.
+(`CanopyPalette`). **The owner chose Oat (2026-10-22)**, now the default; `-CanopyPalette linen|ivory` for screenshots). Only the neutrals and the green differ.
 Hex values are light / dark.
 
-| Token | Linen (recommended) | Oat | Ivory |
+| Token | Linen | **Oat (chosen)** | Ivory |
 |---|---|---|---|
 | `canvas` (the page) | `#FAF6EE` / `#161513` | `#F5EFE4` / `#1B1916` | `#FCFBF7` / `#121413` |
 | `surface` (cards) | `#FFFDF9` / `#211F1C` | `#FCF8F1` / `#26231F` | `#FFFFFF` / `#1C1F1D` |

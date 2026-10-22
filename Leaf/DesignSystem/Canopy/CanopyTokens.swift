@@ -129,7 +129,7 @@ enum CanopyAccent: String, CaseIterable, Identifiable, Sendable {
 
 // MARK: - Palettes
 
-/// The cream-and-green palettes on offer while the owner chooses. Linen is the default; a launch argument
+/// The cream-and-green palettes on offer . The owner chose Oat (2026-10-22), the default; a launch argument
 /// (`-CanopyPalette oat`) picks another for screenshots. Only the neutrals and the green change; Dusk, Clay and Bloom
 /// keep their jobs and values.
 enum CanopyPalette: String, CaseIterable, Identifiable, Sendable {
@@ -159,7 +159,7 @@ enum CanopyPalette: String, CaseIterable, Identifiable, Sendable {
     }
 
     /// The palette in use, read once from the launch arguments or defaults.
-    static let current: CanopyPalette = CanopyPalette(rawValue: UserDefaults.standard.string(forKey: "CanopyPalette") ?? "") ?? .linen
+    static let current: CanopyPalette = CanopyPalette(rawValue: UserDefaults.standard.string(forKey: "CanopyPalette") ?? "") ?? .oat
 
     var colors: CanopyColors { CanopyColors.cache[self]! }
 
