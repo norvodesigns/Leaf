@@ -98,14 +98,20 @@ struct YouView: View {
 
     // MARK: Level 1: the deeper pages
 
+    /// The chips never break mid-word: at large text they scroll sideways instead.
     private var switcher: some View {
-        HStack(spacing: Canopy.Space.s) {
-            ForEach(Self.sections) { item in
-                CanopyChip(item.title, accent: .bloom, isSelected: item == section) {
-                    withAnimation(Canopy.Motion.smooth) { router.planSection = item }
+        ScrollView(.horizontal) {
+            HStack(spacing: Canopy.Space.s) {
+                ForEach(Self.sections) { item in
+                    CanopyChip(item.title, accent: .bloom, isSelected: item == section) {
+                        withAnimation(Canopy.Motion.smooth) { router.planSection = item }
+                    }
+                    .fixedSize()
                 }
             }
         }
+        .scrollIndicators(.hidden)
+        .scrollClipDisabled()
     }
 
     private var more: some View {
