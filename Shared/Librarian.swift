@@ -341,8 +341,11 @@ enum LibrarianLines {
 
     static let nothing = "I couldn’t find anything new on that shelf. Try another mood?"
 
+    /// Above a "More like this" shelf.
+    static func moreLike(_ title: String) -> String { "If you like \(title), try these." }
+
     static var all: [String] {
-        openers + askTime + askLength + skipLength + answers + surprise + again + Array(loosened.values) + [nothing]
+        openers + askTime + askLength + skipLength + answers + surprise + again + Array(loosened.values) + [nothing, moreLike("Circe")]
     }
 
     /// One line from a pool, stable for a given seed.

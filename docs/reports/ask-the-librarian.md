@@ -53,6 +53,4 @@ A written, offline conversation that ends in a shelf of picks. Nothing is spoken
 
 ## Known issues
 
-- "If you like X, try these." is an inline string in `LibrarianModel` rather than in `LibrarianLines`, so the voice
-  test doesn't cover it.
 - The thinking pause is a fixed 0.65 s.

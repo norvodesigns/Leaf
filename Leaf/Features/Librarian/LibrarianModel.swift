@@ -121,7 +121,7 @@ final class LibrarianModel {
             if picks.isEmpty {
                 append(.says(LibrarianLines.nothing))
             } else {
-                append(.says("If you like \(book.title), try these."))
+                append(.says(LibrarianLines.moreLike(book.title)))
                 append(.picks(title: "More like \(book.title)", Array(picks)))
             }
             step = .answered
