@@ -48,8 +48,9 @@ final class Reminders: NSObject {
         ])
     }
 
+    /// Banners and sound only: Leaf never sets a badge count, so it doesn't ask for one.
     func requestAuthorization() async -> Bool {
-        (try? await center.requestAuthorization(options: [.alert, .sound, .badge])) ?? false
+        (try? await center.requestAuthorization(options: [.alert, .sound])) ?? false
     }
 
     func authorizationStatus() async -> UNAuthorizationStatus {

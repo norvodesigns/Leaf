@@ -120,6 +120,20 @@ jobs:
           [ "$(plist_value "$WAPPEX/Info.plist" CFBundleVersion)" = "$(plist_value "$WATCH/Info.plist" CFBundleVersion)" ] || fail "LeafWatchWidgets.appex build number differs from the watch app"
           plist_value "$WATCH/Info.plist" WKBackgroundModes | grep -q "mindfulness" || fail "LeafWatch.app Info.plist is missing the mindfulness background mode (extended runtime)"
           echo "widget extensions embedded and declared correctly"
+          # Required-reason APIs: every bundle whose executable reaches UserDefaults must say so in its own manifest
+          # (App Store Connect rejects the upload otherwise, ITMS-91053).
+          for BUNDLE in $(find "$APP" -type d \( -name "*.app" -o -name "*.appex" \)); do
+            NAME=$(basename "$BUNDLE")
+            EXE="$BUNDLE/$(plist_value "$BUNDLE/Info.plist" CFBundleExecutable)"
+            [ -f "$EXE" ] || fail "$NAME has no executable at $EXE"
+            if { xcrun nm -u "$EXE" 2>/dev/null; strings -a "$EXE"; } | grep -q "NSUserDefaults"; then
+              [ -f "$BUNDLE/PrivacyInfo.xcprivacy" ] || fail "$NAME uses UserDefaults but has no PrivacyInfo.xcprivacy"
+              plutil -p "$BUNDLE/PrivacyInfo.xcprivacy" | grep -q "NSPrivacyAccessedAPICategoryUserDefaults" || fail "$NAME uses UserDefaults but its PrivacyInfo.xcprivacy doesn't declare NSPrivacyAccessedAPICategoryUserDefaults"
+              echo "$NAME: UserDefaults declared"
+            else
+              echo "$NAME: no UserDefaults"
+            fi
+          done
           test -f "$APP/catalog.sqlite" && echo "catalog.sqlite bundled ($(wc -c < "$APP/catalog.sqlite") bytes)"
           test -f "$APP/PrivacyInfo.xcprivacy" && echo "iOS privacy manifest bundled"
           test -f "$WATCH/PrivacyInfo.xcprivacy" && echo "watch privacy manifest bundled"

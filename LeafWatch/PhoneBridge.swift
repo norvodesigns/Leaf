@@ -7,6 +7,8 @@ final class PhoneBridge: NSObject {
     static let shared = PhoneBridge()
 
     private weak var store: WatchStore?
+    /// Events sent before the session finished activating (a tap right at launch). Sent, in order, once it has.
+    private var waiting: [SyncEvent] = []
 
     func activate(store: WatchStore) {
         self.store = store
@@ -20,7 +22,11 @@ final class PhoneBridge: NSObject {
     func send(_ event: SyncEvent) {
         guard WCSession.isSupported() else { return }
         let session = WCSession.default
-        guard session.activationState == .activated else { return }
+        guard session.activationState == .activated else {
+            // A snapshot request is asked again on activation; anything else waits for it.
+            if event != .requestSnapshot { waiting.append(event) }
+            return
+        }
         let payload = SyncCodec.encode(event, key: SyncCodec.eventKey)
         if session.isReachable {
             session.sendMessage(payload, replyHandler: { _ in }, errorHandler: { _ in
@@ -39,6 +45,13 @@ final class PhoneBridge: NSObject {
         requestSnapshot()
     }
 
+    private func flushWaiting() {
+        guard WCSession.default.activationState == .activated else { return }
+        let events = waiting
+        waiting = []
+        events.forEach(send)
+    }
+
     private func receive(_ snapshot: WatchSnapshot) {
         store?.apply(snapshot)
     }
@@ -49,6 +62,7 @@ extension PhoneBridge: WCSessionDelegate {
         let context = SyncCodec.decode(WatchSnapshot.self, from: session.receivedApplicationContext, key: SyncCodec.snapshotKey)
         Task { @MainActor in
             if let context { self.receive(context) }
+            self.flushWaiting()
             self.requestSnapshot()
         }
     }

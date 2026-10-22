@@ -16,10 +16,17 @@ enum OpenLibrary {
         let subject: [String]?
     }
 
+    /// Open Library asks apps to name themselves and give a contact in the User-Agent, so they can reach the
+    /// developer instead of blocking the traffic.
+    static var userAgent: String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
+        return "Leaf/\(version) (iOS reading planner; norvodesigns@gmail.com)"
+    }
+
     static let session: URLSession = {
         let configuration = URLSessionConfiguration.default
         configuration.timeoutIntervalForRequest = 12
-        configuration.httpAdditionalHeaders = ["User-Agent": "Leaf/1.0 (iOS reading planner)"]
+        configuration.httpAdditionalHeaders = ["User-Agent": userAgent]
         return URLSession(configuration: configuration)
     }()
 

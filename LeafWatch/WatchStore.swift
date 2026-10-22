@@ -277,10 +277,9 @@ final class WatchStore {
     func startSteep(_ tea: WatchTea, now: Date = Date()) {
         steep = SteepTimer(tea: tea, startedAt: now)
         guard persist else { return }
+        // The notification is the one tap when it's ready. No extended runtime for the steep alone: the mindfulness
+        // session is for reading (App Review 2.5.4), and it starts with the reading session.
         scheduleSteepNotification(tea: tea, seconds: Double(tea.steepSeconds))
-        // The same runtime that keeps a session alive keeps Leaf in the Dock while the tea steeps; the notification is
-        // still the one tap when it's ready.
-        if snapshot.activeSession == nil { ReadingRuntime.shared.begin(secondsToGoal: nil) }
         publishComplications()
     }
 
@@ -288,7 +287,6 @@ final class WatchStore {
         steep = nil
         cancelSteepNotification()
         guard persist else { return }
-        if snapshot.activeSession == nil { ReadingRuntime.shared.end() }
         publishComplications()
     }
 
