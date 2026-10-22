@@ -43,16 +43,20 @@ struct NewCircleSheet: View {
     var body: some View {
         Group {
             if choices.isEmpty {
-                EmptyState(
-                    title: "Pick a book first.",
-                    message: "A circle reads one book together. Add it to Reading or To read, then come back.",
-                    actionTitle: "Find a book"
-                ) {
-                    dismiss()
-                    router.tab = .search
+                VStack(alignment: .leading, spacing: Canopy.Space.m) {
+                    Text("Pick a book first")
+                        .canopyText(.headline)
+                    Text("A circle reads one book together. Add it to Reading or Up next, then come back.")
+                        .canopyText(.callout, color: Canopy.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    CanopyGlassButton("Find a book", systemImage: "magnifyingglass", accent: .forest, compact: true) {
+                        dismiss()
+                        router.tab = .search
+                    }
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .paperBackground()
+                .canopyCard()
+                .padding(Canopy.Space.margin)
+                .frame(maxHeight: .infinity, alignment: .top)
             } else {
                 form
             }
@@ -85,40 +89,37 @@ struct NewCircleSheet: View {
             } header: {
                 header("Book")
             }
-            .listRowBackground(Color.paperRaised)
+            .listRowBackground(Canopy.surface.opacity(0.7))
 
             Section {
                 TextField("Name", text: $name, prompt: Text(book.map { "\($0.title) circle" } ?? "Book club"))
-                    .font(LeafType.uiBody)
+                    .canopyText(.body)
                     .submitLabel(.done)
                 ScrollView(.horizontal) {
-                    HStack(spacing: Space.s) {
+                    HStack(spacing: Canopy.Space.s) {
                         ForEach(Self.nameSuggestions, id: \.self) { suggestion in
-                            Button {
-                                Haptics.shared.selection()
+                            CanopyChip(suggestion, accent: .bloom, isSelected: name == suggestion) {
                                 name = suggestion
-                            } label: {
-                                Chip(suggestion, tone: name == suggestion ? .accent : .neutral)
-                                    .frame(minHeight: Space.hitTarget)
                             }
-                            .buttonStyle(.pressable)
+                            .frame(minHeight: Canopy.Space.hitTarget)
                         }
                     }
+                    .padding(.vertical, Canopy.Space.xxs)
                 }
                 .scrollIndicators(.hidden)
             } header: {
                 header("Name")
             }
-            .listRowBackground(Color.paperRaised)
+            .listRowBackground(Canopy.surface.opacity(0.7))
 
             Section {
                 DatePicker("Start reading", selection: $startsOn, displayedComponents: .date)
-                    .font(LeafType.uiBody)
+                    .canopyText(.body)
                 DatePicker("First meeting", selection: $firstMeeting, in: startsOn..., displayedComponents: [.date, .hourAndMinute])
-                    .font(LeafType.uiBody)
+                    .canopyText(.body)
                 Stepper(value: $count, in: 1...12) {
                     Text(count == 1 ? "One meeting, at the end" : "\(count) meetings")
-                        .leafStyle(.uiBody)
+                        .canopyText(.body)
                 }
                 if count > 1 {
                     Picker("How often", selection: $everyDays) {
@@ -126,71 +127,70 @@ struct NewCircleSheet: View {
                             Text(interval.title).tag(interval.days)
                         }
                     }
-                    .font(LeafType.uiBody)
+                    .canopyText(.body)
                 }
                 TextField("Where (optional)", text: $place, prompt: Text("Where (optional)"))
-                    .font(LeafType.uiBody)
+                    .canopyText(.body)
                     .submitLabel(.done)
             } header: {
                 header("Meetings")
             } footer: {
                 schedulePreview
             }
-            .listRowBackground(Color.paperRaised)
+            .listRowBackground(Canopy.surface.opacity(0.7))
 
             Section {
                 ForEach(friends.indices, id: \.self) { index in
                     TextField("Name", text: friendBinding(index), prompt: Text(index == 0 ? "A friend’s name" : "Another name"))
-                        .font(LeafType.uiBody)
+                        .canopyText(.body)
                         .textContentType(.name)
                         .submitLabel(.next)
                         .onSubmit(addRowIfFull)
                 }
                 Button {
-                    Haptics.shared.tap()
+                    CanopyFeel.play(.tap)
                     friends.append("")
                 } label: {
                     Label("Add someone", systemImage: "plus")
-                        .leafStyle(.uiBody, color: .accent)
+                        .canopyText(.body, color: CanopyAccent.forest.color)
                 }
             } header: {
                 header("Who’s reading")
             } footer: {
                 Text("Friends are kept on this iPhone by name. You move their pages along when they tell you.")
-                    .leafStyle(.caption)
+                    .canopyText(.caption)
             }
-            .listRowBackground(Color.paperRaised)
+            .listRowBackground(Canopy.surface.opacity(0.7))
         }
         .scrollContentBackground(.hidden)
-        .paperBackground()
-        .tint(Color.accent)
+        .tint(CanopyAccent.forest.color)
         .onChange(of: bookID) { _, _ in suggestCount() }
     }
 
     private var schedulePreview: some View {
-        VStack(alignment: .leading, spacing: Space.xs) {
+        VStack(alignment: .leading, spacing: Canopy.Space.xs) {
             ForEach(Array(meetings.prefix(6).enumerated()), id: \.element.id) { index, meeting in
-                HStack(alignment: .firstTextBaseline, spacing: Space.s) {
+                HStack(alignment: .firstTextBaseline, spacing: Canopy.Space.s) {
                     Text(LeafFormat.relativeDay(meeting.date, today: store.now))
-                        .leafStyle(.caption, color: .ink)
-                    LeaderDots()
+                        .canopyText(.caption, color: CanopyAccent.dusk.color)
+                    Spacer(minLength: Canopy.Space.s)
                     Text("to p. \(meeting.throughPage)")
-                        .leafStyle(.caption)
-                        .monospacedDigit()
+                        .font(.system(.footnote, design: .rounded, weight: .medium).monospacedDigit())
+                        .foregroundStyle(Canopy.textSecondary)
                 }
                 .accessibilityElement(children: .combine)
             }
             if meetings.count > 6 {
                 Text("and \(meetings.count - 6) more")
-                    .leafStyle(.caption, color: .inkTertiary)
+                    .canopyText(.caption)
             }
             if let minutes = minutesPerDay {
                 Text("About \(minutes) minutes a day at your pace.")
-                    .leafStyle(.caption)
-                    .padding(.top, Space.xs)
+                    .canopyText(.caption, color: CanopyAccent.forest.color)
+                    .padding(.top, Canopy.Space.xs)
             }
         }
-        .padding(.top, Space.xs)
+        .padding(.top, Canopy.Space.xs)
     }
 
     /// What the first stretch asks of the reader, at their pace.
@@ -205,7 +205,7 @@ struct NewCircleSheet: View {
     }
 
     private func header(_ title: String) -> some View {
-        Text(title).leafStyle(.eyebrow)
+        Text(title).canopyText(.label, color: CanopyAccent.bloom.color).textCase(nil)
     }
 
     private func friendBinding(_ index: Int) -> Binding<String> {
@@ -245,7 +245,7 @@ struct NewCircleSheet: View {
         let circle = CircleStore.shared.create(
             name: name, book: book, startsOn: startsOn, meetings: planned, friends: friends, now: store.now
         )
-        Haptics.shared.play(.pageTurn)
+        CanopyFeel.play(.planChanged)
         onCreated(circle.id)
         dismiss()
     }
@@ -295,7 +295,7 @@ struct CircleMemberSheet: View {
         .onAppear(perform: load)
         .confirmationDialog("Take \(member?.name ?? "them") out of the circle?", isPresented: $confirmsRemove, titleVisibility: .visible) {
             Button("Remove", role: .destructive) {
-                Haptics.shared.warning()
+                CanopyFeel.play(.warning)
                 CircleStore.shared.removeMember(memberID, from: circleID, now: store.now)
                 dismiss()
             }
@@ -309,63 +309,75 @@ struct CircleMemberSheet: View {
             for: circle, myPage: store.item(circle.book.id)?.currentPage, wpm: store.wpm, now: store.now, calendar: .current
         )
         ScrollView {
-            VStack(spacing: Space.l) {
+            VStack(spacing: Canopy.Space.l) {
                 if followsLibrary {
                     libraryNote(circle)
                 } else {
                     Text("\(page)")
-                        .leafStyle(.heroNumeral)
-                        .numericBlur(value: Double(page))
+                        .font(.custom(LeafFontName.regular, size: 96, relativeTo: .largeTitle))
+                        .foregroundStyle(Canopy.text)
+                        .contentTransition(.numericText(value: Double(page)))
+                        .animation(Canopy.Motion.snappy, value: page)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                         .accessibilityHidden(true)
                     Text("of \(pages) pages")
-                        .leafStyle(.caption)
+                        .canopyText(.caption)
                     PageScrubber(page: $page, range: 0...pages, estimate: nil)
-                    HStack(spacing: Space.s) {
+                    HStack(spacing: Canopy.Space.s) {
                         if let next = snapshot.nextMeeting {
                             shortcut("Up to p. \(next.throughPage)", page: next.throughPage)
                         }
                         shortcut("Finished", page: pages)
                     }
                     Stepper("Page \(page)", value: $page, in: 0...pages)
-                        .font(LeafType.uiBody)
-                        .padding(.horizontal, Space.margin)
+                        .canopyText(.body)
+                        .padding(.horizontal, Canopy.Space.margin)
                 }
 
                 if member.kind != .me || !followsLibrary {
-                    VStack(alignment: .leading, spacing: Space.xs) {
-                        Eyebrow("Name")
+                    VStack(alignment: .leading, spacing: Canopy.Space.xs) {
+                        Text("Name")
+                            .canopyText(.label, color: CanopyAccent.bloom.color)
                         TextField("Name", text: $name)
-                            .font(LeafType.uiBody)
+                            .canopyText(.body)
                             .submitLabel(.done)
-                            .padding(Space.m)
-                            .background(Color.paperSunken, in: RoundedRectangle(cornerRadius: Radius.tile, style: .continuous))
+                            .padding(.horizontal, Canopy.Space.l)
+                            .frame(minHeight: Canopy.Space.hitTarget)
+                            .canopyGlass(interactive: false, in: RoundedRectangle(cornerRadius: Canopy.Radius.control, style: .continuous))
                     }
-                    .padding(.horizontal, Space.margin)
+                    .padding(.horizontal, Canopy.Space.margin)
                 }
 
                 if member.kind != .me {
-                    TextButton("Take \(member.name) out of the circle", color: .inkSecondary) {
+                    Button {
+                        CanopyFeel.play(.tap)
                         confirmsRemove = true
+                    } label: {
+                        Text("Take \(member.name) out of the circle")
+                            .canopyText(.callout, color: Canopy.textSecondary)
+                            .frame(minHeight: Canopy.Space.hitTarget)
                     }
+                    .buttonStyle(.plain)
                 }
             }
-            .padding(.vertical, Space.l)
+            .padding(.vertical, Canopy.Space.l)
         }
         .scrollBounceBehavior(.basedOnSize)
-        .paperBackground()
     }
 
     private func libraryNote(_ circle: ReadingCircle) -> some View {
         let page = store.item(circle.book.id)?.currentPage ?? 0
-        return VStack(spacing: Space.m) {
+        return VStack(spacing: Canopy.Space.m) {
             Text("p. \(page)")
-                .leafStyle(.heroNumeral)
+                .font(.custom(LeafFontName.regular, size: 72, relativeTo: .largeTitle))
+                .foregroundStyle(Canopy.text)
             Text("Your page in the circle follows \(Text(circle.book.title).italic()) in your library, so it moves as you read.")
-                .leafStyle(.body, color: .inkSecondary)
+                .canopyText(.body, color: Canopy.textSecondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, Space.margin)
-            SecondaryGlassButton("Change where you are", systemImage: "bookmark", compact: true) {
+                .padding(.horizontal, Canopy.Space.margin)
+            CanopyGlassButton("Change where you are", systemImage: "book.pages", accent: .forest, compact: true) {
                 let bookID = circle.book.id
                 dismiss()
                 // The position sheet opens over the tabs once this one has gone.
@@ -374,19 +386,15 @@ struct CircleMemberSheet: View {
                     router.askPosition(for: bookID)
                 }
             }
-            .padding(.horizontal, Space.margin)
+            .padding(.horizontal, Canopy.Space.margin)
         }
     }
 
     private func shortcut(_ title: String, page target: Int) -> some View {
-        Button {
-            Haptics.shared.selection()
+        CanopyChip(title, accent: .forest, isSelected: page == target) {
             page = target
-        } label: {
-            Chip(title, tone: page == target ? .accent : .neutral)
-                .frame(minHeight: Space.hitTarget)
         }
-        .buttonStyle(.pressable)
+        .frame(minHeight: Canopy.Space.hitTarget)
     }
 
     private func load() {
@@ -399,7 +407,7 @@ struct CircleMemberSheet: View {
     private func save() {
         guard let member else { return }
         if page != member.page {
-            Haptics.shared.play(.pageTurn)
+            CanopyFeel.play(.pageLogged)
             CircleStore.shared.setPage(page, member: memberID, in: circleID, now: store.now)
         }
         if name != member.name {
@@ -422,24 +430,24 @@ struct CircleAddFriendSheet: View {
     private var trimmed: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Space.m) {
+        VStack(alignment: .leading, spacing: Canopy.Space.m) {
             Text("Who else is reading?")
-                .leafStyle(.title)
+                .canopyText(.headline)
             TextField("Name", text: $name, prompt: Text("Their name"))
-                .font(LeafType.uiBody)
+                .canopyText(.body)
                 .textContentType(.name)
                 .submitLabel(.done)
                 .focused($focused)
                 .onSubmit(add)
-                .padding(Space.m)
-                .background(Color.paperSunken, in: RoundedRectangle(cornerRadius: Radius.tile, style: .continuous))
+                .padding(.horizontal, Canopy.Space.l)
+                .frame(minHeight: Canopy.Space.hitTarget)
+                .canopyGlass(interactive: false, in: RoundedRectangle(cornerRadius: Canopy.Radius.control, style: .continuous))
             Text("They start at the beginning. Tap their ring to move them along.")
-                .leafStyle(.caption)
+                .canopyText(.caption)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
-        .padding(Space.margin)
-        .paperBackground()
+        .padding(Canopy.Space.margin)
         .navigationTitle("Add someone")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -456,7 +464,7 @@ struct CircleAddFriendSheet: View {
 
     private func add() {
         guard !trimmed.isEmpty else { return }
-        Haptics.shared.play(.pageTurn)
+        CanopyFeel.play(.planChanged)
         CircleStore.shared.addFriend(trimmed, to: circleID, now: store.now)
         dismiss()
     }
@@ -482,40 +490,39 @@ struct CircleScheduleSheet: View {
                 let binding = self.binding(for: meeting.id, fallback: meeting)
                 Section {
                     DatePicker("Date", selection: binding.date, displayedComponents: [.date, .hourAndMinute])
-                        .font(LeafType.uiBody)
+                        .canopyText(.body)
                     Stepper(value: binding.throughPage, in: 1...pages, step: 5) {
                         Text("Up to page \(meeting.throughPage)")
-                            .leafStyle(.uiBody)
+                            .canopyText(.body)
                             .monospacedDigit()
                     }
                     TextField("Where", text: placeBinding(binding), prompt: Text("Where (optional)"))
-                        .font(LeafType.uiBody)
+                        .canopyText(.body)
                     Button("Remove this meeting", role: .destructive) {
-                        Haptics.shared.tap()
+                        CanopyFeel.play(.tap)
                         meetings.removeAll { $0.id == meeting.id }
                     }
                 } header: {
-                    Text(LeafFormat.format(meeting.date, template: "EEEEMMMd")).leafStyle(.eyebrow)
+                    Text(LeafFormat.format(meeting.date, template: "EEEEMMMd")).canopyText(.label, color: CanopyAccent.dusk.color).textCase(nil)
                 }
-                .listRowBackground(Color.paperRaised)
+                .listRowBackground(Canopy.surface.opacity(0.7))
             }
             Section {
                 Button {
-                    Haptics.shared.tap()
+                    CanopyFeel.play(.tap)
                     addMeeting(pages: pages)
                 } label: {
                     Label("Add a meeting", systemImage: "plus")
-                        .leafStyle(.uiBody, color: .accent)
+                        .canopyText(.body, color: CanopyAccent.forest.color)
                 }
             } footer: {
                 Text("Pages only go forward: a meeting can’t read to an earlier page than the one before it.")
-                    .leafStyle(.caption)
+                    .canopyText(.caption)
             }
-            .listRowBackground(Color.paperRaised)
+            .listRowBackground(Canopy.surface.opacity(0.7))
         }
         .scrollContentBackground(.hidden)
-        .paperBackground()
-        .tint(Color.accent)
+        .tint(CanopyAccent.forest.color)
         .navigationTitle("Schedule")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -569,7 +576,7 @@ struct CircleScheduleSheet: View {
             if circle.meetings.first(where: { $0.id == meeting.id }) != meeting { meeting.updatedAt = now }
             return meeting
         }
-        Haptics.shared.play(.pageTurn)
+        CanopyFeel.play(.planChanged)
         CircleStore.shared.update(circle, now: now)
         dismiss()
     }

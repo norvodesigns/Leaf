@@ -2,8 +2,7 @@ import SwiftUI
 
 // MARK: - Club shelf
 
-/// Every circle as a cover on a shelf, the chosen one underlined in ribbon like the Plan switcher, with a blank
-/// spine at the end for a new one.
+/// Every circle as a cover on a shelf, the chosen one underlined in Bloom, with a glass spine at the end for a new one.
 struct CircleShelf: View {
     let circles: [ReadingCircle]
     let selectedID: UUID?
@@ -15,13 +14,13 @@ struct CircleShelf: View {
 
     var body: some View {
         ScrollView(.horizontal) {
-            HStack(alignment: .top, spacing: Space.l) {
+            HStack(alignment: .top, spacing: Canopy.Space.l) {
                 ForEach(circles) { circle in
                     tile(circle)
                 }
                 newTile
             }
-            .padding(.vertical, Space.xs)
+            .padding(.vertical, Canopy.Space.xs)
             .scrollTargetLayout()
         }
         .scrollIndicators(.hidden)
@@ -34,55 +33,57 @@ struct CircleShelf: View {
         return Button {
             onSelect(circle.id)
         } label: {
-            VStack(alignment: .leading, spacing: Space.s) {
+            VStack(alignment: .leading, spacing: Canopy.Space.s) {
                 BookCover(book: circle.book, size: .m)
+                    .clipShape(RoundedRectangle(cornerRadius: Canopy.Radius.cover, style: .continuous))
                     .coverShadow(.m)
-                    .opacity(circle.isArchived ? 0.6 : 1)
-                VStack(alignment: .leading, spacing: 2) {
+                    .opacity(circle.isArchived ? 0.55 : 1)
+                VStack(alignment: .leading, spacing: Canopy.Space.xxs) {
                     Text(circle.name)
-                        .leafStyle(.ui, color: isSelected ? Color.ink : Color.inkSecondary)
+                        .canopyText(.callout, color: isSelected ? Canopy.text : Canopy.textSecondary)
+                        .fontWeight(isSelected ? .semibold : .regular)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                     Text(when(circle))
-                        .leafStyle(.caption, color: .inkTertiary)
+                        .canopyText(.caption, color: circle.isArchived ? Canopy.textSecondary : CanopyAccent.dusk.color)
                         .lineLimit(1)
                 }
                 ZStack {
                     if isSelected {
                         Capsule()
-                            .fill(Color.ribbon)
+                            .fill(CanopyAccent.bloom.color)
                             .matchedGeometryEffect(id: "underline", in: underline)
                     }
                 }
-                .frame(height: 2)
+                .frame(height: 3)
             }
             .frame(width: 96, alignment: .leading)
             .contentShape(.rect)
         }
-        .buttonStyle(.pressable)
+        .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(circle.name), reading \(circle.book.title). \(when(circle))")
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 
     private var newTile: some View {
-        Button(action: onNew) {
-            VStack(alignment: .leading, spacing: Space.s) {
-                RoundedRectangle(cornerRadius: Radius.cover, style: .continuous)
-                    .strokeBorder(Color.hairlineStrong, style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+        Button {
+            CanopyFeel.play(.tap)
+            onNew()
+        } label: {
+            VStack(alignment: .leading, spacing: Canopy.Space.s) {
+                Image(systemName: "plus")
+                    .font(.system(.title2, weight: .medium))
+                    .foregroundStyle(CanopyAccent.bloom.color)
                     .frame(width: 96, height: 144)
-                    .overlay {
-                        Image(systemName: "plus")
-                            .font(.system(size: 22, weight: .light))
-                            .foregroundStyle(Color.inkSecondary)
-                    }
+                    .canopyGlass(.bloom, in: RoundedRectangle(cornerRadius: Canopy.Radius.control, style: .continuous))
                 Text("New circle")
-                    .leafStyle(.ui, color: .inkSecondary)
+                    .canopyText(.callout, color: Canopy.textSecondary)
             }
             .frame(width: 96, alignment: .leading)
             .contentShape(.rect)
         }
-        .buttonStyle(.pressable)
+        .buttonStyle(.plain)
         .accessibilityLabel("Start a new circle")
     }
 
@@ -98,7 +99,8 @@ struct CircleShelf: View {
 
 // MARK: - Next meeting
 
-/// The chosen circle's headline: the book, the next meeting, the reader's way there, and one way to start reading.
+/// The chosen circle's headline: the book, the next meeting (Dusk), the reader's way there (Forest), and one way to
+/// start reading. A glass card; the one black Hero stays on Today.
 struct CircleMeetingCard: View {
     let circle: ReadingCircle
     let snapshot: CircleSnapshot
@@ -108,59 +110,72 @@ struct CircleMeetingCard: View {
     let onAdd: () -> Void
 
     var body: some View {
-        TodayCard(eyebrow) {
-            HStack(alignment: .top, spacing: Space.m) {
-                BookCover(book: circle.book, size: .s)
-                    .coverShadow(.s)
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(circle.name)
-                        .leafStyle(.title)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text("\(Text(circle.book.title).italic()) by \(circle.book.author)")
-                        .leafStyle(.author)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer(minLength: 0)
+        VStack(alignment: .leading, spacing: Canopy.Space.l) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(eyebrow)
+                    .canopyText(.label, color: CanopyAccent.dusk.color)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer(minLength: Canopy.Space.s)
                 if snapshot.isComplete {
-                    StampSeal(rings: 3, token: CozyPalette.matcha, diameter: 48, symbol: "person.2")
-                        .accessibilityLabel("Read together stamp")
+                    Image(systemName: "rosette")
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(CanopyAccent.bloom.color)
+                        .accessibilityLabel("Read together")
+                }
+            }
+
+            HStack(alignment: .top, spacing: Canopy.Space.m) {
+                BookCover(book: circle.book, size: .s)
+                    .clipShape(RoundedRectangle(cornerRadius: Canopy.Radius.cover, style: .continuous))
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: Canopy.Space.xxs) {
+                    Text(circle.name)
+                        .canopyText(.headline)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(circle.book.title)
+                        .font(.system(.body, design: .serif, weight: .semibold))
+                        .foregroundStyle(Canopy.text)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(circle.book.author)
+                        .canopyText(.caption)
                 }
             }
             .accessibilityElement(children: .combine)
 
             Text(snapshot.statusLine)
-                .leafStyle(.body, color: .inkSecondary)
+                .canopyText(.body, color: Canopy.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            if let me = snapshot.me {
-                VStack(alignment: .leading, spacing: Space.xs) {
-                    PageSpanBar(current: me.page, todayTo: max(me.page, snapshot.sectionEnd), total: circle.book.pages)
-                        .accessibilityHidden(true)
-                    Text(pagesLine(me.page))
-                        .leafStyle(.caption)
+            if let me = snapshot.me, let next = snapshot.nextMeeting {
+                VStack(alignment: .leading, spacing: Canopy.Space.xs) {
+                    CanopyProgressBar(value: Double(me.page) / Double(max(1, next.throughPage)))
+                    Text("p. \(me.page) of \(next.throughPage) for this meeting · \(circle.book.pages) in the book")
+                        .canopyText(.caption)
                         .monospacedDigit()
                 }
-                .accessibilityElement(children: .combine)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("You’re on page \(me.page). This meeting reads to page \(next.throughPage).")
             }
 
             if let place = snapshot.nextMeeting?.place, !place.isEmpty {
                 Label(place, systemImage: "mappin.and.ellipse")
-                    .leafStyle(.caption, color: .inkSecondary)
+                    .symbolRenderingMode(.hierarchical)
+                    .canopyText(.caption)
             }
 
             action
         }
+        .canopyCard()
     }
 
     @ViewBuilder
     private var action: some View {
         if let item {
             if item.shelf != .finished, snapshot.myPagesToGo > 0, let next = snapshot.nextMeeting {
-                SecondaryGlassButton("Read towards page \(next.throughPage)", systemImage: "book", compact: true, playsHaptic: false, action: onRead)
+                CanopyGlassButton("Read to page \(next.throughPage)", systemImage: "book.pages", accent: .forest, compact: true, feel: nil, action: onRead)
             }
         } else if !snapshot.isComplete {
-            SecondaryGlassButton("Add to Reading", systemImage: "plus", compact: true, playsHaptic: false, action: onAdd)
+            CanopyGlassButton("Add to Reading", systemImage: "plus", accent: .forest, compact: true, feel: .keep, action: onAdd)
                 .accessibilityHint("Your page in the circle then follows your library.")
         }
     }
@@ -171,77 +186,69 @@ struct CircleMeetingCard: View {
             return snapshot.isComplete ? "All met" : "No meetings yet"
         }
         let day = LeafFormat.relativeDay(next.date, today: now)
+        let time = LeafFormat.format(next.date, template: "jmm")
         let count = circle.meetings.count
-        return count > 1 ? "Meeting \(index + 1) of \(count) · \(day)" : "Meeting · \(day)"
-    }
-
-    private func pagesLine(_ page: Int) -> String {
-        let of = "p. \(page) of \(circle.book.pages)"
-        guard let next = snapshot.nextMeeting else { return of }
-        return "\(of) · meeting reads to p. \(next.throughPage)"
+        return count > 1 ? "Meeting \(index + 1) of \(count) · \(day), \(time)" : "Meeting · \(day), \(time)"
     }
 }
 
 // MARK: - Members
 
-/// A ring for everyone in the circle, filled to their page in the book, with where they stand against the next
+/// A Forest ring for everyone in the circle, filled to their page in the book, with where they stand against the next
 /// meeting underneath. Tap a ring to move someone along.
 struct CircleMemberGrid: View {
     let snapshot: CircleSnapshot
     let pages: Int
     let onEdit: (CircleMember) -> Void
 
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
-    private var diameter: CGFloat { dynamicTypeSize.isAccessibilitySize ? 76 : 60 }
+    @ScaledMetric(relativeTo: .body) private var diameter: CGFloat = 60
 
     var body: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: diameter + 24), spacing: Space.m, alignment: .top)], spacing: Space.l) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: diameter + 24), spacing: Canopy.Space.m, alignment: .top)], spacing: Canopy.Space.l) {
             ForEach(snapshot.members) { progress in
                 Button {
-                    Haptics.shared.tap()
+                    CanopyFeel.play(.tap)
                     onEdit(progress.member)
                 } label: {
                     cell(progress)
                 }
-                .buttonStyle(.pressable)
+                .buttonStyle(.plain)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(label(progress))
                 .accessibilityHint(progress.member.kind == .me ? "Shows where you are" : "Updates their page")
                 .accessibilityAddTraits(.isButton)
             }
         }
+        .canopyCard()
     }
 
     private func cell(_ progress: CircleMemberProgress) -> some View {
-        VStack(spacing: Space.xs) {
-            ProgressRing(
-                progress: progress.fraction, diameter: diameter, lineWidth: 5,
-                tint: CozyColor.color(for: progress.member.paletteToken), label: progress.member.name
-            )
-            .overlay {
+        VStack(spacing: Canopy.Space.xs) {
+            CanopyRing(value: progress.fraction, accent: .forest, lineWidth: 5) {
                 if progress.pace == .finished {
                     Image(systemName: "checkmark")
-                        .font(.system(size: diameter * 0.28, weight: .medium))
-                        .foregroundStyle(Color.accent)
+                        .font(.system(.title3, weight: .semibold))
+                        .foregroundStyle(CanopyAccent.forest.color)
                 } else {
                     Text(progress.member.initials)
-                        .font(.system(size: diameter * 0.3, weight: .regular, design: .serif))
-                        .foregroundStyle(Color.ink)
+                        .font(.system(.headline, design: .rounded, weight: .semibold))
+                        .foregroundStyle(Canopy.text)
+                        .minimumScaleFactor(0.6)
                 }
             }
-            Text(progress.member.name)
-                .leafStyle(.ui)
+            .frame(width: diameter, height: diameter)
+            Text(progress.member.kind == .me ? "You" : progress.member.name)
+                .canopyText(.callout)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             Text("p. \(progress.page)")
-                .leafStyle(.caption)
-                .monospacedDigit()
+                .font(.system(.footnote, design: .rounded, weight: .medium).monospacedDigit())
+                .foregroundStyle(Canopy.textSecondary)
             Text(paceWord(progress.pace))
-                .leafStyle(.caption, color: progress.pace == .ready || progress.pace == .finished ? Color.accent : Color.inkTertiary)
+                .canopyText(.caption, color: progress.pace == .ready || progress.pace == .finished ? CanopyAccent.forest.color : Canopy.textSecondary)
         }
         .frame(maxWidth: .infinity)
-        .frame(minHeight: Space.hitTarget)
+        .frame(minHeight: Canopy.Space.hitTarget)
         .contentShape(.rect)
     }
 
@@ -262,8 +269,8 @@ struct CircleMemberGrid: View {
 
 // MARK: - Questions
 
-/// Questions for the next meeting as paper cards to swipe through, with another set a tap away and a way to send
-/// the lot to the circle (as text, through the share sheet).
+/// Questions for the next meeting as Bloom-washed glass cards to swipe through, another set a tap away, and a way to
+/// send them to the circle (as text, through the share sheet). A new set arrives with Focus In.
 struct CirclePromptDeck: View {
     let circle: ReadingCircle
     let snapshot: CircleSnapshot
@@ -278,15 +285,14 @@ struct CirclePromptDeck: View {
 
     var body: some View {
         let set = prompts
-        VStack(alignment: .leading, spacing: 0) {
-            SectionHeader(header, actionTitle: "Other questions") {
-                Haptics.shared.play(.pageTurn)
-                withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
+        VStack(alignment: .leading, spacing: Canopy.Space.m) {
+            CanopyLabel(header, accent: .bloom, linkTitle: "Other questions") {
+                withAnimation(Canopy.Motion.resolved(Canopy.Motion.focusIn, reduceMotion: reduceMotion)) {
                     shuffle += 1
                 }
             }
             ScrollView(.horizontal) {
-                HStack(alignment: .top, spacing: Space.m) {
+                HStack(alignment: .top, spacing: Canopy.Space.m) {
                     ForEach(Array(set.enumerated()), id: \.element.id) { index, prompt in
                         card(prompt, number: index + 1, of: set.count)
                     }
@@ -297,14 +303,19 @@ struct CirclePromptDeck: View {
             .scrollClipDisabled()
             .scrollTargetBehavior(.viewAligned)
             .id(shuffle)
-            .focusPullTransition(radius: 8)
+            .canopyFocusInTransition()
 
             ShareLink(item: shareText(set)) {
                 Label("Send to the circle", systemImage: "square.and.arrow.up")
-                    .leafStyle(.ui, color: .accent)
-                    .frame(minHeight: Space.hitTarget)
+                    .font(.system(.subheadline, weight: .semibold))
+                    .foregroundStyle(Canopy.text)
+                    .padding(.horizontal, Canopy.Space.l)
+                    .frame(minHeight: Canopy.Space.hitTarget)
+                    .contentShape(.capsule)
             }
-            .padding(.top, Space.s)
+            .buttonStyle(.plain)
+            .canopyGlass()
+            .simultaneousGesture(TapGesture().onEnded { CanopyFeel.play(.tap) })
         }
     }
 
@@ -315,24 +326,22 @@ struct CirclePromptDeck: View {
     }
 
     private func card(_ prompt: CirclePrompt, number: Int, of count: Int) -> some View {
-        VStack(alignment: .leading, spacing: Space.m) {
-            Eyebrow(kindTitle(prompt.kind))
+        VStack(alignment: .leading, spacing: Canopy.Space.m) {
+            Text(kindTitle(prompt.kind))
+                .canopyText(.label, color: CanopyAccent.bloom.color)
             Text(prompt.text)
-                .leafStyle(.title)
+                .font(.system(.title3, design: .serif))
+                .foregroundStyle(Canopy.text)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
             Text("\(number) of \(count)")
-                .leafStyle(.caption, color: .inkTertiary)
-                .monospacedDigit()
+                .font(.system(.footnote, design: .rounded, weight: .medium).monospacedDigit())
+                .foregroundStyle(Canopy.textSecondary)
         }
-        .padding(Space.l)
-        .frame(width: 264, alignment: .topLeading)
-        .frame(minHeight: 176, alignment: .topLeading)
-        .background(Color.paperRaised, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
-                .strokeBorder(Color.hairline, lineWidth: 1)
-        }
+        .frame(width: 224, alignment: .topLeading)
+        .frame(minHeight: 150, alignment: .topLeading)
+        .canopyCard(tint: .bloom)
+        .frame(width: 264)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Question \(number) of \(count). \(prompt.text)")
     }
@@ -363,7 +372,8 @@ struct CirclePromptDeck: View {
 
 // MARK: - Schedule
 
-/// The meetings in order: the ones that have been, ticked; the next, marked in ribbon; the rest, waiting.
+/// The meetings in order on one glass card: the ones that have been, ticked in Forest; the next, its date in Dusk; the
+/// rest, waiting.
 struct CircleScheduleList: View {
     let circle: ReadingCircle
     let snapshot: CircleSnapshot
@@ -371,42 +381,46 @@ struct CircleScheduleList: View {
 
     var body: some View {
         let meetings = CirclePlanner.normalized(circle.meetings, pages: circle.book.pages)
-        if meetings.isEmpty {
-            Text("No meetings yet. Add a date and everyone gets a page to aim for.")
-                .leafStyle(.body, color: .inkSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-        } else {
-            VStack(alignment: .leading, spacing: 0) {
-                ForEach(Array(meetings.enumerated()), id: \.element.id) { index, meeting in
-                    row(meeting, index: index, previousPage: index > 0 ? meetings[index - 1].throughPage : 0)
-                    if index < meetings.count - 1 {
-                        Hairline()
+        Group {
+            if meetings.isEmpty {
+                Text("No meetings yet. Add a date and everyone gets a page to aim for.")
+                    .canopyText(.callout, color: Canopy.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(meetings.enumerated()), id: \.element.id) { index, meeting in
+                        row(meeting, index: index, previousPage: index > 0 ? meetings[index - 1].throughPage : 0)
+                        if index < meetings.count - 1 {
+                            Rectangle()
+                                .fill(Canopy.separator)
+                                .frame(height: 1)
+                        }
                     }
                 }
             }
         }
+        .canopyCard()
     }
 
     private func row(_ meeting: CircleMeeting, index: Int, previousPage: Int) -> some View {
         let rowState = state(index)
-        return HStack(alignment: .firstTextBaseline, spacing: Space.s) {
+        return HStack(alignment: .firstTextBaseline, spacing: Canopy.Space.m) {
             marker(rowState)
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(alignment: .firstTextBaseline, spacing: Space.s) {
-                    Text(LeafFormat.relativeDay(meeting.date, today: now))
-                        .leafStyle(.ui, color: rowState == .past ? Color.inkTertiary : Color.ink)
-                    LeaderDots()
-                    Text(LeafFormat.pages(from: previousPage + 1, to: meeting.throughPage))
-                        .leafStyle(.caption, color: rowState == .past ? Color.inkTertiary : Color.inkSecondary)
-                        .monospacedDigit()
-                }
+            VStack(alignment: .leading, spacing: Canopy.Space.xxs) {
+                Text(LeafFormat.relativeDay(meeting.date, today: now))
+                    .canopyText(.body, color: dateColor(rowState))
+                    .fontWeight(rowState == .next ? .semibold : .regular)
                 if let place = meeting.place, !place.isEmpty {
                     Text(place)
-                        .leafStyle(.caption, color: .inkTertiary)
+                        .canopyText(.caption)
                 }
             }
+            Spacer(minLength: Canopy.Space.s)
+            Text(LeafFormat.pages(from: previousPage + 1, to: meeting.throughPage))
+                .font(.system(.subheadline, design: .rounded, weight: .medium).monospacedDigit())
+                .foregroundStyle(rowState == .past ? Canopy.textTertiary : Canopy.textSecondary)
         }
-        .padding(.vertical, Space.m)
+        .padding(.vertical, Canopy.Space.m)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityText(meeting, state: rowState, previousPage: previousPage))
     }
@@ -419,23 +433,28 @@ struct CircleScheduleList: View {
         return index == next ? .next : .later
     }
 
+    private func dateColor(_ state: RowState) -> Color {
+        switch state {
+        case .past: Canopy.textSecondary
+        case .next: CanopyAccent.dusk.color
+        case .later: Canopy.text
+        }
+    }
+
     @ViewBuilder
     private func marker(_ state: RowState) -> some View {
         switch state {
         case .past:
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 13))
-                .foregroundStyle(Color.accent)
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(CanopyAccent.forest.color)
         case .next:
-            Circle()
-                .fill(Color.ribbon)
-                .frame(width: 9, height: 9)
-                .frame(width: 13)
+            Image(systemName: "clock")
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(CanopyAccent.dusk.color)
         case .later:
-            Circle()
-                .strokeBorder(Color.inkFaint, lineWidth: 1)
-                .frame(width: 9, height: 9)
-                .frame(width: 13)
+            Image(systemName: "circle")
+                .foregroundStyle(Canopy.textTertiary)
         }
     }
 

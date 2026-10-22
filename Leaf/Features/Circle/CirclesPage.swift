@@ -1,10 +1,11 @@
 import SwiftUI
 
-/// The Circles page of the Plan tab: reading circles (book clubs, buddy reads) kept on this phone. A shelf of
-/// circles across the top; below it the chosen circle: the next meeting and what it takes to get there, a ring for
-/// everyone in it, questions to bring, and the schedule.
+/// The Circles page under You: reading circles (book clubs, buddy reads) kept on this phone. A shelf of circles across
+/// the top; below it the chosen circle: the next meeting and what it takes to get there, a ring for everyone in it,
+/// questions to bring, and the schedule.
 ///
-/// Friends are added by name and moved along by hand while circles are local. Everything a shared version would
+/// Canopy jobs: Bloom labels the page (it sits with challenges and memories), Forest is progress, Dusk is meeting
+/// times. Friends are added by name and moved along by hand while circles are local. Everything a shared version would
 /// change (who the members are, where their pages come from) sits behind `CircleStore` and `CirclePlanner`, so this
 /// screen stays as it is when that arrives.
 struct CirclesPage: View {
@@ -21,21 +22,14 @@ struct CirclesPage: View {
 
     var body: some View {
         let shelf = circles.shelf(now: store.now)
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: Canopy.Space.section) {
             if shelf.isEmpty {
-                EmptyState(
-                    title: "Read with friends.",
-                    message: "Start a circle for a book club, a buddy read or a long-distance read with someone you love. Everyone gets a page to aim for, and a few good questions for when you meet.",
-                    actionTitle: "Start a circle"
-                ) {
-                    sheet = .new
-                }
-                .padding(.top, Space.xxl)
+                CircleEmptyCard { sheet = .new }
             } else {
                 CircleShelf(circles: shelf, selectedID: current(in: shelf)?.id, now: store.now) { id in
                     guard id != current(in: shelf)?.id else { return }
-                    Haptics.shared.selection()
-                    withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
+                    CanopyFeel.play(.select)
+                    withAnimation(Canopy.Motion.resolved(Canopy.Motion.smooth, reduceMotion: reduceMotion)) {
                         selectedID = id
                         shuffle = 0
                     }
@@ -45,14 +39,14 @@ struct CirclesPage: View {
                 if let circle = current(in: shelf) {
                     detail(circle)
                         .id(circle.id)
-                        .focusPullTransition()
+                        .canopyFocusInTransition()
                 }
             }
         }
         .onAppear { circles.loadIfDeferred() }
         .task { stage(shelf) }
-        .sheet(item: $sheet) { sheet in
-            CircleSheetHost(sheet: sheet) { created in
+        .sheet(item: $sheet) { item in
+            CircleSheetHost(sheet: item) { created in
                 selectedID = created
             }
         }
@@ -63,8 +57,8 @@ struct CirclesPage: View {
         ) {
             Button("Delete circle", role: .destructive) {
                 guard let id = current(in: shelf)?.id else { return }
-                Haptics.shared.warning()
-                withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
+                CanopyFeel.play(.warning)
+                withAnimation(Canopy.Motion.resolved(Canopy.Motion.smooth, reduceMotion: reduceMotion)) {
                     circles.delete(id)
                     selectedID = nil
                 }
@@ -86,20 +80,22 @@ struct CirclesPage: View {
         let snapshot = CirclePlanner.snapshot(
             for: circle, myPage: item?.currentPage, wpm: store.wpm, now: store.now, calendar: .current
         )
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: Canopy.Space.section) {
             CircleMeetingCard(circle: circle, snapshot: snapshot, item: item, now: store.now) {
-                readTowards(circle, snapshot: snapshot)
+                _ = ReadingSessionLauncher.start(
+                    bookID: circle.book.id, store: store, router: router, from: ReadingSessionLauncher.accessorySource
+                )
             } onAdd: {
-                Haptics.shared.play(.pageTurn)
                 store.add(circle.book, to: .reading)
             }
-            .padding(.top, Space.l)
 
-            SectionHeader("The circle", actionTitle: "Add someone") {
-                sheet = .addFriend(circleID: circle.id)
-            }
-            CircleMemberGrid(snapshot: snapshot, pages: circle.book.pages) { member in
-                sheet = .member(circleID: circle.id, memberID: member.id)
+            VStack(alignment: .leading, spacing: Canopy.Space.m) {
+                CanopyLabel("The circle", accent: .bloom, linkTitle: "Add someone") {
+                    sheet = .addFriend(circleID: circle.id)
+                }
+                CircleMemberGrid(snapshot: snapshot, pages: circle.book.pages) { member in
+                    sheet = .member(circleID: circle.id, memberID: member.id)
+                }
             }
             .id("members")
 
@@ -108,11 +104,13 @@ struct CirclesPage: View {
                     .id("prompts")
             }
 
-            SectionHeader("Schedule", actionTitle: "Edit") {
-                sheet = .schedule(circleID: circle.id)
+            VStack(alignment: .leading, spacing: Canopy.Space.m) {
+                CanopyLabel("Schedule", accent: .bloom, linkTitle: "Edit") {
+                    sheet = .schedule(circleID: circle.id)
+                }
+                CircleScheduleList(circle: circle, snapshot: snapshot, now: store.now)
             }
-            CircleScheduleList(circle: circle, snapshot: snapshot, now: store.now)
-                .id("schedule")
+            .id("schedule")
 
             footer(circle)
         }
@@ -120,29 +118,32 @@ struct CirclesPage: View {
 
     private func footer(_ circle: ReadingCircle) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Hairline()
-                .padding(.top, Space.xxl)
-                .padding(.bottom, Space.s)
-            TextButton(circle.isArchived ? "Bring this circle back" : "Put this circle away", color: .inkSecondary) {
-                withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
+            footerButton(circle.isArchived ? "Bring this circle back" : "Put this circle away", color: Canopy.textSecondary) {
+                CanopyFeel.play(.planChanged)
+                withAnimation(Canopy.Motion.resolved(Canopy.Motion.smooth, reduceMotion: reduceMotion)) {
                     circles.setArchived(!circle.isArchived, circle.id, now: store.now)
                 }
             }
-            TextButton("Delete circle", color: .inkTertiary) {
+            footerButton("Delete circle", color: Canopy.textTertiary) {
+                CanopyFeel.play(.tap)
                 confirmsDelete = true
             }
         }
     }
 
-    private func readTowards(_ circle: ReadingCircle, snapshot: CircleSnapshot) {
-        _ = ReadingSessionLauncher.start(
-            bookID: circle.book.id, store: store, router: router, from: ReadingSessionLauncher.accessorySource
-        )
+    private func footerButton(_ title: String, color: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .canopyText(.callout, color: color)
+                .frame(minHeight: Canopy.Space.hitTarget)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: Staging
 
-    /// Screenshots: `router.circleStage` opens a sheet ("new", "member", "schedule") or scrolls (handled by PlanView).
+    /// Screenshots: `router.circleStage` opens a sheet ("new", "member", "schedule"); scrolling is the You tab's.
     private func stage(_ shelf: [ReadingCircle]) {
         guard let stage = router.circleStage else { return }
         switch stage {
@@ -158,6 +159,29 @@ struct CirclesPage: View {
             return
         }
         router.circleStage = nil
+    }
+}
+
+/// No circles yet: what a circle is, and one way to start.
+private struct CircleEmptyCard: View {
+    let onStart: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Canopy.Space.m) {
+            Image(systemName: "person.2")
+                .font(.system(.title2, weight: .medium))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(CanopyAccent.bloom.color)
+                .accessibilityHidden(true)
+            Text("Read with friends")
+                .canopyText(.headline)
+            Text("Start a circle for a book club, a buddy read or a long-distance read with someone you love. Everyone gets a page to aim for, and a few good questions for when you meet.")
+                .canopyText(.callout, color: Canopy.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            CanopyGlassButton("Start a circle", systemImage: "plus", accent: .bloom, compact: true, action: onStart)
+                .padding(.top, Canopy.Space.xs)
+        }
+        .canopyCard()
     }
 }
 
@@ -179,6 +203,7 @@ enum CircleSheet: Identifiable, Hashable {
     }
 }
 
+/// Sheets on system glass, medium first where the content fits (DESIGN_SYSTEM.md §6).
 private struct CircleSheetHost: View {
     let sheet: CircleSheet
     let onCreated: (UUID) -> Void
@@ -197,7 +222,6 @@ private struct CircleSheetHost: View {
             }
         }
         .presentationDetents(detents)
-        .presentationBackground(Color.paper)
     }
 
     private var detents: Set<PresentationDetent> {
@@ -222,9 +246,9 @@ private func circlesPreviewStore() -> LibraryStore {
     NavigationStack {
         ScrollView {
             CirclesPage()
-                .leafMargins()
+                .padding(.horizontal, Canopy.Space.margin)
         }
-        .paperBackground()
+        .canopyBackdrop(.bloom)
     }
     .environment(circlesPreviewStore())
     .environment(AppRouter())
@@ -234,9 +258,9 @@ private func circlesPreviewStore() -> LibraryStore {
     NavigationStack {
         ScrollView {
             CirclesPage()
-                .leafMargins()
+                .padding(.horizontal, Canopy.Space.margin)
         }
-        .paperBackground()
+        .canopyBackdrop(.bloom)
     }
     .environment(circlesPreviewStore())
     .environment(AppRouter())
