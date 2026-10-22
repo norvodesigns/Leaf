@@ -113,6 +113,13 @@ struct TodayView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     if let brief {
                         nook(brief)
+                            .background(alignment: .top) {
+                                // The hour's colour behind the masthead, reaching up under the clock.
+                                TodaySky(daypart: Daypart.of(store.now, calendar: store.calendar))
+                                    .frame(height: 620 + topInset)
+                                    .offset(y: -topInset)
+                                    .padding(.horizontal, -Space.margin)
+                            }
                         cards(brief)
                             .leafMargins()
                             .padding(.top, Space.l)
