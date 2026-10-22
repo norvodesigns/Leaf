@@ -113,7 +113,7 @@ lifecycle, the watch store and its runtime, the control intents and the Focus fi
 | In-app purchase | None. No external purchase links. |
 | Hidden features (2.3.1) | Fixed (B3). Debug-only screens are `#if DEBUG`. |
 | Completeness (2.1) | No placeholder copy, TODOs or "coming soon" in the UI. The iCloud "not in this build" text is gone. |
-| Licensing | Instrument Serif under the OFL, with `OFL.txt` bundled. Every sound is synthesized (AUDIO_SOURCES.md). Speed-test passages are Conan Doyle (public domain). Catalog data is Open Library (CC0), credited in the Colophon. If the "Real scene footage" thread bundles `nook-*.mp4`, record each clip's source and licence the way AUDIO_SOURCES.md does. |
+| Licensing | Instrument Serif under the OFL, with `OFL.txt` bundled. The ambiences are CC0 recordings from BigSoundBank and the cues are synthesized (AUDIO_SOURCES.md). The fireplace and sunrise scenes are Mixkit footage under the Mixkit Stock Video Free License: commercial use, no credit required, not CC0 (SCENE_SOURCES.md). Speed-test passages are Conan Doyle (public domain). Catalog data is Open Library (CC0), credited in the Colophon. |
 | AI (Foundation Models) | On device, opt-in, greetings only, and every output is filtered with a template fallback. Nothing user-to-user, so the UGC rules don't apply. |
 | Accessibility | Good: VoiceOver labels and adjustable actions across custom controls, Dynamic Type including AX sizes, Reduce Motion and Reduce Transparency, dark mode. Increase Contrast now supported. Default tertiary contrast is still low (UI item 3). |
 | Icons | 1024 px, RGB with no alpha, with light, dark and tinted variants, plus the watch icon. |
