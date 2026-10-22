@@ -100,6 +100,7 @@ struct LeafApp: App {
                     switch phase {
                     case .active:
                         loadDeferredLibrary()
+                        store.sync?.retryPendingErase()
                         if !LaunchOptions.current.isScripted { CircleSharing.shared.connect(store) }
                         store.refreshDay(LaunchOptions.current.now())
                         Haptics.shared.prepare()

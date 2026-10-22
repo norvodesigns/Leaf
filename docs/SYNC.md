@@ -173,13 +173,26 @@ while running), both reading at once, a friend removed by the owner, stop sharin
 - Entitlements (already in `Leaf/Leaf.entitlements`): container `iCloud.com.norvodesigns.leaf`, service `CloudKit`,
   `aps-environment`. Info.plist already has `UIBackgroundModes: remote-notification`, which silent change
   notifications need.
-- `Info.plist` key `LeafCloudKitEnabled` must be true for CloudKit to start. Make it `$(LEAF_CLOUDKIT_ENABLED)` with the
-  build setting defaulting to `NO`, and set it to `YES` for signed builds. Unsigned CI builds, and runs with
-  `-LeafDisableCloudKit`, leave sync off.
+- `Info.plist` key `LeafCloudKitEnabled` must be true for CloudKit to start. It is `$(LEAF_CLOUDKIT_ENABLED)`: `NO` in
+  Debug (unsigned CI builds and tests) and `YES` in Release, so an Organizer archive and `scripts/testflight.sh` ship the
+  same thing. To ship without iCloud, set Release to `NO` (or run `LEAF_CLOUDKIT_ENABLED=NO scripts/testflight.sh` for
+  one build). Runs with `-LeafDisableCloudKit` leave sync off.
 - **Deploy the schema to Production** in the CloudKit console before any TestFlight or App Store build. In
   Development the record types appear on first save; Production does not create them. Types: `LeafItem`,
   `LeafSession`, `LeafJournal`, `LeafPreferences`, `LeafSpeedTest`, `LeafDismissal`, `LeafChallenge`,
   `LeafTombstone`, `LeafTea`, `LeafTasting` (the last two new with books and tea), `LeafCircle` (new 2026-10-22), each with `payload` (encrypted bytes), `updatedAt` (date/time) and `schema` (int64).
+
+## Erase and account changes
+
+- **Erase all data** deletes the iCloud zone. If that can't happen now (offline, or the app quits first), a marker file
+  (`sync-erase-pending` beside `sync-state.bin`) keeps sync off, so the old library is never fetched back into the
+  erased one. The erase is retried on every start, on return to the app, and from **Sync now**; Settings shows the error
+  until it succeeds.
+- **A different iCloud account.** The library remembers the iCloud user it syncs with (`leaf.sync.account` in
+  UserDefaults, kept across sign-outs). A switch, a sign-in to another account, or a different account found at launch
+  pauses sync before anything is sent and says so in Settings, with **Sync with this account** to go on; the library
+  then merges with what that account holds. Circle sharing pauses with it. Signing back in to the library's own account
+  carries on as before.
 
 ## Testing it on two devices
 

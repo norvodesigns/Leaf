@@ -120,6 +120,8 @@ jobs:
           [ "$(plist_value "$WAPPEX/Info.plist" CFBundleVersion)" = "$(plist_value "$WATCH/Info.plist" CFBundleVersion)" ] || fail "LeafWatchWidgets.appex build number differs from the watch app"
           plist_value "$WATCH/Info.plist" WKBackgroundModes | grep -q "mindfulness" || fail "LeafWatch.app Info.plist is missing the mindfulness background mode (extended runtime)"
           echo "widget extensions embedded and declared correctly"
+          # The Release setting is what both Organizer and testflight.sh ship (appstore-readiness.md B4).
+          echo "iCloud sync in Release builds: $(plist_value "$APP/Info.plist" LeafCloudKitEnabled)"
           # Required-reason APIs: every bundle whose executable reaches UserDefaults must say so in its own manifest
           # (App Store Connect rejects the upload otherwise, ITMS-91053).
           for BUNDLE in $(find "$APP" -type d \( -name "*.app" -o -name "*.appex" \)); do

@@ -22,6 +22,9 @@ final class CloudSync {
     private static let catchUpSlack: TimeInterval = 3600
 
     private(set) var status: SyncStatus = .off
+    /// A different iCloud account turned up than the one this library syncs with. Nothing goes up until the reader
+    /// says to use it (`useCurrentAccount`), so a borrowed or family account never receives their library unasked.
+    private(set) var isPausedForNewAccount = false
     /// Changes waiting to be sent, for a "syncing 12 changes" line.
     private(set) var pendingChanges = 0
 
@@ -41,9 +44,35 @@ final class CloudSync {
     /// The server's bookkeeping for each record (change tag), so a save is accepted without a conflict first.
     @ObservationIgnored private var systemFields: [String: Data] = [:]
     @ObservationIgnored private let stateURL: URL
+    @ObservationIgnored private let defaults: UserDefaults
+    /// True while an erase of the iCloud copy is under way.
+    @ObservationIgnored private var isErasing = false
 
-    init(stateURL: URL = CloudSync.defaultStateURL) {
+    init(stateURL: URL = CloudSync.defaultStateURL, defaults: UserDefaults = .standard) {
         self.stateURL = stateURL
+        self.defaults = defaults
+        isPausedForNewAccount = defaults.string(forKey: Self.pausedAccountKey) != nil
+    }
+
+    /// The iCloud user (record name) this library last synced with. Kept across sign-outs, so signing out and into
+    /// another account is caught as well as a direct switch.
+    private static let accountKey = "leaf.sync.account"
+    /// The new account sync is paused for (see `isPausedForNewAccount`).
+    private static let pausedAccountKey = "leaf.sync.pausedAccount"
+    static let newAccountMessage = "This iPhone is signed in to a different iCloud account. Leaf paused syncing so your library doesn’t go into it until you say so."
+
+    /// Present while "Erase all data" still has to clear the iCloud copy (it was offline, or the app quit first).
+    /// Until that is done sync stays off, or it would fetch the erased library straight back.
+    private var erasePendingURL: URL { stateURL.deletingLastPathComponent().appendingPathComponent("sync-erase-pending") }
+    private var erasePending: Bool { FileManager.default.fileExists(atPath: erasePendingURL.path) }
+
+    private func setErasePending(_ pending: Bool) {
+        if pending {
+            try? FileManager.default.createDirectory(at: erasePendingURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try? Data().write(to: erasePendingURL, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        } else {
+            try? FileManager.default.removeItem(at: erasePendingURL)
+        }
     }
 
     nonisolated static var defaultStateURL: URL {
@@ -78,12 +107,27 @@ final class CloudSync {
     func start(initial: LeafData) {
         started = true
         mirror = initial
+        guard !isErasing else { return }
+        if CloudSync.isAvailable, erasePending {
+            // The last "Erase all data" couldn't clear iCloud. Finish that first, then go on with the library as it
+            // is now; if iCloud still can't be reached, the error stays in Settings and the next start tries again.
+            isErasing = true
+            Task { [weak self] in
+                guard let self, await self.deleteCloudData() else { return }
+                self.start(initial: self.mirror)
+            }
+            return
+        }
         guard initial.preferences.syncEnabled, CloudSync.isAvailable else {
             if engine != nil { detachEngine(markStopped: true) }
             status = .off
             return
         }
         guard engine == nil else { return }
+        guard !isPausedForNewAccount else {
+            status = .error(Self.newAccountMessage)
+            return
+        }
 
         var saved = loadState()
         // Saved by a build that understood fewer record types: forget the sync position (not the local data, nor
@@ -126,7 +170,7 @@ final class CloudSync {
     /// Throws away the engine's saved state and starts over: fetch everything, send everything. The merge keeps
     /// whichever copy is newer, so this is safe to offer as a "Sync now" repair.
     func forceFullSync() {
-        guard started else { return }
+        guard started, !isPausedForNewAccount else { return }
         let data = mirror
         detachEngine(markStopped: false)
         removeStateFile()
@@ -140,16 +184,24 @@ final class CloudSync {
     /// and will put it back; see docs/SYNC.md.
     @discardableResult
     func deleteCloudData() async -> Bool {
+        // Remembered before trying, so an erase that can't finish now finishes on a later start.
+        setErasePending(true)
+        isErasing = true
+        defer { isErasing = false }
         detachEngine(markStopped: true)
         removeStateFile()
         latestSerialization = nil
         systemFields = [:]
         pendingChanges = 0
         status = .off
-        guard CloudSync.isAvailable else { return true }
+        guard CloudSync.isAvailable else {
+            setErasePending(false)
+            return true
+        }
         do {
             let result = try await container.privateCloudDatabase.modifyRecordZones(saving: [], deleting: [zoneID])
             if case .failure(let error)? = result.deleteResults[zoneID] { return deletionFinished(with: error) }
+            setErasePending(false)
             return true
         } catch {
             return deletionFinished(with: error)
@@ -157,9 +209,55 @@ final class CloudSync {
     }
 
     private func deletionFinished(with error: Error) -> Bool {
-        if (error as? CKError)?.code == .zoneNotFound { return true }
+        if (error as? CKError)?.code == .zoneNotFound {
+            setErasePending(false)
+            return true
+        }
         status = .error("Leaf couldn’t clear its iCloud copy. Check your connection and try again.")
         return false
+    }
+
+    /// Tries again to finish an erase that couldn't reach iCloud. Call when the app comes back to the foreground.
+    func retryPendingErase() {
+        guard started, engine == nil, !isErasing, CloudSync.isAvailable, erasePending else { return }
+        start(initial: mirror)
+    }
+
+    /// The reader chose to sync with the iCloud account now signed in. Their library joins whatever that account
+    /// already holds, merged as usual.
+    func useCurrentAccount() {
+        guard let user = defaults.string(forKey: Self.pausedAccountKey) else { return }
+        defaults.set(user, forKey: Self.accountKey)
+        defaults.removeObject(forKey: Self.pausedAccountKey)
+        isPausedForNewAccount = false
+        status = .off
+        guard started else { return }
+        start(initial: mirror)
+    }
+
+    /// A different account than the library's: stop before anything is sent, and forget the old account's sync
+    /// position (the local library is untouched).
+    private func pause(forAccount user: String) {
+        defaults.set(user, forKey: Self.pausedAccountKey)
+        isPausedForNewAccount = true
+        detachEngine(markStopped: false)
+        removeStateFile()
+        latestSerialization = nil
+        systemFields = [:]
+        pendingChanges = 0
+        status = .error(Self.newAccountMessage)
+    }
+
+    /// An account is signed in: the library's own (or the first one seen) carries on; any other pauses sync.
+    /// Returns false when it paused.
+    @discardableResult
+    private func accountSeen(_ user: String) -> Bool {
+        if let known = defaults.string(forKey: Self.accountKey), known != user {
+            pause(forAccount: user)
+            return false
+        }
+        defaults.set(user, forKey: Self.accountKey)
+        return true
     }
 
     private func detachEngine(markStopped: Bool) {
@@ -264,10 +362,17 @@ final class CloudSync {
     }
 
     private func handleAccountChange(_ change: CKSyncEngine.Event.AccountChange) {
+        let user: CKRecord.ID?
+        switch change.changeType {
+        case .signIn(let current): user = current
+        case .switchAccounts(_, let current): user = current
+        default: user = nil
+        }
         switch change.changeType {
         case .signIn, .switchAccounts:
-            // A different (or newly available) account has none of our records yet. The local library stays; it is
-            // sent up, and merged with whatever that account already holds.
+            // The library's own account, signed in again (or the first account it meets): the local library is sent
+            // up and merged with whatever that account already holds. Any other account waits for the reader.
+            if let user, !accountSeen(user.recordName) { return }
             systemFields = [:]
             status = .syncing
             seedEverything()
@@ -440,6 +545,8 @@ final class CloudSync {
             status = .noAccount
         case .available:
             if status == .noAccount { status = .syncing }
+            // Catches an account that changed while Leaf wasn't running, and remembers the first one.
+            if engine != nil, let user = try? await container.userRecordID() { accountSeen(user.recordName) }
         case .couldNotDetermine, .temporarilyUnavailable:
             break
         @unknown default:

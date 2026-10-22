@@ -359,7 +359,17 @@ struct SettingsCloudSection: View {
                 }
             }
             .accessibilityElement(children: .combine)
-            if let sync = store.sync, sync.status.isRunning {
+            if let sync = store.sync, sync.isPausedForNewAccount {
+                Button {
+                    CanopyFeel.play(.tap)
+                    sync.useCurrentAccount()
+                } label: {
+                    Text("Sync with this account")
+                        .font(CanopyType.body.font)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(.rect)
+                }
+            } else if let sync = store.sync, sync.status.isRunning {
                 Button {
                     CanopyFeel.play(.tap)
                     sync.forceFullSync()

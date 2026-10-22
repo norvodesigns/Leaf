@@ -77,7 +77,10 @@ final class CircleSharing {
     /// Whether this build can share at all (the iCloud flag). The reader's own switch is `isOn(for:)`.
     static var isAvailable: Bool { CloudSync.isAvailable }
 
-    func isOn(for library: LibraryStore) -> Bool { Self.isAvailable && library.preferences.syncEnabled }
+    /// Off too while sync waits on a new iCloud account, so nothing goes out under it before the reader agrees.
+    func isOn(for library: LibraryStore) -> Bool {
+        Self.isAvailable && library.preferences.syncEnabled && library.sync?.isPausedForNewAccount != true
+    }
 
     func isShared(_ circleID: UUID) -> Bool { links[circleID] != nil }
 

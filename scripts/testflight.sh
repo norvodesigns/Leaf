@@ -89,7 +89,7 @@ xcodebuild \
   ${AUTH[@]+"${AUTH[@]}"} \
   DEVELOPMENT_TEAM="$TEAM_ID" \
   CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
-  LEAF_CLOUDKIT_ENABLED=YES \
+  ${LEAF_CLOUDKIT_ENABLED:+LEAF_CLOUDKIT_ENABLED="$LEAF_CLOUDKIT_ENABLED"} \
   archive
 
 # The widget extension must be inside the app, or the Live Activity silently never appears.
@@ -112,6 +112,9 @@ if ENTITLEMENTS="$(codesign -d --entitlements :- "$APP_PATH" 2>/dev/null)" && [[
   done
 fi
 echo "==> Archive contains the app, the watch app and LeafWidgets.appex"
+# iCloud follows the Release setting (LEAF_CLOUDKIT_ENABLED in the project), the same as an Organizer archive.
+# Override for one build with LEAF_CLOUDKIT_ENABLED=NO scripts/testflight.sh.
+echo "==> iCloud sync in this build: $(/usr/libexec/PlistBuddy -c 'Print :LeafCloudKitEnabled' "$APP_PATH/Info.plist" 2>/dev/null || echo unknown)"
 
 cat > build/ExportOptions.plist <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>

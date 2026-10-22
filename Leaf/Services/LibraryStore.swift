@@ -844,7 +844,7 @@ final class LibraryStore {
         if let sync {
             Task { @MainActor [weak self] in
                 // If iCloud couldn't clear its copy, syncing again now would bring the library straight back; the
-                // error stays in Settings instead. (A retry that survives relaunch belongs in CloudSync.)
+                // error stays in Settings, and CloudSync finishes the erase on a later start or return to the app.
                 guard await sync.deleteCloudData() else { return }
                 if let data = self?.data { sync.start(initial: data) }
             }
