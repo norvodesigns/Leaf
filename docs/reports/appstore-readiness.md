@@ -154,8 +154,9 @@ lifecycle, the watch store and its runtime, the control intents and the Focus fi
 7. Optional: an adult-content filter in the catalog build and in Open Library results (section 2, item 2).
 8. Watch: no extended runtime for a steep with no session (section 2, item 1).
 
-**Done by Engine, 2026-10-22** (all on main): 1. Release now has `LEAF_CLOUDKIT_ENABLED = YES`, and testflight.sh
-follows it, so both paths ship iCloud (set Release to NO to ship without it); the offline-Erase and account-switch
+**Done by Engine, 2026-10-22** (all on main): 1. testflight.sh no longer forces `LEAF_CLOUDKIT_ENABLED`; it follows
+the Release setting like Organizer, which stays NO (Caleb's plan: sync later). Flip Release to YES once the CloudKit
+schema is in Production; the offline-Erase and account-switch
 findings are fixed (docs/SYNC.md, "Erase and account changes"). 2. `ci_screenshots.sh store` takes the 6.9-inch set
 and the watch with public-domain books (`store-*.png`), in its own step ahead of the watch and design steps.
 3. The packaging check fails any bundle that reaches UserDefaults without declaring it. 4–6 and 8 as listed.

@@ -173,10 +173,10 @@ while running), both reading at once, a friend removed by the owner, stop sharin
 - Entitlements (already in `Leaf/Leaf.entitlements`): container `iCloud.com.norvodesigns.leaf`, service `CloudKit`,
   `aps-environment`. Info.plist already has `UIBackgroundModes: remote-notification`, which silent change
   notifications need.
-- `Info.plist` key `LeafCloudKitEnabled` must be true for CloudKit to start. It is `$(LEAF_CLOUDKIT_ENABLED)`: `NO` in
-  Debug (unsigned CI builds and tests) and `YES` in Release, so an Organizer archive and `scripts/testflight.sh` ship the
-  same thing. To ship without iCloud, set Release to `NO` (or run `LEAF_CLOUDKIT_ENABLED=NO scripts/testflight.sh` for
-  one build). Runs with `-LeafDisableCloudKit` leave sync off.
+- `Info.plist` key `LeafCloudKitEnabled` must be true for CloudKit to start. It is `$(LEAF_CLOUDKIT_ENABLED)`, one
+  setting for both an Organizer archive and `scripts/testflight.sh`: `NO` in Debug (unsigned CI builds and tests) and,
+  for now, `NO` in Release too, until the schema below is in Production. To ship iCloud, set Release to `YES`; to try
+  it in one TestFlight build, run `LEAF_CLOUDKIT_ENABLED=YES scripts/testflight.sh`. Runs with `-LeafDisableCloudKit` leave sync off.
 - **Deploy the schema to Production** in the CloudKit console before any TestFlight or App Store build. In
   Development the record types appear on first save; Production does not create them. Types: `LeafItem`,
   `LeafSession`, `LeafJournal`, `LeafPreferences`, `LeafSpeedTest`, `LeafDismissal`, `LeafChallenge`,
