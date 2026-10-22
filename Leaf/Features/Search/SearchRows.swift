@@ -2,10 +2,10 @@ import SwiftUI
 
 // MARK: - Result row
 
-/// One search result (DESIGN.md §6): cover S, title, author, "1937 · 310 pp", and how long it takes at the
-/// reader's pace. The text opens the book; the glass `plus` on the right adds it, and turns into a
-/// `checkmark` once it is on a shelf. With `onQuickAdd` the `plus` opens the quick-add sheet (one tap to a big
-/// choice) and the menu moves to a long press; without it the `plus` is the menu.
+/// One search result (Canopy): cover S, the title in New York, author, "1937 · 310 pp", and how long it takes at the
+/// reader's pace. The text opens the book; the glass `plus` on the right adds it, and turns into a Forest
+/// `checkmark` once it is on a shelf. With `onQuickAdd` the `plus` is one tap (Search adds to Up next) and a long
+/// press offers the other shelves and "More options"; without it the `plus` is the menu.
 struct SearchResultRow: View {
     let book: Book
     let wpm: Double
@@ -13,15 +13,17 @@ struct SearchResultRow: View {
     let shelf: Shelf?
     /// Add (or move) the book: the shelf, and whether it goes to the front of that shelf.
     let onAdd: (Shelf, Bool) -> Void
-    /// Opens the quick-add sheet for this book.
+    /// The one-tap add. It plays its own haptic.
     var onQuickAdd: (() -> Void)?
+    /// Opens the quick-add sheet for this book (the long-press menu's last entry).
+    var onOptions: (() -> Void)?
 
     @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
-        HStack(alignment: .center, spacing: Space.m) {
+        HStack(alignment: .center, spacing: Canopy.Space.m) {
             NavigationLink(value: BookRoute(book: book)) {
-                HStack(alignment: .center, spacing: Space.l) {
+                HStack(alignment: .center, spacing: Canopy.Space.l) {
                     BookCover(book: book, size: .s)
                     details
                     Spacer(minLength: 0)
@@ -35,41 +37,49 @@ struct SearchResultRow: View {
             .accessibilityHint("Opens the book")
 
             if let onQuickAdd {
-                Button {
-                    Haptics.shared.tap()
-                    onQuickAdd()
-                } label: {
-                    GlassIcon(systemImage: shelf == nil ? "plus" : "checkmark", diameter: 40)
+                Button(action: onQuickAdd) {
+                    Image(systemName: shelf == nil ? "plus" : "checkmark")
+                        .font(.system(.body, weight: .semibold))
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(CanopyAccent.forest.color)
                         .contentTransition(.symbolEffect(.replace))
-                        .frame(minWidth: Space.hitTarget, minHeight: Space.hitTarget)
-                        .contentShape(.rect)
+                        .frame(width: Canopy.Space.hitTarget, height: Canopy.Space.hitTarget)
+                        .canopyGlass(shelf == nil ? nil : .forest, in: Circle())
+                        .contentShape(.circle)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(shelf == nil ? "Add \(book.title)" : "\(book.title), \(SearchShelfName.status(shelf)). Change shelf")
+                .accessibilityLabel(shelf == nil ? "Add \(book.title) to Up next" : "\(book.title), \(SearchShelfName.status(shelf)). Change shelf")
+                .accessibilityHint(shelf == nil ? "Touch and hold for other shelves" : "")
                 .contextMenu {
                     SearchAddActions(shelf: shelf, onAdd: onAdd)
+                    if let onOptions {
+                        Button(action: onOptions) {
+                            Label("More options…", systemImage: "ellipsis.circle")
+                        }
+                    }
                 }
             } else {
                 SearchAddMenu(book: book, shelf: shelf, onAdd: onAdd)
             }
         }
-        .padding(.vertical, Space.s)
+        .padding(.vertical, Canopy.Space.s)
     }
 
     private var details: some View {
-        VStack(alignment: .leading, spacing: Space.xxs) {
+        VStack(alignment: .leading, spacing: Canopy.Space.xxs) {
             Text(book.title)
-                .leafStyle(.headline)
+                .font(.system(.headline, design: .serif, weight: .semibold))
+                .foregroundStyle(Canopy.text)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
             Text(book.author)
-                .leafStyle(.author)
+                .canopyText(.callout, color: Canopy.textSecondary)
                 .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
             Text(facts)
-                .leafStyle(.caption)
+                .canopyText(.caption)
                 .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
             Label(paceText, systemImage: "clock")
-                .leafStyle(.caption)
+                .canopyText(.caption, color: CanopyAccent.dusk.color)
                 .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
         }
     }
@@ -124,7 +134,7 @@ struct SearchAddMenu: View {
     }
 }
 
-/// The three ways to add a book, shared by the row's menu and a cover's context menu. For a book already
+/// The ways to add a book (start, up next, later, already read), shared by the row's menu and a cover's context menu. For a book already
 /// on a shelf it shows where it is and offers the moves that still make sense.
 struct SearchAddActions: View {
     let shelf: Shelf?
@@ -140,31 +150,36 @@ struct SearchAddActions: View {
                 Button {
                     onAdd(.reading, false)
                 } label: {
-                    Label("Start reading", systemImage: "book")
+                    Label("Start reading", systemImage: "play.fill")
                 }
             }
             if shelf == .toRead {
                 Button {
                     onAdd(.toRead, true)
                 } label: {
-                    Label("Move to top of To read", systemImage: "arrow.up.to.line")
+                    Label("Move up next", systemImage: "arrow.up.to.line")
                 }
             }
         } else {
             Button {
                 onAdd(.reading, false)
             } label: {
-                Label("Start reading", systemImage: "book")
+                Label("Start reading", systemImage: "play.fill")
             }
             Button {
                 onAdd(.toRead, true)
             } label: {
-                Label("Add to top of To read", systemImage: "arrow.up.to.line")
+                Label("Up next", systemImage: "arrow.up.to.line")
             }
             Button {
                 onAdd(.toRead, false)
             } label: {
-                Label("Add to end of To read", systemImage: "arrow.down.to.line")
+                Label("Want to read, later", systemImage: "arrow.down.to.line")
+            }
+            Button {
+                onAdd(.finished, false)
+            } label: {
+                Label("Already read", systemImage: "checkmark")
             }
         }
     }

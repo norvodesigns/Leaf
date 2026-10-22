@@ -387,29 +387,34 @@ struct OpenLibraryCredit: View {
 
 // MARK: - Undo
 
-/// "Not for me" can be taken back for a few seconds.
+/// An add or a "Not for me" can be taken back for a few seconds (Canopy): a glass capsule, the message in warm ink,
+/// Undo in Forest. It arrives with Focus In.
 struct UndoToast: View {
     let message: String
     let onUndo: () -> Void
 
     var body: some View {
-        HStack(spacing: Space.m) {
+        HStack(spacing: Canopy.Space.m) {
             Text(message)
-                .leafStyle(.uiBody)
+                .canopyText(.callout)
                 .lineLimit(2)
-            Spacer(minLength: Space.s)
-            Button("Undo") {
-                Haptics.shared.tap()
+            Spacer(minLength: Canopy.Space.s)
+            Button {
+                CanopyFeel.play(.tap)
                 onUndo()
+            } label: {
+                Text("Undo")
+                    .canopyText(.headline, color: CanopyAccent.forest.color)
+                    .frame(minWidth: Canopy.Space.hitTarget, minHeight: Canopy.Space.hitTarget)
+                    .contentShape(.rect)
             }
-            .font(LeafType.ui.weight(.semibold))
-            .foregroundStyle(Color.accent)
-            .frame(minHeight: Space.hitTarget)
+            .buttonStyle(.plain)
         }
-        .padding(.horizontal, Space.l)
-        .padding(.vertical, Space.xs)
-        .glassEffect(.regular.tint(.glassTint), in: .capsule)
-        .padding(.horizontal, Space.margin)
+        .padding(.leading, Canopy.Space.l)
+        .padding(.trailing, Canopy.Space.s)
+        .padding(.vertical, Canopy.Space.xs)
+        .canopyGlass(interactive: false)
+        .padding(.horizontal, Canopy.Space.margin)
         .accessibilityElement(children: .combine)
         .accessibilityAction(named: "Undo", onUndo)
     }

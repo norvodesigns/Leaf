@@ -16,9 +16,10 @@ struct QuickAddRequest: Identifiable, Hashable {
     var id: String { book.id }
 }
 
-/// The quick-add sheet: the book at the top, then one tap to put it where it belongs. Start reading, Want to
-/// read (at the end, or up next), or Already read. A book that is already in the library shows where it is and
-/// offers only the moves that still make sense. A half-height glass sheet, so the results stay visible behind it.
+/// The quick-add sheet (Canopy): the book at the top, then one tap to put it where it belongs. Start reading is the
+/// screen's one Hero; Want to read, Up next and Already read are glass. A book already in the library shows where
+/// it is and offers only the moves that still make sense. A `.medium` system-glass sheet, so the results stay visible
+/// behind it; the book arrives with Focus In.
 struct QuickAddSheet: View {
     let request: QuickAddRequest
     let shelf: Shelf?
@@ -33,13 +34,14 @@ struct QuickAddSheet: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: Space.xl) {
+            VStack(alignment: .leading, spacing: Canopy.Space.xl) {
                 header
+                    .canopyFocusInTransition()
                 actions
             }
-            .leafMargins()
-            .padding(.top, Space.xl)
-            .padding(.bottom, Space.l)
+            .padding(.horizontal, Canopy.Space.margin)
+            .padding(.top, Canopy.Space.xl)
+            .padding(.bottom, Canopy.Space.l)
         }
         .scrollBounceBehavior(.basedOnSize)
         .scrollIndicators(.hidden)
@@ -50,33 +52,39 @@ struct QuickAddSheet: View {
     // MARK: Header
 
     private var header: some View {
-        HStack(alignment: .top, spacing: Space.l) {
+        HStack(alignment: .top, spacing: Canopy.Space.l) {
             BookCover(book: book, size: .m)
                 .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: Space.xs) {
+            VStack(alignment: .leading, spacing: Canopy.Space.xs) {
                 if let note = request.note {
-                    Eyebrow(note)
+                    Text(note).canopyText(.label)
                 }
                 Text(book.title)
-                    .leafStyle(.title)
+                    .canopyText(.bookTitle)
                     .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
                 Text(book.author)
-                    .leafStyle(.author)
+                    .canopyText(.callout, color: Canopy.textSecondary)
                 Text(facts)
-                    .leafStyle(.caption)
-                    .padding(.top, Space.xxs)
+                    .canopyText(.caption)
+                    .padding(.top, Canopy.Space.xxs)
                 if let shelf {
                     Label(SearchShelfName.status(shelf), systemImage: "checkmark.circle.fill")
-                        .leafStyle(.caption, color: .accent)
-                        .padding(.top, Space.xxs)
+                        .symbolRenderingMode(.hierarchical)
+                        .canopyText(.label)
+                        .padding(.top, Canopy.Space.xxs)
                 }
-                TextButton("About this book") {
-                    Haptics.shared.tap()
+                Button {
+                    CanopyFeel.play(.tap)
                     dismiss()
                     onOpen()
+                } label: {
+                    Text("About this book")
+                        .canopyText(.label)
+                        .frame(minHeight: Canopy.Space.hitTarget)
+                        .contentShape(.rect)
                 }
-                .padding(.top, Space.xs)
+                .buttonStyle(.plain)
             }
             Spacer(minLength: 0)
         }
@@ -94,17 +102,16 @@ struct QuickAddSheet: View {
 
     // MARK: Actions
 
-    @ViewBuilder
     private var actions: some View {
-        GlassEffectContainer(spacing: Space.m) {
-            VStack(spacing: Space.m) {
+        GlassEffectContainer(spacing: Canopy.Space.m) {
+            VStack(spacing: Canopy.Space.m) {
                 if shelf != .reading {
-                    PrimaryGlassButton(shelf == .finished ? "Read it again" : "Start reading", systemImage: "book.fill", playsHaptic: false) {
+                    CanopyHeroButton(shelf == .finished ? "Read it again" : "Start reading", systemImage: "play.fill", feel: .startNow) {
                         choose(.startReading)
                     }
                 }
                 if shelf == nil {
-                    SecondaryGlassButton("Want to read", systemImage: "bookmark", playsHaptic: false) {
+                    CanopyGlassButton("Want to read", systemImage: "bookmark", accent: .forest, feel: .keep) {
                         choose(.wantToRead(next: false))
                     }
                 }
@@ -117,16 +124,17 @@ struct QuickAddSheet: View {
     @ViewBuilder
     private var secondaryPair: some View {
         let layout = typeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(spacing: Space.m))
-            : AnyLayout(HStackLayout(spacing: Space.m))
+            ? AnyLayout(VStackLayout(spacing: Canopy.Space.m))
+            : AnyLayout(HStackLayout(spacing: Canopy.Space.m))
         layout {
             if shelf == nil || shelf == .toRead || shelf == .paused {
-                SecondaryGlassButton(shelf == .toRead ? "Move up next" : "Up next", systemImage: "arrow.up.to.line", compact: true, playsHaptic: false) {
+                CanopyGlassButton(shelf == .toRead ? "Move up next" : "Up next", systemImage: "arrow.up.to.line", accent: .forest, compact: true, feel: .keep) {
                     choose(.wantToRead(next: true))
                 }
             }
             if shelf != .finished {
-                SecondaryGlassButton("Already read", systemImage: "checkmark", compact: true, playsHaptic: false) {
+                // The finish moment plays its own haptic once the book is on the shelf.
+                CanopyGlassButton("Already read", systemImage: "checkmark", accent: .forest, compact: true, feel: nil) {
                     choose(.alreadyRead)
                 }
             }

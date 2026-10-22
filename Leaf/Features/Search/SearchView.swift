@@ -108,26 +108,26 @@ struct SearchView: View {
                 UndoToast(message: note.message) {
                     undoAdd(note)
                 }
-                .padding(.bottom, Space.s)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .padding(.bottom, Canopy.Space.s)
+                .canopyFocusInTransition()
                 .task(id: note.id) {
                     try? await Task.sleep(for: .seconds(5))
                     guard !Task.isCancelled, lastAdd?.id == note.id else { return }
-                    withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) { lastAdd = nil }
+                    withAnimation(Canopy.Motion.resolved(Canopy.Motion.smooth, reduceMotion: reduceMotion)) { lastAdd = nil }
                 }
             } else if let book = undoBook {
                 UndoToast(message: "“\(book.title)” won’t be suggested.") {
-                    withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
+                    withAnimation(Canopy.Motion.resolved(Canopy.Motion.smooth, reduceMotion: reduceMotion)) {
                         store.undismiss(book.id)
                         undoBook = nil
                     }
                 }
-                .padding(.bottom, Space.s)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .padding(.bottom, Canopy.Space.s)
+                .canopyFocusInTransition()
                 .task(id: book.id) {
                     try? await Task.sleep(for: .seconds(5))
                     guard !Task.isCancelled, undoBook?.id == book.id else { return }
-                    withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) { undoBook = nil }
+                    withAnimation(Canopy.Motion.resolved(Canopy.Motion.smooth, reduceMotion: reduceMotion)) { undoBook = nil }
                 }
             }
         }
@@ -141,9 +141,20 @@ struct SearchView: View {
             TasteView()
         }
         .toolbar {
+            if router.showSearch {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        CanopyFeel.play(.tap)
+                        router.showSearch = false
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .accessibilityLabel("Close search")
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
-                    Haptics.shared.tap()
+                    CanopyFeel.play(.tap)
                     showsScanner = true
                 } label: {
                     Image(systemName: "barcode.viewfinder")
@@ -242,7 +253,7 @@ struct SearchView: View {
                         isFirst: index == 0,
                         wpm: store.wpm,
                         shelfOf: { store.shelf(of: $0) },
-                        onAdd: { book, shelf, front in add(book, to: shelf, atFront: front) },
+                        onAdd: { book, shelf, front in applyQuickAdd(book, Self.choice(shelf, atFront: front), feel: .keep) },
                         onDismiss: { dismiss($0) }
                     )
                     .coachMarkAnchor(index == 0 ? "search.rows" : "search.row.\(index)")
@@ -327,9 +338,9 @@ struct SearchView: View {
         resultsHeader
         if isTypingISBN {
             Text("Keep going: an ISBN has 10 or 13 digits, on the back cover by the barcode or on the copyright page.")
-                .leafStyle(.body, color: .inkSecondary)
+                .canopyText(.body, color: Canopy.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.vertical, Space.l)
+                .padding(.vertical, Canopy.Space.l)
             manualAddLink
         } else if books.isEmpty {
             if phase == .loading {
@@ -351,88 +362,95 @@ struct SearchView: View {
                             book: book,
                             wpm: store.wpm,
                             shelf: store.shelf(of: book.id),
-                            onAdd: { shelf, front in add(book, to: shelf, atFront: front) },
-                            onQuickAdd: { quickAdd = QuickAddRequest(book: book) }
+                            onAdd: { shelf, front in applyQuickAdd(book, Self.choice(shelf, atFront: front), feel: .keep) },
+                            onQuickAdd: { tapAdd(book) },
+                            onOptions: { quickAdd = QuickAddRequest(book: book) }
                         )
-                        Hairline()
-                            .padding(.leading, BookCover.Size.s.width + Space.l)
+                        Rectangle()
+                            .fill(Canopy.separator)
+                            .frame(height: 1)
+                            .padding(.leading, BookCover.Size.s.width + Canopy.Space.l)
                     }
+                    .canopyFocusInTransition()
                 }
             }
+            .animation(Canopy.Motion.resolved(Canopy.Motion.smooth, reduceMotion: reduceMotion), value: books.map(\.id))
             manualAddLink
         }
     }
 
     private var resultsHeader: some View {
-        VStack(alignment: .leading, spacing: Space.s) {
-            HStack(alignment: .firstTextBaseline, spacing: Space.s) {
+        VStack(alignment: .leading, spacing: Canopy.Space.s) {
+            HStack(alignment: .firstTextBaseline, spacing: Canopy.Space.s) {
                 Text(resultsEyebrow)
-                    .leafStyle(.eyebrow)
+                    .canopyText(.label)
                     .accessibilityAddTraits(.isHeader)
-                Spacer(minLength: Space.s)
+                Spacer(minLength: Canopy.Space.s)
                 if phase == .loading {
                     ProgressView()
                         .controlSize(.small)
                         .accessibilityLabel("Searching Open Library")
                 }
             }
-            Hairline()
+            Rectangle()
+                .fill(Canopy.separator)
+                .frame(height: 1)
             if phase == .offline {
                 Text("Open Library couldn’t be reached, so these are the books on this device.")
-                    .leafStyle(.caption)
+                    .canopyText(.caption)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, Space.xs)
+                    .padding(.top, Canopy.Space.xs)
             }
         }
-        .padding(.bottom, Space.s)
+        .padding(.bottom, Canopy.Space.s)
     }
 
     private var resultsEyebrow: String {
         if isTypingISBN { return "ISBN" }
         if ISBN.parse(trimmedQuery) != nil, phase == .live { return "Found by ISBN" }
         switch phase {
-        case .live where remoteQuery == trimmedQuery: return "Open Library"
-        case .offline: return "Offline · books on this device"
-        default: return "Books on this device"
+        case .live where remoteQuery == trimmedQuery: return "From Open Library"
+        case .offline: return "Offline, books on this device"
+        default: return "On this device"
         }
     }
 
     private func searching(_ text: String) -> some View {
-        HStack(spacing: Space.s) {
+        HStack(spacing: Canopy.Space.s) {
             ProgressView()
             Text(text)
-                .leafStyle(.caption)
+                .canopyText(.caption)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, Space.xxl)
+        .padding(.vertical, Canopy.Space.xxl)
         .accessibilityElement(children: .combine)
     }
 
     private var manualAddLink: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: Space.l) {
-                manualAddButton
-                Spacer(minLength: 0)
-                scanButton
-            }
-            VStack(alignment: .leading, spacing: Space.m) {
-                manualAddButton
-                scanButton
+        GlassEffectContainer(spacing: Canopy.Space.m) {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: Canopy.Space.m) {
+                    manualAddButton
+                    scanButton
+                }
+                VStack(spacing: Canopy.Space.m) {
+                    manualAddButton
+                    scanButton
+                }
             }
         }
-        .padding(.top, Space.l)
+        .padding(.top, Canopy.Space.xl)
     }
 
     private var manualAddButton: some View {
-        TextButton("Not here? Add it by hand.") {
-            Haptics.shared.tap()
+        CanopyGlassButton("Add by hand", systemImage: "square.and.pencil", accent: .forest, compact: true) {
             manualDraft = draftFromQuery
         }
+        .accessibilityHint("For a book that isn’t listed")
     }
 
     private var scanButton: some View {
-        TextButton("Scan a barcode") {
-            Haptics.shared.tap()
+        CanopyGlassButton("Scan a barcode", systemImage: "barcode.viewfinder", accent: .forest, compact: true) {
             showsScanner = true
         }
     }
@@ -509,7 +527,7 @@ struct SearchView: View {
             phase = .offline
             if !hasBuzzedOffline {
                 hasBuzzedOffline = true
-                Haptics.shared.error()
+                CanopyFeel.play(.warning)
             }
         }
     }
@@ -538,8 +556,28 @@ struct SearchView: View {
 
     // MARK: Actions
 
-    /// One tap from the quick-add sheet. Already read uses the shelf's own finish moment and haptics.
-    private func applyQuickAdd(_ book: Book, _ choice: QuickAddChoice) {
+    /// The result row's `+` (REDESIGN §4.3): a book not yet in the library goes to Up next in one tap, with a light
+    /// page-turn and the Undo toast. A book already on a shelf opens the sheet instead, which shows where it is.
+    private func tapAdd(_ book: Book) {
+        if store.shelf(of: book.id) == nil {
+            applyQuickAdd(book, .wantToRead(next: true), feel: .pageLogged)
+        } else {
+            CanopyFeel.play(.tap)
+            quickAdd = QuickAddRequest(book: book)
+        }
+    }
+
+    private static func choice(_ shelf: Shelf, atFront: Bool) -> QuickAddChoice {
+        switch shelf {
+        case .reading: return .startReading
+        case .finished: return .alreadyRead
+        case .toRead, .paused: return .wantToRead(next: atFront)
+        }
+    }
+
+    /// Puts a book where the reader chose and offers Undo. `feel` is played here when the control that asked has not
+    /// already played one (the sheet's buttons have); Already read plays the shelf's own finish moment.
+    private func applyQuickAdd(_ book: Book, _ choice: QuickAddChoice, feel: CanopyFeel? = nil) {
         let previous = store.shelf(of: book.id)
         let shelf: Shelf
         switch choice {
@@ -553,7 +591,8 @@ struct SearchView: View {
             LibraryShelfActions.markFinished(book, store: store)
             shelf = .finished
         }
-        withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
+        if let feel, choice != .alreadyRead { CanopyFeel.play(feel) }
+        withAnimation(Canopy.Motion.resolved(Canopy.Motion.smooth, reduceMotion: reduceMotion)) {
             undoBook = nil
             lastAdd = AddedNote(book: book, previous: previous, shelf: shelf)
         }
@@ -561,7 +600,7 @@ struct SearchView: View {
 
     /// Takes an add back: off the shelves if it was new, otherwise back where it was.
     private func undoAdd(_ note: AddedNote) {
-        withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
+        withAnimation(Canopy.Motion.resolved(Canopy.Motion.smooth, reduceMotion: reduceMotion)) {
             if let previous = note.previous {
                 store.move(note.book.id, to: previous)
             } else {
@@ -599,8 +638,8 @@ struct SearchView: View {
 
     /// Adds a book to a shelf, or moves it if it is already in the library. A book that is already in
     /// the library is moved rather than re-added, so a page count the reader edited is never overwritten.
-    private func add(_ book: Book, to shelf: Shelf, atFront: Bool) {
-        withAnimation(Motion.resolved(Motion.glass, reduceMotion: reduceMotion)) {
+    private func add(_ book: Book, to shelf: Shelf, atFront: Bool, feel: CanopyFeel? = nil) {
+        withAnimation(Canopy.Motion.resolved(Canopy.Motion.smooth, reduceMotion: reduceMotion)) {
             if store.item(book.id) == nil {
                 store.add(book, to: shelf)
             } else {
@@ -608,7 +647,7 @@ struct SearchView: View {
             }
             if atFront { store.moveToFront(book.id) }
         }
-        Haptics.shared.success()
+        if let feel { CanopyFeel.play(feel) }
     }
 
     /// "Not for me": the book leaves every row and the next suggestions lean away from it. Undo for a few seconds.

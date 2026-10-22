@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Adds a book by hand (DESIGN.md §6): Title, Author, Pages and an optional Year under a live
-/// generated cover that updates as you type, then "Start reading" or "Add to To read".
+/// Adds a book by hand (Canopy): Title, Author, Pages and an optional Year under a live
+/// generated cover that updates as you type, then "Start reading" or "Want to read".
 /// Presented as a sheet; it carries its own navigation bar with Cancel. It opens with whatever is already known
 /// (what was typed in Search, or what a barcode found) and the cursor in the first empty field, so most books
 /// need only a page count.
@@ -67,14 +67,14 @@ struct AddBookManuallyView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: Space.xxl) {
+                VStack(spacing: Canopy.Space.xl) {
                     BookCover(book: draft, size: .l)
                         .frame(maxWidth: .infinity)
-                        .padding(.top, Space.l)
+                        .padding(.top, Canopy.Space.l)
                         .accessibilityHidden(true)
 
-                    VStack(alignment: .leading, spacing: Space.xl) {
-                        field("Title", text: $title, prompt: "The name on the spine", focus: .title)
+                    VStack(alignment: .leading, spacing: Canopy.Space.l) {
+                        field("Title", text: $title, prompt: "The name on the spine", focus: .title, font: CanopyType.bookTitle.font)
                             .textInputAutocapitalization(.words)
                             .submitLabel(.next)
                             .onSubmit { focus = .author }
@@ -84,14 +84,15 @@ struct AddBookManuallyView: View {
                             .onSubmit { focus = .pages }
                         numbers
                     }
+                    .canopyCard()
                 }
-                .leafMargins()
-                .padding(.bottom, Space.xl)
+                .padding(.horizontal, Canopy.Space.margin)
+                .padding(.bottom, Canopy.Space.xl)
             }
             .scrollIndicators(.hidden)
             .scrollDismissesKeyboard(.interactively)
             .scrollEdgeEffectStyle(.soft, for: .top)
-            .paperBackground()
+            .canopyBackdrop()
             .navigationTitle("Add a book")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -126,18 +127,17 @@ struct AddBookManuallyView: View {
         }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
-        .presentationBackground(Color.paper)
     }
 
     /// Pages and Year side by side, stacked at accessibility sizes.
     @ViewBuilder
     private var numbers: some View {
         let layout = dynamicTypeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Space.xl))
-            : AnyLayout(HStackLayout(alignment: .top, spacing: Space.xl))
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Canopy.Space.l))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: Canopy.Space.l))
         layout {
-            field("Pages", text: $pagesText, prompt: "310", focus: .pages, keyboard: .numberPad)
-            field("Year (optional)", text: $yearText, prompt: "1937", focus: .year, keyboard: .numberPad)
+            field("Pages", text: $pagesText, prompt: "310", focus: .pages, keyboard: .numberPad, font: Self.numberFont)
+            field("Year (optional)", text: $yearText, prompt: "1937", focus: .year, keyboard: .numberPad, font: Self.numberFont)
         }
     }
 
@@ -146,39 +146,47 @@ struct AddBookManuallyView: View {
         text: Binding<String>,
         prompt: String,
         focus field: Field,
-        keyboard: UIKeyboardType = .default
+        keyboard: UIKeyboardType = .default,
+        font: Font = .system(.title3, weight: .medium)
     ) -> some View {
-        VStack(alignment: .leading, spacing: Space.xs) {
-            Eyebrow(label)
+        VStack(alignment: .leading, spacing: Canopy.Space.xs) {
+            Text(label).canopyText(.label)
             TextField(prompt, text: text)
-                .font(LeafType.title)
-                .foregroundStyle(Color.ink)
+                .font(font)
+                .foregroundStyle(Canopy.text)
                 .keyboardType(keyboard)
                 .focused($focus, equals: field)
-                .padding(.vertical, Space.s)
+                .padding(.vertical, Canopy.Space.s)
+                .frame(minHeight: Canopy.Space.hitTarget)
                 .accessibilityLabel(label)
-            Hairline(color: focus == field ? .ink : .hairlineStrong)
+            Rectangle()
+                .fill(focus == field ? CanopyAccent.forest.color : Canopy.separator)
+                .frame(height: focus == field ? 2 : 1)
+                .animation(Canopy.Motion.snappy, value: focus == field)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var buttons: some View {
-        GlassEffectContainer(spacing: Space.m) {
-            VStack(spacing: Space.m) {
-                PrimaryGlassButton("Start reading", systemImage: "play.fill") {
+        GlassEffectContainer(spacing: Canopy.Space.m) {
+            VStack(spacing: Canopy.Space.m) {
+                CanopyHeroButton("Start reading", systemImage: "play.fill", feel: .startNow) {
                     add(to: .reading)
                 }
                 .disabled(!isValid)
-                SecondaryGlassButton("Add to To read", systemImage: "plus", compact: true) {
+                CanopyGlassButton("Want to read", systemImage: "bookmark", accent: .forest, compact: true, feel: .keep) {
                     add(to: .toRead)
                 }
                 .disabled(!isValid)
+                .opacity(isValid ? 1 : 0.4)
             }
         }
-        .leafMargins()
-        .padding(.top, Space.s)
-        .padding(.bottom, Space.s)
+        .padding(.horizontal, Canopy.Space.margin)
+        .padding(.vertical, Canopy.Space.s)
     }
+
+    /// Numbers are rounded (Canopy §4).
+    private static let numberFont = Font.system(.title3, design: .rounded, weight: .medium).monospacedDigit()
 
     // MARK: Actions
 
@@ -193,7 +201,6 @@ struct AddBookManuallyView: View {
         )
         store.add(book, to: shelf)
         router.libraryShelf = shelf
-        Haptics.shared.success()
         dismiss()
     }
 

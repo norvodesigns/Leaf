@@ -44,7 +44,7 @@ enum ISBNLookup {
     }
 }
 
-/// "Scan a book": point the camera at the barcode on the back cover and the book comes up, ready to add. The
+/// "Scan a book" (Canopy): point the camera at the barcode on the back cover and the book comes up, ready to add. The
 /// ISBN can be typed instead, which is also the whole screen where there is no camera.
 struct ISBNScanSheet: View {
     let onOutcome: (ISBNScanOutcome) -> Void
@@ -89,18 +89,18 @@ struct ISBNScanSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: Space.xl) {
+                VStack(alignment: .leading, spacing: Canopy.Space.xl) {
                     camera
                     status
                     typeIn
                 }
-                .leafMargins()
-                .padding(.top, Space.s)
-                .padding(.bottom, Space.xl)
+                .padding(.horizontal, Canopy.Space.margin)
+                .padding(.top, Canopy.Space.s)
+                .padding(.bottom, Canopy.Space.xl)
             }
             .scrollIndicators(.hidden)
             .scrollDismissesKeyboard(.interactively)
-            .paperBackground()
+            .canopyBackdrop()
             .navigationTitle("Scan a book")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -113,11 +113,11 @@ struct ISBNScanSheet: View {
                 let result = await ISBNLookup.resolve(isbn, catalog: catalog)
                 guard !Task.isCancelled, lookingUp == isbn else { return }
                 if case .found(let book) = result {
-                    Haptics.shared.success()
+                    CanopyFeel.play(.snap)
                     finish(.found(book))
                 } else {
-                    Haptics.shared.warning()
-                    withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
+                    CanopyFeel.play(.warning)
+                    withAnimation(Canopy.Motion.resolved(Canopy.Motion.smooth, reduceMotion: reduceMotion)) {
                         phase = .missing(isbn: isbn, result: result)
                     }
                 }
@@ -135,7 +135,6 @@ struct ISBNScanSheet: View {
         }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
-        .presentationBackground(Color.paper)
     }
 
     // MARK: Camera
@@ -145,19 +144,19 @@ struct ISBNScanSheet: View {
         switch cameraState {
         case .ready:
             ISBNScannerView(isActive: phase == .scanning) { isbn in
-                Haptics.shared.selection()
+                CanopyFeel.play(.select)
                 lookUp(isbn)
             }
             .frame(height: 280)
-            .clipShape(.rect(cornerRadius: Radius.tile, style: .continuous))
+            .clipShape(.rect(cornerRadius: Canopy.Radius.card, style: .continuous))
             .overlay { reticle }
             .overlay(alignment: .bottom) {
                 Text("Point at the barcode on the back cover")
-                    .leafStyle(.caption, color: .ink)
-                    .padding(.horizontal, Space.m)
-                    .padding(.vertical, Space.xs)
-                    .glassEffect(.regular.tint(.glassTint), in: .capsule)
-                    .padding(.bottom, Space.m)
+                    .canopyText(.caption, color: Canopy.text)
+                    .padding(.horizontal, Canopy.Space.m)
+                    .padding(.vertical, Canopy.Space.xs)
+                    .canopyGlass(interactive: false)
+                    .padding(.bottom, Canopy.Space.m)
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Camera. Point it at the barcode on the back cover.")
@@ -181,34 +180,35 @@ struct ISBNScanSheet: View {
 
     /// A soft frame where the barcode should sit; static, so it costs nothing.
     private var reticle: some View {
-        RoundedRectangle(cornerRadius: Radius.tile, style: .continuous)
-            .strokeBorder(Color.paper.opacity(0.85), style: StrokeStyle(lineWidth: 2, dash: [10, 8]))
+        RoundedRectangle(cornerRadius: Canopy.Radius.control, style: .continuous)
+            .strokeBorder(Color.white.opacity(0.85), style: StrokeStyle(lineWidth: 2, dash: [10, 8]))
             .frame(width: 240, height: 110)
             .opacity(phase == .scanning ? 1 : 0.3)
             .allowsHitTesting(false)
     }
 
     private func cameraNote(title: String, message: String, actionTitle: String?, action: (() -> Void)?) -> some View {
-        VStack(spacing: Space.m) {
+        VStack(spacing: Canopy.Space.m) {
             Image(systemName: "barcode.viewfinder")
                 .font(.system(size: 44, weight: .light))
-                .foregroundStyle(Color.inkTertiary)
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(Canopy.textSecondary)
                 .accessibilityHidden(true)
             Text(title)
-                .leafStyle(.headline)
+                .canopyText(.headline)
                 .multilineTextAlignment(.center)
             Text(message)
-                .leafStyle(.body, color: .inkSecondary)
+                .canopyText(.body, color: Canopy.textSecondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
             if let actionTitle, let action {
-                TextButton(actionTitle, action: action)
+                CanopyGlassButton(actionTitle, systemImage: "gearshape", compact: true, action: action)
+                    .fixedSize()
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, Space.xxl)
-        .padding(.horizontal, Space.l)
-        .background(Color.inkTertiary.opacity(0.08), in: .rect(cornerRadius: Radius.tile, style: .continuous))
+        .padding(.vertical, Canopy.Space.l)
+        .canopyCard()
     }
 
     // MARK: Status
@@ -219,33 +219,33 @@ struct ISBNScanSheet: View {
         case .scanning:
             EmptyView()
         case .lookingUp(let isbn):
-            HStack(spacing: Space.s) {
+            HStack(spacing: Canopy.Space.s) {
                 ProgressView()
                 Text("Looking up \(Self.formatted(isbn))…")
-                    .leafStyle(.caption)
+                    .canopyText(.caption)
             }
             .frame(maxWidth: .infinity)
             .accessibilityElement(children: .combine)
         case .missing(let isbn, let result):
             missing(isbn: isbn, result: result)
-                .transition(.opacity)
+                .canopyFocusInTransition()
         }
     }
 
     private func missing(isbn: String, result: ISBNLookupResult) -> some View {
-        VStack(alignment: .leading, spacing: Space.m) {
-            Eyebrow("ISBN \(Self.formatted(isbn))")
+        VStack(alignment: .leading, spacing: Canopy.Space.m) {
+            Text("ISBN \(Self.formatted(isbn))").canopyText(.label)
             Text(missingMessage(result))
-                .leafStyle(.body)
+                .canopyText(.body)
                 .fixedSize(horizontal: false, vertical: true)
-            GlassEffectContainer(spacing: Space.m) {
-                VStack(spacing: Space.m) {
-                    PrimaryGlassButton("Add it by hand", systemImage: "square.and.pencil") {
+            GlassEffectContainer(spacing: Canopy.Space.m) {
+                VStack(spacing: Canopy.Space.m) {
+                    CanopyGlassButton("Add it by hand", systemImage: "square.and.pencil", accent: .forest) {
                         finish(.addByHand(draft(from: result)))
                     }
-                    SecondaryGlassButton("Scan another", systemImage: "barcode.viewfinder", compact: true) {
+                    CanopyGlassButton("Scan another", systemImage: "barcode.viewfinder", accent: .forest, compact: true) {
                         typed = ""
-                        withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) { phase = .scanning }
+                        withAnimation(Canopy.Motion.resolved(Canopy.Motion.smooth, reduceMotion: reduceMotion)) { phase = .scanning }
                     }
                 }
             }
@@ -268,25 +268,28 @@ struct ISBNScanSheet: View {
     // MARK: Typing
 
     private var typeIn: some View {
-        VStack(alignment: .leading, spacing: Space.xs) {
-            Eyebrow("Or type the ISBN")
+        VStack(alignment: .leading, spacing: Canopy.Space.xs) {
+            Text("Or type the ISBN").canopyText(.label)
             TextField("978-0-00-000000-0", text: $typed)
-                .font(LeafType.title.monospacedDigit())
-                .foregroundStyle(Color.ink)
+                .font(.system(.title2, design: .rounded, weight: .medium).monospacedDigit())
+                .foregroundStyle(Canopy.text)
                 .keyboardType(.numbersAndPunctuation)
                 .textInputAutocapitalization(.characters)
                 .autocorrectionDisabled()
                 .submitLabel(.search)
                 .focused($fieldFocused)
-                .padding(.vertical, Space.s)
+                .padding(.vertical, Canopy.Space.s)
                 .accessibilityLabel("ISBN")
                 .onSubmit {
                     if let isbn = ISBN.parse(typed) { lookUp(isbn) }
                 }
-            Hairline(color: fieldFocused ? .ink : .hairlineStrong)
+            Rectangle()
+                .fill(fieldFocused ? CanopyAccent.forest.color : Canopy.separator)
+                .frame(height: fieldFocused ? 2 : 1)
+                .animation(Canopy.Motion.snappy, value: fieldFocused)
             if !typed.isEmpty, ISBN.looksLikeISBN(typed), ISBN.parse(typed) == nil, typed.filter(\.isNumber).count >= 10 {
                 Text("That doesn’t add up to an ISBN. Check the digits?")
-                    .leafStyle(.caption, color: .inkSecondary)
+                    .canopyText(.caption)
             }
         }
     }
@@ -295,7 +298,7 @@ struct ISBNScanSheet: View {
 
     private func lookUp(_ isbn: String) {
         fieldFocused = false
-        withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
+        withAnimation(Canopy.Motion.resolved(Canopy.Motion.smooth, reduceMotion: reduceMotion)) {
             phase = .lookingUp(isbn)
         }
     }
