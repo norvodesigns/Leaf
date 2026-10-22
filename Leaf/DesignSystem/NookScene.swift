@@ -6,7 +6,8 @@ import SwiftUI
 /// default. Light only: a scene never makes a sound; the ambience is its own opt-in choice.
 enum NookScene: String, CaseIterable, Identifiable {
     case plain
-    // Realistic, drawn by Metal shaders (`NookShaders.swift`).
+    // Realistic: a filmed loop where the app has one (`NookVideo`; the fireplace and the sunrise), otherwise drawn by
+    // Metal shaders (`NookShaders.swift`). The raw values are stored, so "landscape" stays the sunrise's.
     case rain, hearth, landscape
     // Soft and dreamy, drawn by SwiftUI (`AtmosphereScene`, a drifting mesh).
     case glow, mist, drizzle
@@ -25,7 +26,7 @@ enum NookScene: String, CaseIterable, Identifiable {
         case .plain: "Plain"
         case .rain: "Rain"
         case .hearth: "Fireplace"
-        case .landscape: "Dawn"
+        case .landscape: "Sunrise"
         case .glow: "Glow"
         case .mist: "Mist"
         case .drizzle: "Drizzle"
@@ -36,8 +37,8 @@ enum NookScene: String, CaseIterable, Identifiable {
         switch self {
         case .plain: "Just the page and the timer."
         case .rain: "Rain on the window, the city lit up behind it."
-        case .hearth: "A fire burning low in a stone fireplace."
-        case .landscape: "Mountains at dawn, mist in the valleys, a still lake."
+        case .hearth: "A log fire crackling in a brick hearth."
+        case .landscape: "The sun coming up over the mountains, mist lying in the valley."
         case .glow: "Soft lights drifting, out of focus."
         case .mist: "Slow colour, like light through fog."
         case .drizzle: "A soft rain, out of focus, on a blue evening."
@@ -95,7 +96,16 @@ struct NookSceneBackdrop: View {
         ZStack {
             Group {
                 if let video = NookVideo.url(for: scene) {
-                    NookVideoView(url: video, isPlaying: videoPlays)
+                    ZStack {
+                        if let poster = NookVideo.poster(for: scene) {
+                            NookPosterView(image: poster)
+                        } else {
+                            Color.black
+                        }
+                        if isLive {
+                            NookVideoView(url: video, isPlaying: videoPlays)
+                        }
+                    }
                 } else if let program = scene.program {
                     NookShaderView(program: program, calm: calm, isLive: isLive)
                 } else {
