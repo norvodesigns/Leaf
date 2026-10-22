@@ -159,19 +159,27 @@ private struct LogRow: View {
     let entry: ReadingLog.Entry
     let calendar: Calendar
 
+    @Environment(\.dynamicTypeSize) private var typeSize
+
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: Space.m) {
+        // At accessibility sizes the date sits above the title instead of in a narrow column, so "Wed 21" never
+        // breaks mid-word.
+        let layout = typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Space.xxs))
+            : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: Space.m))
+        layout {
             Text(LeafFormat.format(entry.date, template: "EEEd", calendar: calendar))
                 .canopyText(.callout, color: Canopy.textSecondary).monospacedDigit()
-                .frame(width: 58, alignment: .leading)
+                .lineLimit(1)
+                .frame(width: typeSize.isAccessibilitySize ? nil : 58, alignment: .leading)
             VStack(alignment: .leading, spacing: Space.xxs) {
                 Text(entry.title)
                     .canopyText(.headline)
-                    .lineLimit(2)
+                    .lineLimit(typeSize.isAccessibilitySize ? 3 : 2)
                 Text(detail)
                     .canopyText(.caption, color: entry.isFinish ? CanopyAccent.forest.color : nil)
             }
-            Spacer(minLength: 0)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.vertical, Space.s)
         .accessibilityElement(children: .combine)

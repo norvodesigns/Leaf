@@ -5,6 +5,7 @@ import SwiftUI
 struct LibraryReadingShelf: View {
     @Environment(LibraryStore.self) private var store
     @Environment(AppRouter.self) private var router
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     let onRemove: (Book) -> Void
 
@@ -23,7 +24,7 @@ struct LibraryReadingShelf: View {
                 router.tab = .search
             }
         } else {
-            LazyVGrid(columns: Self.columns, alignment: .leading, spacing: Canopy.Space.cardGap) {
+            LazyVGrid(columns: columns, alignment: .leading, spacing: Canopy.Space.cardGap) {
                 ForEach(items) { item in
                     LibraryReadingRow(
                         item: item,
@@ -39,11 +40,12 @@ struct LibraryReadingShelf: View {
         }
     }
 
-    /// Two big covers to a row (docs/design/REDESIGN.md §4.3).
-    private static let columns = [
-        GridItem(.flexible(), spacing: Canopy.Space.cardGap, alignment: .top),
-        GridItem(.flexible(), spacing: Canopy.Space.cardGap, alignment: .top),
-    ]
+    /// Two big covers to a row (docs/design/REDESIGN.md §4.3); one at accessibility sizes, so titles and authors
+    /// aren't cut short.
+    private var columns: [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: Canopy.Space.cardGap, alignment: .top),
+              count: typeSize.isAccessibilitySize ? 1 : 2)
+    }
 }
 
 private struct LibraryReadingRow: View {

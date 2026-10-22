@@ -296,13 +296,16 @@ struct SessionAccessory: View {
     }
 
     private var emptyModel: AccessoryModel {
-        AccessoryModel(
+        // "First" only for someone who has never read with Leaf; between books it's the next one.
+        let firstEver = store.data.items.isEmpty && store.data.sessions.isEmpty
+        let line = firstEver ? "Find your first book" : "Find your next book"
+        return AccessoryModel(
             leading: .symbol("books.vertical"),
-            line1: Text("Find your first book"),
+            line1: Text(line),
             line2: nil,
             symbol: "magnifyingglass",
             symbolLabel: "Search for a book",
-            spoken: "Find your first book",
+            spoken: line,
             bodyHint: "Opens Search"
         )
     }

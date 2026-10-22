@@ -99,6 +99,14 @@ struct ReadingActivityModel {
         return "Reading"
     }
 
+    /// The eyebrow when the full one doesn't fit the Lock Screen: just the tea, so it never ends in "STEE…".
+    var shortEyebrow: String {
+        guard let tea = content.teaName, teaReady || isSteeping || (!goalReached && !isPaused && content.state != .finishing) else {
+            return eyebrow
+        }
+        return tea
+    }
+
     /// The app's line, or plain words for the state.
     var headline: String {
         if teaReady { return "Pour, then read" }
@@ -301,16 +309,23 @@ struct ReadingActivityLockScreen: View {
     let model: ReadingActivityModel
     let images: ReadingActivityImages
 
+    private func eyebrow(_ text: String) -> some View {
+        Text(text.uppercased())
+            .font(.system(.caption2, weight: .semibold))
+            .tracking(1.2)
+            .foregroundStyle(model.goalReached ? ReadingActivityPalette.accent : ReadingActivityPalette.inkSecondary)
+            .lineLimit(1)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .center, spacing: 14) {
                 ReadingActivityCover(image: images.cover, width: 42)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(model.eyebrow.uppercased())
-                        .font(.system(.caption2, weight: .semibold))
-                        .tracking(1.2)
-                        .foregroundStyle(model.goalReached ? ReadingActivityPalette.accent : ReadingActivityPalette.inkSecondary)
-                        .lineLimit(1)
+                    ViewThatFits(in: .horizontal) {
+                        eyebrow(model.eyebrow)
+                        eyebrow(model.shortEyebrow)
+                    }
                     Text(model.title)
                         .font(.system(.headline, design: .serif))
                         .foregroundStyle(ReadingActivityPalette.ink)

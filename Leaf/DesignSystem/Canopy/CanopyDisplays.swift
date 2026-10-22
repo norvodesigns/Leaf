@@ -180,53 +180,86 @@ struct CanopySlotRow: View {
     var onTime: () -> Void = {}
     var onSwap: () -> Void = {}
 
+    @Environment(\.dynamicTypeSize) private var typeSize
+
     var body: some View {
-        HStack(spacing: Canopy.Space.m) {
-            VStack(alignment: .leading, spacing: Canopy.Space.xxs) {
-                CanopyTimeChip(time: time, action: onTime)
-                if let period {
-                    Text(period)
-                        .canopyText(.caption, color: Canopy.textTertiary)
-                        .padding(.leading, Canopy.Space.m)
-                }
-            }
-            .frame(minWidth: 72, alignment: .leading)
-
-            if let paletteIndex {
-                CanopyCoverSwatch(title: title, paletteIndex: paletteIndex, width: 34)
-            } else {
-                Image(systemName: "books.vertical")
-                    .font(.system(.body, weight: .medium))
-                    .foregroundStyle(Canopy.textSecondary)
-                    .frame(width: 34, height: 51)
-            }
-
-            VStack(alignment: .leading, spacing: Canopy.Space.xxs) {
-                HStack(spacing: Canopy.Space.xs) {
-                    if state == .done {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(CanopyAccent.forest.color)
-                    } else if state == .next {
-                        Circle()
-                            .fill(CanopyAccent.dusk.color)
-                            .frame(width: 7, height: 7)
+        Group {
+            if typeSize.isAccessibilitySize {
+                // At the largest sizes the time, the book and the swap button each get the full width, so nothing
+                // breaks mid-word or ends in an ellipsis.
+                VStack(alignment: .leading, spacing: Canopy.Space.s) {
+                    HStack(alignment: .center, spacing: Canopy.Space.m) {
+                        timeColumn
+                        Spacer(minLength: 0)
+                        swapButton
                     }
-                    Text(title)
-                        .canopyText(.headline)
-                        .lineLimit(1)
+                    HStack(alignment: .top, spacing: Canopy.Space.m) {
+                        cover
+                        bookText(titleLines: 3, detailLines: 4)
+                    }
                 }
-                Text(detail)
-                    .canopyText(.caption)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                HStack(spacing: Canopy.Space.m) {
+                    timeColumn
+                        .frame(minWidth: 72, alignment: .leading)
+                    cover
+                    bookText(titleLines: 1, detailLines: 2)
+                    Spacer(minLength: 0)
+                    swapButton
+                }
             }
-            .opacity(state == .done ? 0.6 : 1)
-
-            Spacer(minLength: 0)
-
-            CanopyIconButton("arrow.triangle.2.circlepath", accessibilityLabel: "Swap the book", feel: .select, action: onSwap)
         }
         .accessibilityElement(children: .contain)
+    }
+
+    private var timeColumn: some View {
+        VStack(alignment: .leading, spacing: Canopy.Space.xxs) {
+            CanopyTimeChip(time: time, action: onTime)
+            if let period {
+                Text(period)
+                    .canopyText(.caption, color: Canopy.textTertiary)
+                    .lineLimit(1)
+                    .padding(.leading, Canopy.Space.m)
+            }
+        }
+    }
+
+    @ViewBuilder private var cover: some View {
+        if let paletteIndex {
+            CanopyCoverSwatch(title: title, paletteIndex: paletteIndex, width: 34)
+        } else {
+            Image(systemName: "books.vertical")
+                .font(.system(.body, weight: .medium))
+                .foregroundStyle(Canopy.textSecondary)
+                .frame(width: 34, height: 51)
+        }
+    }
+
+    private func bookText(titleLines: Int, detailLines: Int) -> some View {
+        VStack(alignment: .leading, spacing: Canopy.Space.xxs) {
+            HStack(spacing: Canopy.Space.xs) {
+                if state == .done {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(CanopyAccent.forest.color)
+                } else if state == .next {
+                    Circle()
+                        .fill(CanopyAccent.dusk.color)
+                        .frame(width: 7, height: 7)
+                }
+                Text(title)
+                    .canopyText(.headline)
+                    .lineLimit(titleLines)
+            }
+            Text(detail)
+                .canopyText(.caption)
+                .lineLimit(detailLines)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .opacity(state == .done ? 0.6 : 1)
+    }
+
+    private var swapButton: some View {
+        CanopyIconButton("arrow.triangle.2.circlepath", accessibilityLabel: "Swap the book", feel: .select, action: onSwap)
     }
 }
 

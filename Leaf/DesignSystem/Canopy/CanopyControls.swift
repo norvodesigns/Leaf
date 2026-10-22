@@ -199,6 +199,8 @@ struct CanopyTimeChip: View {
             Text(time)
                 .font(.system(.subheadline, design: .rounded, weight: .semibold).monospacedDigit())
                 .foregroundStyle(CanopyAccent.dusk.color)
+                .lineLimit(1)
+                .fixedSize()
                 .padding(.horizontal, 12)
                 .frame(minHeight: 36)
                 .contentShape(.capsule)
