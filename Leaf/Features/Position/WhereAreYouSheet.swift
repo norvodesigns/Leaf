@@ -89,7 +89,8 @@ struct WhereAreYouSheet: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: Space.xxl) {
+            // Tight enough that the typed-page field clears the buttons on a 6.1" phone.
+            VStack(spacing: Space.xl) {
                 header
                 choices
                 control
@@ -98,7 +99,7 @@ struct WhereAreYouSheet: View {
                     .id(choice)
             }
             .padding(.horizontal, Space.margin)
-            .padding(.top, Space.xxl)
+            .padding(.top, Space.xl)
             .padding(.bottom, Space.xl)
         }
         .scrollIndicators(.hidden)
@@ -114,7 +115,7 @@ struct WhereAreYouSheet: View {
         }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
-        .presentationBackground(Color.paper)
+        .presentationBackground(Canopy.canvas)
     }
 
     // MARK: Header
@@ -321,7 +322,8 @@ struct WhereAreYouSheet: View {
 
     private var actions: some View {
         VStack(spacing: Space.xxs) {
-            PrimaryGlassButton(primaryTitle, playsHaptic: false) {
+            // The sheet's one hero; confirm() plays the page or finish moment itself.
+            CanopyHeroButton(primaryTitle, feel: nil) {
                 confirm()
             }
             TextButton("Not now", color: .inkSecondary) {
@@ -330,8 +332,12 @@ struct WhereAreYouSheet: View {
             }
         }
         .padding(.horizontal, Space.margin)
-        .padding(.top, Space.m)
-        .background(Color.paper)
+        .padding(.top, Space.l)
+        .background {
+            // Paper fading in behind the buttons, so the controls above end softly instead of at a hard edge.
+            LinearGradient(colors: [Canopy.canvas.opacity(0), Canopy.canvas, Canopy.canvas], startPoint: .top, endPoint: .bottom)
+                .ignoresSafeArea()
+        }
     }
 
     private func confirm() {
