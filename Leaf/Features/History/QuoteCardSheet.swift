@@ -51,7 +51,7 @@ struct QuoteCardSheet: View {
                         actions(entry)
                     } else {
                         Text("Keep a quote while you read, from the session or a book’s journal, and it can become a card here.")
-                            .leafStyle(.body, color: .inkSecondary)
+                            .canopyText(.body, color: Canopy.textSecondary)
                             .multilineTextAlignment(.center)
                             .padding(.top, Space.xxl)
                     }
@@ -82,7 +82,7 @@ struct QuoteCardSheet: View {
                 }
             }
         }
-        .presentationBackground(Color.paper)
+        .presentationBackground(Canopy.canvas)
     }
 
     private var previewScale: CGFloat { 0.82 }
@@ -114,11 +114,11 @@ struct QuoteCardSheet: View {
                     VStack(spacing: Space.xs) {
                         Circle()
                             .fill(option.background)
-                            .overlay { Circle().strokeBorder(option == style ? Color.accent : Color.hairline, lineWidth: option == style ? 2 : 1) }
+                            .overlay { Circle().strokeBorder(option == style ? CanopyAccent.forest.color : Canopy.separator, lineWidth: option == style ? 2 : 1) }
                             .overlay { Circle().fill(option.accent).frame(width: 10, height: 10) }
                             .frame(width: 36, height: 36)
                         Text(option.title)
-                            .leafStyle(.caption, color: option == style ? .accent : nil)
+                            .canopyText(.caption, color: option == style ? CanopyAccent.forest.color : nil)
                     }
                     .frame(minWidth: Space.hitTarget, minHeight: Space.hitTarget)
                 }
@@ -147,7 +147,7 @@ struct QuoteCardSheet: View {
                     Text("Another quote")
                     Image(systemName: "chevron.up.chevron.down").font(.caption)
                 }
-                .leafStyle(.ui, color: .accent)
+                .canopyText(.callout, color: CanopyAccent.forest.color)
                 .frame(minHeight: Space.hitTarget)
             }
         }
@@ -160,20 +160,23 @@ struct QuoteCardSheet: View {
         VStack(spacing: Space.s) {
             if let image {
                 ShareLink(item: Image(uiImage: image), preview: SharePreview(entry.bookTitle, image: Image(uiImage: image))) {
+                    // The sheet's hero, drawn like CanopyHeroButton (which can't wrap a ShareLink).
                     Label("Share", systemImage: "square.and.arrow.up")
-                        .font(LeafType.ui)
-                        .foregroundStyle(Color.paper)
-                        .frame(maxWidth: .infinity, minHeight: Space.hitTarget)
+                        .font(.system(.headline, weight: .semibold))
+                        .foregroundStyle(Color.white)
+                        .frame(maxWidth: .infinity, minHeight: 56)
+                        .background(Canopy.hero, in: .capsule)
+                        .contentShape(.capsule)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Color.ink)
-                SecondaryGlassButton(saveTitle, systemImage: saveState == .saved ? "checkmark" : "photo.on.rectangle", compact: true) {
+                .buttonStyle(.pressable)
+                .simultaneousGesture(TapGesture().onEnded { CanopyFeel.play(.tap) })
+                CanopyGlassButton(saveTitle, systemImage: saveState == .saved ? "checkmark" : "photo.on.rectangle", accent: .bloom, feel: nil) {
                     Task { await save(image) }
                 }
                 .disabled(saveState == .saving || saveState == .saved)
                 if saveState == .denied {
                     Text("Leaf can’t add to your photos. Allow it in Settings, then Privacy, then Photos.")
-                        .leafStyle(.caption)
+                        .canopyText(.caption)
                         .multilineTextAlignment(.center)
                 }
             }

@@ -24,13 +24,13 @@ struct ReadingLogView: View {
             LazyVStack(alignment: .leading, spacing: 0, pinnedViews: []) {
                 controls
                 Text(totalsLine(entries))
-                    .leafStyle(.caption)
+                    .canopyText(.caption)
                     .padding(.top, Space.s)
                     .padding(.bottom, Space.m)
                 if entries.isEmpty {
                     if !query.isEmpty {
                         Text("Nothing matches “\(query)”.")
-                            .leafStyle(.body, color: .inkSecondary)
+                            .canopyText(.body, color: Canopy.textSecondary)
                             .padding(.top, Space.l)
                     } else if show == .everything, range == .allTime {
                         EmptyState(
@@ -40,16 +40,17 @@ struct ReadingLogView: View {
                         .frame(maxWidth: .infinity)
                     } else {
                         Text("Nothing logged here yet. Try showing everything, or a wider range.")
-                            .leafStyle(.body, color: .inkSecondary)
+                            .canopyText(.body, color: Canopy.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(.top, Space.l)
                     }
                 }
                 ForEach(months, id: \.title) { month in
-                    SectionHeader(month.title, topSpacing: Space.l)
+                    CanopyLabel(month.title, accent: .bloom)
+                        .padding(.top, Space.l)
                     ForEach(month.entries) { entry in
                         LogRow(entry: entry, calendar: store.calendar)
-                        Divider().overlay(Color.hairline)
+                        Divider().overlay(Canopy.separator)
                     }
                 }
             }
@@ -104,7 +105,7 @@ struct ReadingLogView: View {
                     Text(range.title)
                     Image(systemName: "chevron.up.chevron.down").font(.caption)
                 }
-                .leafStyle(.ui, color: .accent)
+                .canopyText(.callout, color: CanopyAccent.forest.color)
                 .frame(minHeight: Space.hitTarget)
             }
             .accessibilityLabel("Range, \(range.title)")
@@ -161,14 +162,14 @@ private struct LogRow: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Space.m) {
             Text(LeafFormat.format(entry.date, template: "EEEd", calendar: calendar))
-                .leafStyle(.data, color: .inkSecondary)
+                .canopyText(.callout, color: Canopy.textSecondary).monospacedDigit()
                 .frame(width: 58, alignment: .leading)
             VStack(alignment: .leading, spacing: Space.xxs) {
                 Text(entry.title)
-                    .leafStyle(.headline)
+                    .canopyText(.headline)
                     .lineLimit(2)
                 Text(detail)
-                    .leafStyle(.caption, color: entry.isFinish ? .accent : nil)
+                    .canopyText(.caption, color: entry.isFinish ? CanopyAccent.forest.color : nil)
             }
             Spacer(minLength: 0)
         }

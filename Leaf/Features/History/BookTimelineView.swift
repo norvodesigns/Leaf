@@ -22,7 +22,7 @@ struct BookTimelineView: View {
                     header(item, timeline: timeline)
                     if timeline.chapters.isEmpty {
                         Text("Nothing here yet. Sittings, notes and finishes line up here as you read.")
-                            .leafStyle(.body, color: .inkSecondary)
+                            .canopyText(.body, color: Canopy.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     ForEach(timeline.chapters) { chapter in
@@ -49,7 +49,7 @@ struct BookTimelineView: View {
         }
         .confirmationDialog("Take this read off?", isPresented: removalBinding, titleVisibility: .visible, presenting: readToRemove) { read in
             Button("Take it off", role: .destructive) {
-                withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
+                withAnimation(Canopy.Motion.resolved(Canopy.Motion.smooth, reduceMotion: reduceMotion)) {
                     store.removeRead(bookID, readID: read.id)
                 }
             }
@@ -70,12 +70,12 @@ struct BookTimelineView: View {
             BookCover(book: item.book, size: .s)
             VStack(alignment: .leading, spacing: Space.xxs) {
                 Text(item.book.title)
-                    .leafStyle(.title)
+                    .canopyText(.bookTitle)
                     .fixedSize(horizontal: false, vertical: true)
                 Text(item.book.author)
-                    .leafStyle(.author)
+                    .canopyText(.callout, color: Canopy.textSecondary)
                 Text(summary(item, timeline: timeline))
-                    .leafStyle(.caption)
+                    .canopyText(.caption)
                     .padding(.top, Space.xxs)
             }
         }
@@ -105,7 +105,7 @@ struct BookTimelineView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .firstTextBaseline, spacing: Space.s) {
                 Text(chapter.title)
-                    .leafStyle(.headline)
+                    .canopyText(.headline)
                     .accessibilityAddTraits(.isHeader)
                 Spacer(minLength: Space.s)
                 if let read = chapter.read {
@@ -125,23 +125,23 @@ struct BookTimelineView: View {
                         }
                     } label: {
                         Image(systemName: "ellipsis.circle")
-                            .foregroundStyle(Color.inkSecondary)
+                            .foregroundStyle(Canopy.textSecondary)
                             .frame(minWidth: Space.hitTarget, minHeight: Space.hitTarget)
                     }
                     .accessibilityLabel("\(chapter.title) options")
                 }
             }
             Text(chapterLine(chapter))
-                .leafStyle(.caption)
+                .canopyText(.caption)
                 .padding(.bottom, Space.m)
             ForEach(Array(chapter.beads.enumerated()), id: \.element.id) { index, bead in
                 BeadRow(bead: bead, isFirst: index == 0, isLast: index == chapter.beads.count - 1, calendar: store.calendar)
             }
         }
         .padding(Space.l)
-        .background(Color.paperRaised, in: Radius.shape(Radius.card))
+        .background(Canopy.surface, in: RoundedRectangle(cornerRadius: Canopy.Radius.card, style: .continuous))
         .overlay {
-            Radius.shape(Radius.card).strokeBorder(Color.hairline, lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: Canopy.Radius.card, style: .continuous).strokeBorder(Canopy.separator, lineWidth: 0.5)
         }
     }
 
@@ -177,7 +177,7 @@ private struct BeadRow: View {
             line
             VStack(alignment: .leading, spacing: Space.xxs) {
                 Text(LeafFormat.format(bead.date, template: "EEEdMMM", calendar: calendar))
-                    .leafStyle(.caption, color: .inkTertiary)
+                    .canopyText(.caption, color: Canopy.textTertiary)
                 content
             }
             .padding(.bottom, isLast ? 0 : Space.m)
@@ -206,13 +206,13 @@ private struct BeadRow: View {
     private var line: some View {
         VStack(spacing: 0) {
             Rectangle()
-                .fill(isFirst ? Color.clear : Color.hairline)
+                .fill(isFirst ? Color.clear : Canopy.separator)
                 .frame(width: 1.5, height: 6)
             Circle()
                 .fill(dotColor)
                 .frame(width: isMilestone ? 12 : 8, height: isMilestone ? 12 : 8)
             Rectangle()
-                .fill(isLast ? Color.clear : Color.hairline)
+                .fill(isLast ? Color.clear : Canopy.separator)
                 .frame(width: 1.5)
                 .frame(maxHeight: .infinity)
         }
@@ -224,34 +224,34 @@ private struct BeadRow: View {
     private var content: some View {
         switch bead.kind {
         case .started:
-            Text("Began").leafStyle(.uiBody)
+            Text("Began").canopyText(.body)
         case .sitting(let minutes, let from, let to, let tea, let isTyped):
             Text(sittingLine(minutes: minutes, from: from, to: to))
-                .leafStyle(.data)
+                .canopyText(.callout).monospacedDigit()
             if tea != nil || isTyped {
                 Text(sittingExtras(tea: tea, isTyped: isTyped))
-                    .leafStyle(.caption)
+                    .canopyText(.caption)
             }
         case .note(let text, let page, _):
             Text(text)
-                .leafStyle(.body)
+                .canopyText(.body)
                 .fixedSize(horizontal: false, vertical: true)
-            if let page { Text("Note · p. \(page)").leafStyle(.caption) }
+            if let page { Text("Note · p. \(page)").canopyText(.caption) }
         case .quote(let text, let page, _):
             Text("“\(text)”")
-                .leafStyle(.pullQuote)
+                .canopyText(.quote, color: Canopy.text)
                 .fixedSize(horizontal: false, vertical: true)
-            if let page { Text("p. \(page)").leafStyle(.caption) }
+            if let page { Text("p. \(page)").canopyText(.caption) }
         case .tasting(let teaName, let summary, let rating):
             Text(summary.isEmpty ? teaName : "\(teaName) · \(summary)")
-                .leafStyle(.caption, color: .ink)
+                .canopyText(.caption, color: Canopy.text)
             if let rating { TeaLeaves(rating: rating) }
         case .finished(let rating, let days):
             Text(days.map { $0 == 1 ? "Finished, in a day" : "Finished, in \($0) days" } ?? "Finished")
-                .leafStyle(.uiBody, color: .accent)
+                .canopyText(.body, color: CanopyAccent.forest.color)
             if let rating { TeaLeaves(rating: rating) }
         case .setAside:
-            Text("Set aside").leafStyle(.uiBody, color: .inkSecondary)
+            Text("Set aside").canopyText(.body, color: Canopy.textSecondary)
         }
     }
 
@@ -289,29 +289,29 @@ struct EarlierReadSheet: View {
             Form {
                 Section {
                     DatePicker("Finished", selection: $finished, in: ...Date(), displayedComponents: .date)
-                        .leafStyle(.uiBody)
+                        .canopyText(.body)
                     Toggle(isOn: $knowsStart) {
-                        Text("I remember when I began").leafStyle(.uiBody)
+                        Text("I remember when I began").canopyText(.body)
                     }
                     if knowsStart {
                         DatePicker("Began", selection: $started, in: ...finished, displayedComponents: .date)
-                            .leafStyle(.uiBody)
+                            .canopyText(.body)
                     }
                     HStack {
-                        Text("How it was").leafStyle(.uiBody)
+                        Text("How it was").canopyText(.body)
                         Spacer(minLength: Space.s)
                         TeaLeafRating(rating: $rating)
                     }
                 } footer: {
                     Text("It counts in your year as a finished book and joins this book’s timeline.")
-                        .leafStyle(.caption)
+                        .canopyText(.caption)
                 }
                 .settingsRows()
             }
             .scrollContentBackground(.hidden)
             .paperBackground()
-            .foregroundStyle(Color.ink)
-            .tint(Color.accent)
+            .foregroundStyle(Canopy.text)
+            .tint(CanopyAccent.forest.color)
             .navigationTitle("A read from before")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -330,6 +330,6 @@ struct EarlierReadSheet: View {
                 }
             }
         }
-        .presentationBackground(Color.paper)
+        .presentationBackground(Canopy.canvas)
     }
 }

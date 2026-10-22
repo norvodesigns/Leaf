@@ -27,7 +27,7 @@ struct StatsDepthView: View {
                 headline(depth)
                 if depth.isEmpty {
                     Text("No reading in these dates. Try a wider range.")
-                        .leafStyle(.body, color: .inkSecondary)
+                        .canopyText(.body, color: Canopy.textSecondary)
                         .padding(.top, Space.l)
                 } else {
                     pace("Pages an hour, by genre", depth.byGenre, empty: "Pace by genre shows once there’s half an hour of timed reading in a genre.")
@@ -83,7 +83,7 @@ struct StatsDepthView: View {
                 .accessibilityLabel("From and to dates")
             }
             Text(rangeLine)
-                .leafStyle(.caption)
+                .canopyText(.caption)
         }
     }
 
@@ -124,10 +124,11 @@ struct StatsDepthView: View {
 
     @ViewBuilder
     private func pace(_ title: String, _ rows: [InsightsDepth.Pace], empty: String) -> some View {
-        SectionHeader(title, topSpacing: Space.xxl)
+        CanopyLabel(title, accent: .bloom)
+                        .padding(.top, Space.xxl)
         if rows.isEmpty {
             Text(empty)
-                .leafStyle(.caption)
+                .canopyText(.caption)
                 .fixedSize(horizontal: false, vertical: true)
         } else {
             let top = rows.map(\.pagesPerHour).max() ?? 1
@@ -148,22 +149,23 @@ struct StatsDepthView: View {
 
     @ViewBuilder
     private func streaks(_ rows: [InsightsDepth.Streak]) -> some View {
-        SectionHeader("Longest runs", topSpacing: Space.xxl)
+        CanopyLabel("Longest runs", accent: .bloom)
+                        .padding(.top, Space.xxl)
         if rows.isEmpty {
             Text("Two reading days in a row (rest days don’t break a run) start the list.")
-                .leafStyle(.caption)
+                .canopyText(.caption)
         } else {
             VStack(spacing: 0) {
                 ForEach(rows) { streak in
                     HStack(alignment: .firstTextBaseline, spacing: Space.s) {
                         Text("\(streak.days)")
-                            .leafStyle(.statNumeral)
+                            .canopyText(.stat)
                             .frame(minWidth: 44, alignment: .leading)
                         VStack(alignment: .leading, spacing: Space.xxs) {
                             Text("days in a row\(streak.isCurrent ? ", and counting" : "")")
-                                .leafStyle(.uiBody)
+                                .canopyText(.body)
                             Text("\(day(streak.first)) to \(day(streak.last))")
-                                .leafStyle(.caption)
+                                .canopyText(.caption)
                         }
                         Spacer(minLength: 0)
                     }
@@ -176,19 +178,20 @@ struct StatsDepthView: View {
 
     @ViewBuilder
     private func weeks(_ rows: [InsightsDepth.Week]) -> some View {
-        SectionHeader("Best weeks", topSpacing: Space.xxl)
+        CanopyLabel("Best weeks", accent: .bloom)
+                        .padding(.top, Space.xxl)
         VStack(spacing: 0) {
             ForEach(rows) { week in
                 HStack(alignment: .firstTextBaseline, spacing: Space.s) {
                     Text("Week of \(day(week.start))")
-                        .leafStyle(.headline)
+                        .canopyText(.headline)
                     LeaderDots()
                     Text(LeafFormat.duration(minutes: week.minutes))
-                        .leafStyle(.data)
+                        .canopyText(.callout).monospacedDigit()
                 }
                 .padding(.top, Space.xs)
                 Text("\(LeafFormat.number(week.pages)) pages · \(week.sittings) \(week.sittings == 1 ? "sitting" : "sittings") · \(week.daysRead) \(week.daysRead == 1 ? "day" : "days")")
-                    .leafStyle(.caption)
+                    .canopyText(.caption)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.bottom, Space.xs)
             }
@@ -200,17 +203,18 @@ struct StatsDepthView: View {
 
     @ViewBuilder
     private func setAside(_ aside: InsightsDepth.SetAside) -> some View {
-        SectionHeader("Set aside", topSpacing: Space.xxl)
+        CanopyLabel("Set aside", accent: .bloom)
+                        .padding(.top, Space.xxl)
         if aside.started == 0 {
             Text("No books begun in these dates.")
-                .leafStyle(.caption)
+                .canopyText(.caption)
         } else {
             Text(setAsideLine(aside))
-                .leafStyle(.pullQuote)
+                .canopyText(.quote, color: Canopy.text)
                 .fixedSize(horizontal: false, vertical: true)
             if !aside.titles.isEmpty {
                 Text(aside.titles.prefix(4).joined(separator: " · "))
-                    .leafStyle(.caption)
+                    .canopyText(.caption)
                     .padding(.top, Space.xs)
             }
         }
@@ -231,7 +235,8 @@ struct StatsDepthView: View {
     @ViewBuilder
     private func groups(_ title: String, _ rows: [InsightsDepth.Group], unit: String) -> some View {
         if !rows.isEmpty {
-            SectionHeader(title, topSpacing: Space.xxl)
+            CanopyLabel(title, accent: .bloom)
+                        .padding(.top, Space.xxl)
             let top = Double(rows.map(\.books).max() ?? 1)
             VStack(spacing: Space.s) {
                 ForEach(rows) { row in
@@ -251,18 +256,19 @@ struct StatsDepthView: View {
     @ViewBuilder
     private func years(_ rows: [InsightsDepth.YearRow]) -> some View {
         if !rows.isEmpty {
-            SectionHeader("Year by year", topSpacing: Space.xxl)
+            CanopyLabel("Year by year", accent: .bloom)
+                        .padding(.top, Space.xxl)
             VStack(spacing: 0) {
                 ForEach(rows) { row in
                     HStack(alignment: .firstTextBaseline, spacing: Space.m) {
                         Text(String(row.year))
-                            .leafStyle(.statNumeral)
+                            .canopyText(.stat)
                             .frame(minWidth: 72, alignment: .leading)
                         VStack(alignment: .leading, spacing: Space.xxs) {
                             Text("\(row.booksFinished) \(row.booksFinished == 1 ? "book" : "books") · \(LeafFormat.number(row.pages)) pages")
-                                .leafStyle(.uiBody)
+                                .canopyText(.body)
                             Text(yearDetail(row))
-                                .leafStyle(.caption)
+                                .canopyText(.caption)
                         }
                         Spacer(minLength: 0)
                         if let average = row.averageRating {
@@ -271,7 +277,7 @@ struct StatsDepthView: View {
                     }
                     .padding(.vertical, Space.s)
                     .accessibilityElement(children: .combine)
-                    Divider().overlay(Color.hairline)
+                    Divider().overlay(Canopy.separator)
                 }
             }
         }
@@ -311,22 +317,22 @@ private struct DepthBar: View {
         VStack(alignment: .leading, spacing: Space.xxs) {
             HStack(alignment: .firstTextBaseline, spacing: Space.s) {
                 Text(label)
-                    .leafStyle(.uiBody)
+                    .canopyText(.body)
                     .lineLimit(1)
                 Spacer(minLength: Space.s)
                 Text(value)
-                    .leafStyle(.data)
+                    .canopyText(.callout).monospacedDigit()
             }
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Color.paperSunken)
-                    Capsule().fill(Color.accent).frame(width: max(4, proxy.size.width * min(1, max(0, fraction))))
+                    Capsule().fill(Canopy.separator)
+                    Capsule().fill(CanopyAccent.forest.color).frame(width: max(4, proxy.size.width * min(1, max(0, fraction))))
                 }
             }
             .frame(height: 6)
             .accessibilityHidden(true)
             Text(detail)
-                .leafStyle(.caption, color: .inkTertiary)
+                .canopyText(.caption, color: Canopy.textTertiary)
         }
         .accessibilityElement(children: .combine)
     }
@@ -350,7 +356,7 @@ struct HistorySheet<Content: View>: View {
                     }
                 }
         }
-        .presentationBackground(Color.paper)
+        .presentationBackground(Canopy.canvas)
         .presentationDetents([.large])
     }
 }
