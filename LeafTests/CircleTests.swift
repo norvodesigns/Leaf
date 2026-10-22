@@ -284,6 +284,49 @@ struct CircleTests {
         #expect(!LeafBackup.preview(of: back, against: LeafData()).isEmpty)
     }
 
+    // MARK: Sharing
+
+    @Test func eachDeviceWorksOutWhoIsMe() {
+        var owners = shared(updated: 1, me: 40, sam: 10)
+        owners = CircleShareRules.claimingMe(owners, me: "_owner", now: day(2))
+        #expect(owners.me?.remoteID == "_owner")
+        #expect(owners.updatedAt == day(2))
+        #expect(CircleShareRules.claimingMe(owners, me: "_owner", now: day(3)) == owners, "claiming twice changes nothing")
+
+        // Sam accepts: everyone who arrived is a friend there, and Sam joins first, as "me".
+        let joined = CircleShareRules.joining(owners, me: "_sam", name: "Sam Reed", paletteToken: "rose", now: day(4))
+        #expect(joined.members.map(\.name) == ["Sam Reed", "You", "Sam"])
+        #expect(joined.members.map(\.kind) == [.me, .friend, .friend])
+        #expect(joined.me?.remoteID == "_sam")
+        #expect(joined.updatedAt == day(4))
+        #expect(CircleShareRules.joining(joined, me: "_sam", name: "Sam Reed", paletteToken: "rose", now: day(5)) == joined)
+
+        // Back on the owner's phone the owner is "me" again and Sam is a friend.
+        let back = CircleShareRules.localized(joined, me: "_owner")
+        #expect(back.members.first?.remoteID == "_owner")
+        #expect(back.members.filter { $0.kind == .me }.count == 1)
+        #expect(back.members.first { $0.remoteID == "_sam" }?.kind == .friend)
+        // A circle that was never shared is left alone.
+        let local = shared(updated: 1, me: 0, sam: 0)
+        #expect(CircleShareRules.localized(local, me: "_anyone") == local)
+    }
+
+    @Test func myPageGoesIntoMyOwnMemberOnly() {
+        let c = shared(updated: 1, me: 10, sam: 30)
+        let moved = CircleShareRules.withMyPage(c, page: 900, now: day(2))
+        #expect(moved.members.map(\.page) == [400, 30])
+        #expect(moved.updatedAt == day(2))
+        #expect(CircleShareRules.withMyPage(moved, page: 400, now: day(3)) == moved)
+        #expect(CircleShareRules.withMyPage(c, page: nil, now: day(3)) == c)
+    }
+
+    @Test func zoneNamesRoundTrip() {
+        let id = UUID(uuidString: "00000000-0000-0000-0000-00000000C1C1") ?? UUID()
+        #expect(CircleShareRules.zoneName(for: id) == "Circle-00000000-0000-0000-0000-00000000C1C1")
+        #expect(CircleShareRules.circleID(inZone: CircleShareRules.zoneName(for: id)) == id)
+        #expect(CircleShareRules.circleID(inZone: "LeafZone") == nil)
+    }
+
     @Test func aLibraryFromBeforeCirclesStillLoads() throws {
         let back = try JSONDecoder().decode(LeafData.self, from: Data(#"{"version":2,"items":[]}"#.utf8))
         #expect(back.circles.isEmpty)

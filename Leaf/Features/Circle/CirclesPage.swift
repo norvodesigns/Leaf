@@ -1,3 +1,4 @@
+import CloudKit
 import SwiftUI
 
 /// The Circles page under You: reading circles (book clubs, buddy reads) kept on this phone. A shelf of circles across
@@ -19,6 +20,10 @@ struct CirclesPage: View {
     @State private var sheet: CircleSheet?
     @State private var shuffle = 0
     @State private var confirmsDelete = false
+    /// The iCloud share being shown, once it is ready.
+    @State private var invite: CircleInvite?
+    @State private var preparingInvite = false
+    @State private var inviteError: String?
 
     var body: some View {
         let shelf = circles.shelf(now: store.now)
@@ -65,6 +70,15 @@ struct CirclesPage: View {
             }
         } message: {
             Text("The schedule and everyone’s pages go with it. Your own reading stays in your library.")
+        }
+        .sheet(item: $invite) { invite in
+            CircleShareSheet(share: invite.share, circleID: invite.circleID, title: invite.title)
+                .ignoresSafeArea()
+        }
+        .alert("Couldn’t share the circle", isPresented: Binding(get: { inviteError != nil }, set: { if !$0 { inviteError = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(inviteError ?? "")
         }
     }
 
@@ -118,6 +132,16 @@ struct CirclesPage: View {
 
     private func footer(_ circle: ReadingCircle) -> some View {
         VStack(alignment: .leading, spacing: 0) {
+            // Only in builds with iCloud, with iCloud on: friends join and move their own pages.
+            if CircleSharing.shared.isOn(for: store) {
+                footerButton(
+                    preparingInvite ? "Getting the invitation ready…" : (CircleSharing.shared.isShared(circle.id) ? "Shared with iCloud: invite more" : "Invite friends with iCloud"),
+                    color: Canopy.textSecondary
+                ) {
+                    shareCircle(circle)
+                }
+                .disabled(preparingInvite)
+            }
             footerButton(circle.isArchived ? "Bring this circle back" : "Put this circle away", color: Canopy.textSecondary) {
                 CanopyFeel.play(.planChanged)
                 withAnimation(Canopy.Motion.resolved(Canopy.Motion.smooth, reduceMotion: reduceMotion)) {
@@ -127,6 +151,20 @@ struct CirclesPage: View {
             footerButton("Delete circle", color: Canopy.textTertiary) {
                 CanopyFeel.play(.tap)
                 confirmsDelete = true
+            }
+        }
+    }
+
+    private func shareCircle(_ circle: ReadingCircle) {
+        CanopyFeel.play(.tap)
+        preparingInvite = true
+        Task {
+            defer { preparingInvite = false }
+            do {
+                let share = try await CircleSharing.shared.share(for: circle.id)
+                invite = CircleInvite(circleID: circle.id, title: circle.name, share: share)
+            } catch {
+                inviteError = error.localizedDescription
             }
         }
     }
@@ -160,6 +198,14 @@ struct CirclesPage: View {
         }
         router.circleStage = nil
     }
+}
+
+/// A circle's iCloud share, ready for the system sheet.
+private struct CircleInvite: Identifiable {
+    var id: UUID { circleID }
+    let circleID: UUID
+    let title: String
+    let share: CKShare
 }
 
 /// No circles yet: what a circle is, and one way to start.

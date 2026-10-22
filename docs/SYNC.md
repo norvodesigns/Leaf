@@ -144,6 +144,30 @@ space in Settings, the system purged it) must never wipe a device. To remove a l
 (the Reset confirmation should say so). Turning sync off and on is different: switching off stops syncing and
 deletes nothing, switching on catches up.
 
+## Sharing a reading circle (CKShare)
+
+Behind the same flag as sync: only builds with `LEAF_CLOUDKIT_ENABLED=YES`, and only while the reader has iCloud on.
+Otherwise the Invite button does not show and the app delegate leaves SwiftUI's scene alone.
+
+- **Owner.** "Invite friends with iCloud" on a circle (`CircleSharing.share(for:)`) puts the reader's iCloud user
+  record name in their own member's `remoteID`, makes a zone `Circle-<uuid>` in the private database with one
+  `LeafCircle` record (same payload as the sync record) and shares the zone (`CKShare(recordZoneID:)`), then shows
+  `UICloudSharingController`.
+- **Participant.** Tapping the link reaches `LeafSceneDelegate`, which accepts the share. The next fetch finds the zone
+  in the shared database, adds a member for this person (`CircleShareRules.joining`, named from the share) and saves.
+- **Everyone.** The circle also stays in each person's own library, so it shows offline, is backed up and syncs to
+  their other devices. On every library change, each shared circle gets the reader's page from their library
+  (`CircleShareRules.withMyPage`) and is saved if it moved, after merging the server's copy. On coming to the front
+  every shared circle is fetched and merged with the sync rules (newest circle, then newest copy of each member).
+  `kind` is per device: `CircleShareRules.localized` makes the member with this person's `remoteID` the `.me`.
+- **Ending.** Deleting a shared circle deletes the owner's zone (ending the share) or leaves it (participant). When the
+  owner stops sharing or deletes, participants keep their copy as a local circle.
+- Which circles are shared lives in `circle-shares.json` beside the library (not synced; each device finds shared
+  zones again on its own fetch).
+
+Needs checking on two iCloud accounts before it ships: invite by Messages, accept on the second phone (cold launch and
+while running), both reading at once, a friend removed by the owner, stop sharing, delete as owner and as participant.
+
 ## CloudKit setup (once)
 
 - Entitlements (already in `Leaf/Leaf.entitlements`): container `iCloud.com.norvodesigns.leaf`, service `CloudKit`,

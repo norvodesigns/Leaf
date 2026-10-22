@@ -6,6 +6,7 @@ struct LeafApp: App {
     @State private var store: LibraryStore
     @State private var router: AppRouter
     @State private var catalog = BookCatalog.shared
+    @UIApplicationDelegateAdaptor(LeafAppDelegate.self) private var appDelegate
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
@@ -34,6 +35,7 @@ struct LeafApp: App {
         if !options.isScripted {
             CircleStore.importLegacyFile(into: store)
             Self.startSyncIfReady(store)
+            CircleSharing.shared.connect(store)
         }
 
         Reminders.shared.configure(store: store)
@@ -47,6 +49,7 @@ struct LeafApp: App {
             WatchBridge.shared.schedulePush()
             LiveActivityController.shared.sync()
             WidgetFeed.shared.schedule()
+            CircleSharing.shared.libraryChanged()
             if let level = store?.preferences.hapticsLevel { Haptics.shared.level = level }
         }
         Haptics.shared.level = store.preferences.hapticsLevel
@@ -96,6 +99,7 @@ struct LeafApp: App {
                     switch phase {
                     case .active:
                         loadDeferredLibrary()
+                        if !LaunchOptions.current.isScripted { CircleSharing.shared.connect(store) }
                         store.refreshDay(LaunchOptions.current.now())
                         Haptics.shared.prepare()
                         LiveActivityController.shared.sync()

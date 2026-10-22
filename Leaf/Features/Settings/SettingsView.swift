@@ -427,6 +427,7 @@ struct SettingsView: View {
             CozySettings.reset()
             LibraryTraces.erase()
             CircleStore.eraseLegacyFiles()
+            CircleSharing.shared.eraseLinks()
             store.resetEverything()
         }
     }
