@@ -1,42 +1,70 @@
 # Audio sources
 
-Every sound in Leaf is made on the device, in code (`Shared/Audio/`). Leaf ships no recordings, so there is no
-licence to track and nothing to credit.
+Leaf's five ambiences play real recordings: stretches of CC0 field recordings from BigSoundBank, cut, cleaned,
+levelled and looped (below). The four cues (the kettle switch, the page turn, the pour, the chime) are still made on
+the device, in code (`Shared/Audio/`), and so is every ambience's fallback.
 
-## Why the rebuild is procedural, not recorded
+Nothing here needs a credit. Every recording is CC0 (public domain dedication); BigSoundBank describes itself as a
+"sound library created by Joseph SARDIN since 2005. Free, royalty-free sounds (CC0)" (https://bigsoundbank.com,
+licence page https://bigsoundbank.com/licenses.html). We name Joseph Sardin here anyway, as thanks.
 
-The plan after the first TestFlight was to use CC0 / public-domain field recordings where they beat synthesis
-(Freesound with the CC0 filter, Wikimedia Commons, archive.org). The build environment could not reach any of those
-hosts (`freesound.org`, `commons.wikimedia.org`, `upload.wikimedia.org` and `archive.org` were all refused by its
-network policy), so no recording was fetched, checked or bundled. The four weak sounds were rebuilt as physical
-models instead, and measured against what the real sounds are like (below).
+The filmed nook scenes have their own log: [SCENE_SOURCES.md](SCENE_SOURCES.md).
 
-If recordings are wanted later, the path is ready:
+## The recordings
 
-1. Use only files whose page states CC0 or public domain. Record each one here: title, author, URL, licence, date
-   fetched, and what was done to it. Anything that needs attribution also needs a line in Settings, under About.
-2. Cut 20 to 40 seconds, loudness-normalise to the recipe's `targetLoudness`, and make the join seamless with
-   `AudioLoop.seamless(_:crossfade:)` (a 50 to 100 ms equal-power crossfade; `AudioLoop.seamJump` checks it).
-3. Encode as AAC under about 400 KB, add to `Leaf/Resources/Sounds`, and play it through `AmbiencePlayer` beside the
-   procedural layer (an `AVAudioPlayerNode` scheduling the buffer with `.loops`), keeping the synth's occasional
-   events on top so the loop never sounds like a loop.
+All fetched 2026-10-22 by `scripts/media/build_media.sh`, author Joseph Sardin (BigSoundBank), licence CC0.
 
-| Sound | File | Source URL | Licence | Notes |
-|---|---|---|---|---|
-| (none yet) | | | | |
+| Ambience | File | Source | What was used |
+|---|---|---|---|
+| Fireplace | `ambience-fireplace.m4a` | [Fireplace #4](https://bigsoundbank.com/fireplace-4-s2856.html) (#2856) | 3 to 73 s: a log fire burning steadily, crackles and all. Rumble under 35 Hz removed. |
+| Rain | `ambience-rain.m4a` | [Rain and storm in a tent](https://bigsoundbank.com/rain-and-storm-in-a-tent-s0820.html) (#0820) | 80 to 142 s: steady medium rain on canvas, a stretch with no thunder. Under 70 Hz removed, the top above 7 kHz softened 3 dB. |
+| Café | `ambience-cafe.m4a` | [Coffee Shop at the Capucins](https://bigsoundbank.com/coffee-shop-at-the-capucins-s2561.html) (#2561) | 160 to 222 s: the interior terrace of a café in Brest, a stretch without a loud clink or laugh. Under 60 Hz removed. |
+| Kettle | `ambience-kettle.m4a` | [Electric kettle](https://bigsoundbank.com/electric-kettle-s0660.html) (#0660), with [Sound Atmosphere in a House](https://bigsoundbank.com/sound-atmosphere-in-a-house-s2458.html) (#2458) | 84 to 116 s of the kettle at its rolling simmer, heard from the next room: band-limited to 80 Hz to 2.6 kHz, with a quarter of the house's own room tone (#2458, 10 to 42 s) around it. |
+| Library | `ambience-library.m4a` | [Sound Atmosphere in a House](https://bigsoundbank.com/sound-atmosphere-in-a-house-s2458.html) (#2458), page turns [#2210](https://bigsoundbank.com/pages-that-turn-3-s2210.html) to [#2216](https://bigsoundbank.com/pages-that-turn-9-s2216.html), [#0362](https://bigsoundbank.com/great-page-that-turns-1-s0362.html), [#0363](https://bigsoundbank.com/great-page-that-turns-1-s0363.html), [#0164](https://bigsoundbank.com/turned-page-s0164.html), and [Closed book #2](https://bigsoundbank.com/closed-book-2-s1411.html) (#1411) | Composed: 4 to 96 s of a quiet house's room tone, with a page turned across the room every 6.5 to 13 seconds and a book closed once, each softened by distance (a low-pass near 4.5 kHz and a short, dark room tail) and placed left or right. |
+
+The page turns in between are [#2211](https://bigsoundbank.com/pages-that-turn-4-s2211.html),
+[#2212](https://bigsoundbank.com/pages-that-turn-5-s2212.html), [#2213](https://bigsoundbank.com/pages-that-turn-6-s2213.html),
+[#2214](https://bigsoundbank.com/pages-that-turn-7-s2214.html) and [#2215](https://bigsoundbank.com/pages-that-turn-8-s2215.html).
+
+Size: 5.2 MB for the five, AAC at 128 kb/s, 44.1 kHz stereo; 32 to 92 seconds each.
+
+### How they are made
+
+`scripts/media/make_beds.py` (run by `scripts/media/build_media.sh`, which also fetches the sources):
+
+1. **Pick the stretch.** `scripts/media/analyze.py` prints each recording's level and spectrum second by second; the
+   stretch used is a steady one, with no outlier (thunder, a laugh, a dropped cup).
+2. **Clean.** A gentle high-pass to take out handling rumble, and on the rain a softer top.
+3. **Level.** Loudness-normalised (EBU R128, gated) to -18 LUFS, the library to -26 (8 LU below, a hush, as before),
+   with a lookahead peak limiter (1.5 ms attack, 60 ms release) holding peaks at -4.5 dBFS so the crackles and drops
+   lose their spikes, not their bite. That keeps them just under the app's own limiter (`AudioLimiter`, knee at about
+   -7 dBFS in the mix), so at full volume it barely touches them.
+4. **Loop.** Each file runs 2 seconds longer than its loop. When the app loads it, `AmbienceRecording` trims 50 ms from
+   each end (room for the encoder's priming and padding) and crossfades the 2-second tail into the start
+   (`AudioLoop.seamless`, equal power), so the join never clicks and never sounds like a cut. Each start opens
+   somewhere else in the loop, so two sessions don't begin on the same crackle. `LeafTests/AmbienceRecordingTests.swift`
+   checks the join and the playback.
+
+### How the app plays them
+
+`AmbiencePlayer` decodes `ambience-<id>.m4a` off the main thread the first time an ambience is chosen, holds it in
+memory (11 to 32 MB of float samples, one ambience at a time), and plays it through the same synth node, fades and
+limiter as before (`AmbienceSynth` with a recording). Ambience stays opt-in, and nothing is ever spoken.
+
+If a file is missing or can't be decoded, the ambience falls back to the made-in-code sound below. The Sound lab
+(Settings, always in debug builds; in TestFlight builds tap the version number in About seven times) plays each
+ambience **New** (the recording) or **Old** (the first TestFlight's made-in-code sound), to compare.
 
 ## Hearing them
 
-`docs/audio-previews/` holds 30-second previews of every ambience as it is now (`*-new.m4a`) and as the first TestFlight
-had it (`*-old.m4a`), the kettle at 45 seconds so its rise can be heard, rain (unchanged), and the four cues. They are
-rendered by `scripts/render_ambience_previews.sh` with the app's own code, so they are exactly what the app plays. CI
-renders them on every push and publishes them to `refs/ci/audio` (`git fetch origin refs/ci/audio`), with
-`MEASURES.md` beside them.
+The recordings are the files in `Leaf/Resources/Sounds/`; any player opens them. CI also copies them, as
+`*-recorded.m4a`, beside the made-in-code previews it renders on every push (`scripts/render_ambience_previews.sh`,
+published to `refs/ci/audio`; `git fetch origin refs/ci/audio`).
 
-On the phone, Settings has a Sound lab (always in debug builds; in TestFlight builds, tap the version number in About
-seven times). It plays each ambience old or new at one volume, and each cue.
+`docs/audio-previews/` holds 30-second previews of the made-in-code ambiences as they are now (`*-new.m4a`, the
+fallback) and as the first TestFlight had it (`*-old.m4a`), and the four cues, with `MEASURES.md` beside them.
 
-## How each sound is made, and what it is held to
+## The made-in-code sounds (the cues, and every ambience's fallback)
 
 Loudness is K-weighted and ungated (`AudioMeasure.loudness`). Rain, fire, kettle and café sit at -17 LUFS at full
 volume, within 1.5 LU; the library is a hush, 8 LU below. The tests in `LeafTests/AudioTests.swift`
@@ -66,3 +94,15 @@ check.
 The cues are softer: the kettle switch is a short noise tick and a low knock instead of bright pings, the page turn
 is darker with its crinkle reined in and a soft pat to finish, and the chime has a slower attack and fewer high
 overtones. Held to: under a tenth of their energy above 6 kHz and a spectral centre under 2.5 kHz.
+
+## Adding or replacing a recording
+
+1. Use only files whose page states CC0 or public domain, and log each one in the table above: title, author, URL,
+   licence, date fetched, and what was done to it. Anything that needs attribution also needs a line in Settings,
+   under About.
+2. Add its cut to `scripts/media/make_beds.py`, with 2 seconds to spare at the end for the join, and rebuild with
+   `scripts/media/build_media.sh`.
+3. Listen to the whole loop, join included, in the Sound lab before committing.
+
+From the build environment on 2026-10-22, freesound.org, Pixabay and Pexels refused the connection (403 or a
+browser challenge) and Wikimedia Commons rate-limited downloads, so BigSoundBank was the CC0 library in reach.

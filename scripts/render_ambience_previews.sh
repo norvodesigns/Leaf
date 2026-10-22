@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Renders previews of every ambience (as it is now, and as the first TestFlight had it, for comparison) and every cue
 # with the app's own synthesis in Shared/, as .m4a files and a MEASURES.md table, into docs/audio-previews (or the
-# directory given). CI runs it on every push and publishes the result to refs/ci/audio.
+# directory given), beside the recorded beds the app plays first (`*-recorded.m4a`, copied from
+# Leaf/Resources/Sounds). CI runs it on every push and publishes the result to refs/ci/audio.
 #
 #   scripts/render_ambience_previews.sh [out-dir]
 #
@@ -28,4 +29,9 @@ for wav in "$WORK"/wav/*.wav; do
   fi
 done
 cp "$WORK/wav/MEASURES.md" "$OUT/MEASURES.md"
+for bed in "$ROOT"/Leaf/Resources/Sounds/ambience-*.m4a; do
+  [ -e "$bed" ] || continue
+  name="$(basename "$bed" .m4a)"
+  cp "$bed" "$OUT/${name#ambience-}-recorded.m4a"
+done
 echo "previews: $(du -sk "$OUT" | cut -f1) KB in $OUT"

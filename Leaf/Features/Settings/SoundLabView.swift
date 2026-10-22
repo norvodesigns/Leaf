@@ -38,7 +38,7 @@ struct SoundLabView: View {
             } header: {
                 Text("Ambience").settingsHeader()
             } footer: {
-                Text("New is this version’s; Old is the first TestFlight’s, to compare. Rain is the same in both.")
+                Text("New is the recorded bed this version plays; Old is the first TestFlight’s made-in-code sound, to compare.")
                     .canopyText(.caption)
             }
 

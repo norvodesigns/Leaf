@@ -17,6 +17,8 @@ final class AmbienceSynth: @unchecked Sendable {
     let recipe: AmbienceRecipe
     let version: AmbienceRecipe.Version
     let sampleRate: Double
+    /// True when it plays a recorded bed (`AmbienceRecording`) rather than synthesising.
+    let isRecorded: Bool
 
     private struct Fade {
         var gain: Float
@@ -32,14 +34,30 @@ final class AmbienceSynth: @unchecked Sendable {
     private var pendingFade: Fade?
 
     /// `initialGain` is where the master gain starts (0 for silence that will be faded in, 1 for full level).
-    init(recipe: AmbienceRecipe, sampleRate: Double = 44_100, seed: UInt64 = 1, initialGain: Float = 1, version: AmbienceRecipe.Version = .current) {
-        let rate = AudioSampleRate.clamped(sampleRate)
+    ///
+    /// With a `recording` the synth plays that recorded bed instead of making the sound, at the recording's own sample
+    /// rate (`sampleRate` is ignored) and level; the fades, the volume curve and the limiter are the same.
+    init(
+        recipe: AmbienceRecipe,
+        sampleRate: Double = 44_100,
+        seed: UInt64 = 1,
+        initialGain: Float = 1,
+        version: AmbienceRecipe.Version = .current,
+        recording: AmbienceRecording? = nil
+    ) {
+        let rate = recording?.sampleRate ?? AudioSampleRate.clamped(sampleRate)
         self.recipe = recipe
         self.version = version
         self.sampleRate = rate
-        voice = recipe.makeVoice(sampleRate: rate, seed: seed, version: version)
+        isRecorded = recording != nil
+        if let recording {
+            voice = AmbienceRecordedVoice(recording: recording, seed: seed)
+            outputScale = AmbienceRecipe.recordedRawToTarget
+        } else {
+            voice = recipe.makeVoice(sampleRate: rate, seed: seed, version: version)
+            outputScale = recipe.rawToTarget(version)
+        }
         ramp = AudioGainRamp(value: initialGain)
-        outputScale = recipe.rawToTarget(version)
         scratchLeft = UnsafeMutablePointer<Float>.allocate(capacity: AmbienceSynth.blockSize)
         scratchRight = UnsafeMutablePointer<Float>.allocate(capacity: AmbienceSynth.blockSize)
         scratchLeft.initialize(repeating: 0, count: AmbienceSynth.blockSize)

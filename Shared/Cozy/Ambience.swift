@@ -12,9 +12,8 @@ struct Ambience: Codable, Hashable, Identifiable, Sendable {
     /// Where the volume starts, 0 to 1. The sounds are made to one loudness (the library a little under), so they
     /// all start in the same place.
     var defaultVolume: Double
-    /// Whether the sound can run for as long as the reader likes without a seam. Every sound the procedural engine
-    /// makes is endless, so they are all true today; a future recorded loop that clicks at its join would be false,
-    /// and the engine should crossfade its end into its start.
+    /// Whether the sound can run for as long as the reader likes without a seam. They all can: the procedural sounds
+    /// never repeat, and each recorded bed is crossfaded into itself when it loads (`AmbienceRecording`).
     var loopSafe: Bool
     var seasons: [Season]
     var dayparts: [Daypart]

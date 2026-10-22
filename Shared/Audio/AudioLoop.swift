@@ -1,7 +1,7 @@
 import Foundation
 
-/// Turning a recording into a loop that never clicks at its join. Not used by the procedural sounds (they never
-/// repeat); here for recorded beds, should any be added (see docs/AUDIO_SOURCES.md).
+/// Turning a recording into a loop that never clicks at its join, for the recorded beds (`AmbienceRecording`, see
+/// docs/AUDIO_SOURCES.md). The procedural sounds never repeat and don't need it.
 enum AudioLoop {
     /// The recording shortened by `crossfade` frames, with its last `crossfade` frames faded (equal power) into its
     /// first ones, so the end runs straight on into the start.

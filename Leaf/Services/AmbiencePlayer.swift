@@ -29,8 +29,10 @@ enum LeafAudioSession {
     }
 }
 
-/// Plays one procedural ambience (rain, fireplace, kettle, cafe or library) at a time, made on the fly by
-/// `AmbienceSynth`: no audio files, nothing to license, nothing to download.
+/// Plays one ambience (rain, fireplace, kettle, cafe or library) at a time. Each has a recorded bed in the app
+/// (`ambience-<id>.m4a`, a CC0 field recording levelled and looped ahead of time: docs/AUDIO_SOURCES.md), decoded when
+/// it is first chosen; without one, or for the Sound lab's first-TestFlight comparison, `AmbienceSynth` makes the sound
+/// on the fly. Nothing is downloaded.
 ///
 /// Ids are the ones in `AmbienceCatalog` and `ReadingPreferences.ambienceID`. Anything else, including "none", stops
 /// the sound. The player pauses itself when a call or alarm interrupts and picks up again when it ends; it pauses
@@ -55,6 +57,8 @@ final class AmbiencePlayer {
     @ObservationIgnored private let engine = AVAudioEngine()
     @ObservationIgnored private var sourceNode: AVAudioSourceNode?
     @ObservationIgnored private var synth: AmbienceSynth?
+    /// The last recorded bed decoded, kept while it is the one chosen (one at a time: a minute of stereo is ~20 MB).
+    @ObservationIgnored private var loaded: (recipe: AmbienceRecipe, recording: AmbienceRecording)?
     /// Whether the reader wants sound. Survives an interruption (so it can resume) but not a headphone unplug.
     @ObservationIgnored private var wantsPlayback = false
     @ObservationIgnored private var transitionTask: Task<Void, Never>?
@@ -79,7 +83,7 @@ final class AmbiencePlayer {
         installObserversIfNeeded()
         wantsPlayback = true
 
-        if currentID == id, let synth, synth.version == version {
+        if currentID == id, let synth, synth.recipe == recipe, synth.version == version {
             resumeEngine()
             return
         }
@@ -132,16 +136,38 @@ final class AmbiencePlayer {
 
     // MARK: Engine
 
+    /// Starts `recipe`, decoding its recorded bed off the main thread first when it hasn't been yet.
     private func start(_ recipe: AmbienceRecipe, fadeIn: TimeInterval) {
+        guard version == .current else {
+            startEngine(recipe, recording: nil, fadeIn: fadeIn)
+            return
+        }
+        if let loaded, loaded.recipe == recipe {
+            startEngine(recipe, recording: loaded.recording, fadeIn: fadeIn)
+            return
+        }
+        // Let the last sound (already faded out) and its recording go before decoding the next.
+        teardown()
+        loaded = nil
+        transitionTask = Task { [weak self] in
+            let recording = await Task.detached(priority: .userInitiated) { Self.loadRecording(recipe) }.value
+            guard !Task.isCancelled, let self else { return }
+            if let recording { self.loaded = (recipe, recording) }
+            self.startEngine(recipe, recording: recording, fadeIn: fadeIn)
+        }
+    }
+
+    private func startEngine(_ recipe: AmbienceRecipe, recording: AmbienceRecording?, fadeIn: TimeInterval) {
         teardown()
         guard LeafAudioSession.activate(overridingSilentSwitch: true) else {
             wantsPlayback = false
             currentID = nil
             return
         }
-        // In Low Power Mode one channel at half the sample rate is a quarter of the work. The mixer upsamples it.
-        let lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
-        let sampleRate = lowPower ? 22_050.0 : 44_100.0
+        // A recording plays at its own rate, in stereo: copying it out costs next to nothing. The synth, in Low Power
+        // Mode, makes one channel at half the sample rate, a quarter of the work; the mixer upsamples it.
+        let lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled && recording == nil
+        let sampleRate = recording?.sampleRate ?? (lowPower ? 22_050.0 : 44_100.0)
         let channels: AVAudioChannelCount = lowPower ? 1 : 2
         guard let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: sampleRate, channels: channels, interleaved: false) else {
             wantsPlayback = false
@@ -150,7 +176,7 @@ final class AmbiencePlayer {
         }
         startCount += 1
         let seed = SeededGenerator.hash(recipe.rawValue) &+ startCount
-        let synth = AmbienceSynth(recipe: recipe, sampleRate: sampleRate, seed: seed, initialGain: 0, version: version)
+        let synth = AmbienceSynth(recipe: recipe, sampleRate: sampleRate, seed: seed, initialGain: 0, version: version, recording: recording)
         let node = Self.makeSourceNode(synth: synth, format: format)
         engine.attach(node)
         engine.connect(node, to: engine.mainMixerNode, format: format)
@@ -166,6 +192,27 @@ final class AmbiencePlayer {
         }
         synth.fade(to: AmbienceSynth.gain(forVolume: volume), over: fadeIn)
         isPlaying = true
+    }
+
+    /// The recorded bed bundled for `recipe`, decoded to float stereo and joined into a seamless loop. Nil when the app
+    /// has none or it can't be read; the synth then makes the sound instead.
+    private nonisolated static func loadRecording(_ recipe: AmbienceRecipe) -> AmbienceRecording? {
+        let name = recipe.recordingName
+        guard let url = Bundle.main.url(forResource: name, withExtension: "m4a")
+            ?? Bundle.main.url(forResource: name, withExtension: "m4a", subdirectory: "Sounds") else { return nil }
+        do {
+            let file = try AVAudioFile(forReading: url, commonFormat: .pcmFormatFloat32, interleaved: false)
+            let format = file.processingFormat
+            guard file.length > 0, let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(file.length)) else { return nil }
+            try file.read(into: buffer)
+            guard let data = buffer.floatChannelData, buffer.frameLength > 0 else { return nil }
+            let frames = Int(buffer.frameLength)
+            let left = Array(UnsafeBufferPointer(start: data[0], count: frames))
+            let right = format.channelCount > 1 ? Array(UnsafeBufferPointer(start: data[1], count: frames)) : left
+            return AmbienceRecording(left: left, right: right, sampleRate: format.sampleRate)
+        } catch {
+            return nil
+        }
     }
 
     /// Built outside the main actor on purpose: the block runs on the real-time audio thread and must not inherit
@@ -266,6 +313,7 @@ final class AmbiencePlayer {
 
     private func rebuildAfterReset() {
         guard wantsPlayback, let id = currentID, let recipe = AmbienceRecipe(id: id) else { return }
+        transitionTask?.cancel()
         start(recipe, fadeIn: 1)
     }
 }
