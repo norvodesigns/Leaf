@@ -195,28 +195,21 @@ struct ForecastPage: View {
 
     // MARK: Now reading
 
+    /// Every book on Reading on one timeline, instead of a fan chart per book.
     @ViewBuilder
     private var nowReading: some View {
-        let reading = Array(store.reading.prefix(3))
+        let reading = Array(store.reading.prefix(6))
         if !reading.isEmpty, let result = shownResult {
-            SectionHeader("Now reading")
-                .id("reading")
-            VStack(spacing: Space.m) {
-                ForEach(reading, id: \.id) { item in
-                    if let forecast = result.book(item.id) {
-                        BookForecastCard(
-                            item: item,
-                            forecast: forecast,
-                            delta: isWhatIf ? desk.comparison?.delta(for: item.id) : nil,
-                            narrator: narrator,
-                            today: store.now,
-                            calendar: store.calendar
-                        ) {
-                            router.planSheet = .finishLine(bookID: item.id)
-                        }
-                    }
-                }
+            ReadingLanesCard(
+                books: reading,
+                result: result,
+                delta: { id in isWhatIf ? desk.comparison?.delta(for: id) : nil },
+                narrator: narrator
+            ) { bookID in
+                router.planSheet = .finishLine(bookID: bookID)
             }
+            .id("reading")
+            .padding(.top, Space.xl)
         }
     }
 
@@ -573,64 +566,6 @@ struct ForecastPage: View {
 }
 
 // MARK: - Cards
-
-/// One book in Reading: its cover, the narrator's sentence, the fan chart, and a way into "finish by a date".
-struct BookForecastCard: View {
-    let item: LibraryItem
-    let forecast: BookForecast
-    /// How a what-if moves it, if one is being tried.
-    let delta: ForecastBookDelta?
-    let narrator: ForecastNarrator
-    let today: Date
-    let calendar: Calendar
-    let onFinishLine: () -> Void
-
-    var body: some View {
-        TodayCard("p. \(item.currentPage) of \(item.book.pages)", actionTitle: "Finish by…", action: onFinishLine) {
-            HStack(alignment: .top, spacing: Space.m) {
-                BookCover(book: item.book, size: .s)
-                VStack(alignment: .leading, spacing: Space.xs) {
-                    Text(item.book.title)
-                        .leafStyle(.headline)
-                        .lineLimit(2)
-                    Text(narrator.bookSentence(forecast))
-                        .leafStyle(.body)
-                        .fixedSize(horizontal: false, vertical: true)
-                    if let delta, let earlier = delta.medianDaysEarlier, earlier != 0 {
-                        DeltaChip(daysSooner: earlier)
-                            .accessibilityLabel(narrator.changeSentence(delta))
-                    }
-                }
-            }
-            .accessibilityElement(children: .combine)
-            if forecast.median != nil {
-                BookFanChart(
-                    title: item.book.title,
-                    forecast: forecast,
-                    currentPage: item.currentPage,
-                    pages: item.book.pages,
-                    narrator: narrator,
-                    calendar: calendar,
-                    today: today
-                )
-            }
-            Text(confidenceLine)
-                .leafStyle(.caption, color: .inkTertiary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
-    private var confidenceLine: String {
-        let sittings = forecast.sessions == 1 ? "1 sitting" : "\(forecast.sessions) sittings"
-        if forecast.positionUncertain { return "A rough guess until you confirm your page." }
-        if forecast.sessions == 0 { return "From your pace overall; no sittings with this book yet." }
-        switch forecast.confidence {
-        case .low: return "A rough guess from \(sittings) with this book."
-        case .medium: return "Getting clearer, from \(sittings) with this book."
-        case .high: return "A confident range, from \(sittings) with this book."
-        }
-    }
-}
 
 /// Missed days, and what the plan does about them: forgive (the default), shift the dates, or catch up gently.
 struct CatchUpCard: View {
