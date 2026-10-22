@@ -43,10 +43,10 @@ struct LeafStartReadingControl: ControlWidget {
         StaticControlConfiguration(kind: LeafWidgetStore.readControlKind, provider: LeafControlProvider()) { value in
             ControlWidgetButton(action: StartReadingIntent()) {
                 Label {
-                    Text(value.isReading ? "Back to reading" : "Start reading")
+                    Text(value.isReading ? "Back to reading" : "Begin reading")
                     Text(value.subtitle)
                 } icon: {
-                    Image(systemName: value.isReading ? "book.fill" : "book")
+                    Image(systemName: value.isReading ? "book.pages.fill" : "book.pages")
                 }
             }
         }
@@ -61,10 +61,10 @@ struct LeafSteepControl: ControlWidget {
         StaticControlConfiguration(kind: LeafWidgetStore.steepControlKind, provider: LeafControlProvider()) { value in
             ControlWidgetButton(action: StartSteepIntent()) {
                 Label {
-                    Text("Steep a pot")
+                    Text("Steep and read")
                     Text(value.subtitle)
                 } icon: {
-                    Image(systemName: "cup.and.heat.waves.fill")
+                    Image(systemName: "cup.and.heat.waves")
                 }
             }
         }

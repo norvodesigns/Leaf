@@ -12,7 +12,7 @@ struct LeafTodayWidget: Widget {
             LeafTodayEntryView(entry: entry)
         }
         .configurationDisplayName("Today’s reading")
-        .description("Minutes left today, your page, and Read or Steep a tap away.")
+        .description("Today’s goal, your next reading time, and Begin reading a tap away.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge, .accessoryCircular, .accessoryRectangular, .accessoryInline])
     }
 }
@@ -68,7 +68,7 @@ struct LeafTodayEntryView: View {
                 if isAccessory {
                     Color.clear
                 } else {
-                    LeafWidgetBackground(backdrop: entry.art.backdrop)
+                    LeafWidgetBackground()
                 }
             }
     }
@@ -79,12 +79,12 @@ struct LeafTodayEntryView: View {
 
     @ViewBuilder private var content: some View {
         switch family {
-        case .systemMedium: LeafWidgetMedium(snapshot: entry.snapshot, phase: entry.phase, art: entry.art)
-        case .systemLarge: LeafWidgetLarge(snapshot: entry.snapshot, phase: entry.phase, art: entry.art)
+        case .systemMedium: LeafWidgetMedium(snapshot: entry.snapshot, phase: entry.phase, art: entry.art, now: entry.date)
+        case .systemLarge: LeafWidgetLarge(snapshot: entry.snapshot, phase: entry.phase, art: entry.art, now: entry.date)
         case .accessoryCircular: LeafWidgetCircular(snapshot: entry.snapshot, phase: entry.phase)
-        case .accessoryRectangular: LeafWidgetRectangular(snapshot: entry.snapshot, phase: entry.phase)
-        case .accessoryInline: LeafWidgetInline(snapshot: entry.snapshot, phase: entry.phase)
-        default: LeafWidgetSmall(snapshot: entry.snapshot, phase: entry.phase, art: entry.art)
+        case .accessoryRectangular: LeafWidgetRectangular(snapshot: entry.snapshot, phase: entry.phase, now: entry.date)
+        case .accessoryInline: LeafWidgetInline(snapshot: entry.snapshot, phase: entry.phase, now: entry.date)
+        default: LeafWidgetSmall(snapshot: entry.snapshot, phase: entry.phase, art: entry.art, now: entry.date)
         }
     }
 }

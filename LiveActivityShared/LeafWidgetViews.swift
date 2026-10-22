@@ -3,30 +3,34 @@ import SwiftUI
 import UIKit
 import WidgetKit
 
-// The Home Screen, StandBy and Lock Screen widgets' look. Like the Live Activity's views they live here, beside the
-// snapshot, so the app can draw them in a debug gallery for screenshots (CI has no Home Screen); the extension wraps
-// them in its `StaticConfiguration`.
+// The Home Screen, StandBy and Lock Screen widgets' look, in Canopy (docs/design/DESIGN_SYSTEM.md, REDESIGN.md §4.12).
+// Like the Live Activity's views they live here, beside the snapshot, so the app can draw them in a debug gallery for
+// screenshots (CI has no Home Screen); the extension wraps them in its `StaticConfiguration`.
 //
-// Same rules as the Live Activity: nothing animates per second except what the system draws for
-// `Text(timerInterval:)` and `ProgressView(timerInterval:)`; covers and their blur are pre-rendered by the app.
-// Unlike it, the widgets sit on the Home Screen beside everything else, so they follow light and dark: paper by day,
-// paper at night, one green accent.
+// Canopy on a widget: the cream page, green as the ink you act with, Dusk for reading and time, Clay for tea, black
+// for the one hero action. Numerals are rounded, titles literary, and nothing sits blurred. Nothing animates per second
+// except what the system draws for `Text(timerInterval:)` and `ProgressView(timerInterval:)`.
 
-/// Leaf's paper palette (DESIGN.md §2), light and dark. The extension can't see the app's `LeafColor`.
+/// Canopy's Oat palette (the owner's pick) and its accents, light and dark. The extension can't see the app's
+/// `Canopy` tokens, so the values are repeated here; keep them in step with `CanopyTokens.swift`.
 enum LeafWidgetPalette {
-    static let paper = LeafWidgetPalette.dynamic(0xF4EFE6, 0x1A1714)
-    static let paperRaised = LeafWidgetPalette.dynamic(0xFBF8F2, 0x24201B)
-    static let ink = LeafWidgetPalette.dynamic(0x1F1A15, 0xEFE7D8)
-    static let inkSecondary = LeafWidgetPalette.dynamic(0x5C554B, 0xB5AB98)
-    static let inkTertiary = LeafWidgetPalette.dynamic(0x6E6457, 0x958B7B)
-    static let hairline = LeafWidgetPalette.dynamic(0xDDD5C7, 0x36302A)
-    static let track = LeafWidgetPalette.dynamic(0xE3DBCD, 0x332D26)
-    static let accent = LeafWidgetPalette.dynamic(0x3E6B4F, 0x8DBB98)
-    /// The label on an accent fill: paper by day, deep green at night (DESIGN.md's watch button label).
-    static let onAccent = LeafWidgetPalette.dynamic(0xFBF8F2, 0x0E1A12)
-    static let ribbon = LeafWidgetPalette.dynamic(0xB23F2C, 0xE0694F)
-    /// Chai, a shade deeper by day so it reads on paper.
-    static let tea = LeafWidgetPalette.dynamic(0x8F5F33, 0xC99A6E)
+    static let canvas = LeafWidgetPalette.dynamic(0xF5EFE4, 0x1B1916)
+    static let surface = LeafWidgetPalette.dynamic(0xFCF8F1, 0x26231F)
+    static let text = LeafWidgetPalette.dynamic(0x24201A, 0xF2EADA)
+    static let textSecondary = LeafWidgetPalette.dynamic(0x665F54, 0xB5AB99)
+    /// Non-text only: tracks, units beside big numerals.
+    static let textTertiary = LeafWidgetPalette.dynamic(0x8C8478, 0x847B6E)
+    static let separator = LeafWidgetPalette.dynamic(0xE5DCCB, 0x3A352E)
+    /// Brand, progress, done.
+    static let forest = LeafWidgetPalette.dynamic(0x48705A, 0xA9CDB2)
+    /// Reading and time: sessions, reading times, timers.
+    static let dusk = LeafWidgetPalette.dynamic(0x46559A, 0xA9B5F2)
+    /// Tea: steeping.
+    static let clay = LeafWidgetPalette.dynamic(0xA44A28, 0xEB9C74)
+    static let duskSoft = LeafWidgetPalette.dynamic(0x46559A, 0xA9B5F2, lightAlpha: 0.12, darkAlpha: 0.22)
+    static let claySoft = LeafWidgetPalette.dynamic(0xA44A28, 0xEB9C74, lightAlpha: 0.12, darkAlpha: 0.22)
+    /// The one hero action: black in both modes, white label.
+    static let hero = Color.black
 
     /// The ten generated-cover backgrounds, in the app's order.
     static let covers: [Color] = ([0x6B2B26, 0x26375C, 0x2F4A3A, 0x3D4A52, 0x573247, 0x2D5D5B, 0x9A4A2C, 0xC48A2C, 0x9CAE94, 0xE9E0CD] as [UInt32])
@@ -34,8 +38,12 @@ enum LeafWidgetPalette {
 
     static func cover(for seed: Int) -> Color { covers[abs(seed % covers.count)] }
 
-    private static func dynamic(_ light: UInt32, _ dark: UInt32) -> Color {
-        Color(uiColor: UIColor { $0.userInterfaceStyle == .dark ? LeafWidgetPalette.rgb(dark) : LeafWidgetPalette.rgb(light) })
+    private static func dynamic(_ light: UInt32, _ dark: UInt32, lightAlpha: CGFloat = 1, darkAlpha: CGFloat = 1) -> Color {
+        Color(uiColor: UIColor {
+            $0.userInterfaceStyle == .dark
+                ? LeafWidgetPalette.rgb(dark).withAlphaComponent(darkAlpha)
+                : LeafWidgetPalette.rgb(light).withAlphaComponent(lightAlpha)
+        })
     }
 
     private static func rgb(_ hex: UInt32) -> UIColor {
@@ -43,26 +51,46 @@ enum LeafWidgetPalette {
     }
 }
 
-/// The covers the app left in the App Group for the books on the widget, and the blurred one behind it.
+/// The covers the app left in the App Group for the books on the widget.
 struct LeafWidgetArt {
     var covers: [String: Image] = [:]
-    var backdrop: Image?
 
     /// Reads the pictures the snapshot names. Small files, a handful at most.
     static func load(for snapshot: LeafWidgetSnapshot, includeUpNext: Bool) -> LeafWidgetArt {
         var art = LeafWidgetArt()
-        var books = snapshot.current.map { [$0] } ?? []
-        if includeUpNext { books += snapshot.upNext }
-        for book in books {
-            guard let name = book.coverFileName, let url = ReadingActivityAssets.coverURL(name),
-                  let image = UIImage(contentsOfFile: url.path) else { continue }
-            art.covers[book.id] = Image(uiImage: image)
-        }
-        if let name = snapshot.current?.coverFileName, let url = ReadingActivityAssets.blurredCoverURL(name),
-           let image = UIImage(contentsOfFile: url.path) {
-            art.backdrop = Image(uiImage: image)
+        var ids: [(String, String?)] = snapshot.current.map { [($0.id, $0.coverFileName)] } ?? []
+        if includeUpNext { ids += snapshot.upNext.map { ($0.id, $0.coverFileName) } }
+        for (id, name) in ids where art.covers[id] == nil {
+            guard let name, let url = ReadingActivityAssets.coverURL(name), let image = UIImage(contentsOfFile: url.path) else { continue }
+            art.covers[id] = Image(uiImage: image)
         }
         return art
+    }
+
+    /// The picture for a book by id, from the current book or the ones up next.
+    func cover(_ id: String) -> Image? { covers[id] }
+}
+
+// MARK: - Vocabulary
+
+/// Canopy's one symbol per idea (DESIGN_SYSTEM.md §7), shared with the watch.
+enum LeafWidgetGlyph {
+    static let today = "sun.max"
+    static let readingTime = "clock"
+    static let reading = "book.pages"
+    static let tea = "cup.and.heat.waves"
+    static let steepTimer = "timer"
+
+    static func name(for phase: LeafWidgetPhase) -> String {
+        switch phase {
+        case .today, .empty: return today
+        case .goalMet, .goalReached: return "checkmark"
+        case .rest: return "leaf"
+        case .reading: return reading
+        case .paused: return "pause.fill"
+        case .steeping: return steepTimer
+        case .teaReady: return tea
+        }
     }
 }
 
@@ -147,11 +175,12 @@ struct LeafWidgetTimer {
 
     var glyph: String { LeafWidgetGlyph.name(for: phase) }
 
-    var tint: Color {
+    /// Clay for tea, Forest once the goal is met, Dusk for reading.
+    var accent: Color {
         switch phase {
-        case .steeping, .teaReady: return LeafWidgetPalette.tea
-        case .goalReached: return LeafWidgetPalette.accent
-        default: return LeafWidgetPalette.ribbon
+        case .steeping, .teaReady: return LeafWidgetPalette.clay
+        case .goalReached: return LeafWidgetPalette.forest
+        default: return LeafWidgetPalette.dusk
         }
     }
 
@@ -166,24 +195,7 @@ struct LeafWidgetTimer {
     }
 }
 
-enum LeafWidgetGlyph {
-    static func name(for phase: LeafWidgetPhase) -> String {
-        switch phase {
-        case .today, .empty: return "leaf.fill"
-        case .goalMet: return "checkmark"
-        case .rest: return "cup.and.saucer.fill"
-        // The timer glyphs are the Apple Watch's (its Timer widget and Live Activity card): outlines, so nothing bright
-        // sits filled in on an Always On screen.
-        case .reading: return "book"
-        case .paused: return "pause.circle"
-        case .goalReached: return "checkmark.circle"
-        case .steeping: return "cup.and.heat.waves"
-        case .teaReady: return "cup.and.saucer.fill"
-        }
-    }
-}
-
-/// The digits: the system advances them; a pause freezes them; a ready pot just says so.
+/// The digits: rounded and always sharp. The system advances them; a pause freezes them; a ready pot says so.
 struct LeafWidgetDigits: View {
     let timer: LeafWidgetTimer
     var size: CGFloat = 40
@@ -197,10 +209,10 @@ struct LeafWidgetDigits: View {
                     .monospacedDigit()
             }
         }
-        .font(.system(size: size, weight: .light, design: .serif))
-        .foregroundStyle(timer.phase == .paused ? LeafWidgetPalette.inkSecondary : LeafWidgetPalette.ink)
+        .font(.system(size: size, weight: .medium, design: .rounded))
+        .foregroundStyle(timer.phase == .paused ? LeafWidgetPalette.textSecondary : timer.accent)
         .lineLimit(1)
-        .minimumScaleFactor(0.5)
+        .minimumScaleFactor(0.6)
         .multilineTextAlignment(.leading)
         .widgetAccentable()
     }
@@ -221,82 +233,82 @@ struct LeafWidgetTimerBar: View {
             }
         }
         .progressViewStyle(.linear)
-        .tint(timer.tint)
+        .tint(timer.accent)
         .accessibilityHidden(true)
     }
 }
 
 // MARK: - Pieces
 
-/// Today's ring: a static arc, filled to the share of the goal read, with what's left inside.
+/// Today's goal ring in Forest on a separator track, with what's left inside.
 struct LeafWidgetRing<Centre: View>: View {
     let progress: Double
-    var lineWidth: CGFloat = 6
-    var tint: Color = LeafWidgetPalette.accent
+    var lineWidth: CGFloat = 7
     @ViewBuilder var centre: Centre
 
     var body: some View {
         ZStack {
             Circle()
-                .stroke(LeafWidgetPalette.track, lineWidth: lineWidth)
+                .inset(by: lineWidth / 2)
+                .stroke(LeafWidgetPalette.separator, lineWidth: lineWidth)
             Circle()
+                .inset(by: lineWidth / 2)
                 .trim(from: 0, to: max(0.002, min(1, progress)))
-                .stroke(tint, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .stroke(LeafWidgetPalette.forest, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
                 .widgetAccentable()
             centre
-                .padding(lineWidth + 2)
+                .padding(lineWidth + 3)
         }
     }
 }
 
-/// The numeral inside today's ring: minutes left, a check once met, a cup on a rest day.
+/// The numeral inside today's ring: minutes left, a check once met, a leaf on a rest day.
 struct LeafWidgetRingCentre: View {
     let snapshot: LeafWidgetSnapshot
     let phase: LeafWidgetPhase
-    var size: CGFloat = 30
+    var size: CGFloat = 26
 
     var body: some View {
         switch phase {
         case .goalMet, .rest, .empty:
             Image(systemName: LeafWidgetGlyph.name(for: phase))
-                .font(.system(size: size * 0.6, weight: .medium))
-                .foregroundStyle(phase == .goalMet ? LeafWidgetPalette.accent : LeafWidgetPalette.inkSecondary)
+                .font(.system(size: size * 0.7, weight: .medium))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(phase == .goalMet ? LeafWidgetPalette.forest : LeafWidgetPalette.textSecondary)
                 .widgetAccentable()
         default:
-            VStack(spacing: -2) {
+            VStack(spacing: -1) {
                 Text(snapshot.minutesLeftText)
-                    .font(.system(size: size, weight: .light, design: .serif).monospacedDigit())
-                    .foregroundStyle(LeafWidgetPalette.ink)
+                    .font(.system(size: size, weight: .semibold, design: .rounded).monospacedDigit())
+                    .foregroundStyle(LeafWidgetPalette.text)
                     .minimumScaleFactor(0.6)
                     .lineLimit(1)
                 Text("min")
-                    .font(.system(size: max(9, size * 0.34), weight: .medium))
-                    .foregroundStyle(LeafWidgetPalette.inkSecondary)
+                    .font(.system(size: max(9, size * 0.4), weight: .medium, design: .rounded))
+                    .foregroundStyle(LeafWidgetPalette.textSecondary)
             }
         }
     }
 }
 
-/// An uppercase eyebrow with its glyph.
-struct LeafWidgetEyebrow: View {
+/// A small label with its symbol: the time of the next read in Dusk, a timer's state in its accent.
+struct LeafWidgetLabel: View {
     let text: String
     let glyph: String
-    var tint: Color = LeafWidgetPalette.accent
+    var accent: Color = LeafWidgetPalette.forest
 
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: glyph)
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(tint)
-                .widgetAccentable()
-            Text(text.uppercased())
-                .font(.system(size: 10, weight: .semibold))
-                .tracking(1)
-                .foregroundStyle(LeafWidgetPalette.inkTertiary)
+                .symbolRenderingMode(.hierarchical)
+            Text(text)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
         }
+        .font(.system(size: 12, weight: .semibold))
+        .foregroundStyle(accent)
+        .widgetAccentable()
     }
 }
 
@@ -307,6 +319,7 @@ struct LeafWidgetCover: View {
     var width: CGFloat = 36
 
     var body: some View {
+        let radius = min(6, max(2, width * 0.1))
         Group {
             if let image {
                 image
@@ -323,17 +336,16 @@ struct LeafWidgetCover: View {
             }
         }
         .frame(width: width, height: width * 1.5)
-        .clipShape(RoundedRectangle(cornerRadius: max(2, width * 0.06), style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: max(2, width * 0.06), style: .continuous)
-                .strokeBorder(LeafWidgetPalette.ink.opacity(0.12), lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: radius, style: .continuous)
+                .strokeBorder(LeafWidgetPalette.text.opacity(0.1), lineWidth: 0.5)
         }
-        .shadow(color: Color.black.opacity(0.18), radius: 2, y: 1)
         .accessibilityHidden(true)
     }
 }
 
-/// The week as seven little tea rings, today marked with the ribbon.
+/// The week as seven little Forest rings, today marked with a Dusk dot.
 struct LeafWidgetWeek: View {
     let snapshot: LeafWidgetSnapshot
     var dot: CGFloat = 11
@@ -347,11 +359,11 @@ struct LeafWidgetWeek: View {
                         .frame(width: dot, height: dot)
                     if showsLetters {
                         Text(Self.letter(day.date))
-                            .font(.system(size: 9, weight: .medium))
-                            .foregroundStyle(isToday(day) ? LeafWidgetPalette.ribbon : LeafWidgetPalette.inkTertiary)
+                            .font(.system(size: 9, weight: .medium, design: .rounded))
+                            .foregroundStyle(isToday(day) ? LeafWidgetPalette.dusk : LeafWidgetPalette.textSecondary)
                     } else {
                         Circle()
-                            .fill(isToday(day) ? LeafWidgetPalette.ribbon : Color.clear)
+                            .fill(isToday(day) ? LeafWidgetPalette.dusk : Color.clear)
                             .frame(width: 3, height: 3)
                     }
                 }
@@ -366,16 +378,17 @@ struct LeafWidgetWeek: View {
         let share = min(1, day.minutes / goal)
         return ZStack {
             if day.isReadingDay {
-                Circle().stroke(LeafWidgetPalette.track, lineWidth: 2)
+                Circle().inset(by: 1).stroke(LeafWidgetPalette.separator, lineWidth: 2)
             } else {
-                Circle().stroke(LeafWidgetPalette.hairline, style: StrokeStyle(lineWidth: 1, dash: [1.5, 1.5]))
+                Circle().inset(by: 0.5).stroke(LeafWidgetPalette.textTertiary, style: StrokeStyle(lineWidth: 1, dash: [1.5, 1.5]))
             }
             if share >= 1 {
-                Circle().fill(LeafWidgetPalette.accent).widgetAccentable()
+                Circle().fill(LeafWidgetPalette.forest).widgetAccentable()
             } else if share > 0 {
                 Circle()
+                    .inset(by: 1)
                     .trim(from: 0, to: share)
-                    .stroke(LeafWidgetPalette.accent, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                    .stroke(LeafWidgetPalette.forest, style: StrokeStyle(lineWidth: 2, lineCap: .round))
                     .rotationEffect(.degrees(-90))
                     .widgetAccentable()
             }
@@ -389,8 +402,8 @@ struct LeafWidgetWeek: View {
     private var spoken: String {
         let met = snapshot.week.filter { $0.minutes >= Double(max(snapshot.dailyMinutes, 1)) }.count
         let streak = snapshot.streak
-        let days = streak == 1 ? "1 day in a row" : "\(streak) days in a row"
-        return "This week: the goal met on \(met) \(met == 1 ? "day" : "days"). \(streak > 0 ? days + "." : "")"
+        let days = streak == 1 ? " 1 day in a row." : (streak > 1 ? " \(streak) days in a row." : "")
+        return "This week: the goal met on \(met) \(met == 1 ? "day" : "days").\(days)"
     }
 
     private static func letter(_ date: Date) -> String {
@@ -400,12 +413,14 @@ struct LeafWidgetWeek: View {
     }
 }
 
-/// A pill that runs an intent: Read, Steep, Pause, Resume, +1 page.
+/// A capsule that runs an intent. `hero` is Canopy's one black action; the rest are quiet surface pills with the
+/// icon in its job's accent.
 struct LeafWidgetButton<Intent: AppIntent>: View {
     let title: String
     let systemImage: String
     let intent: Intent
-    var prominent = true
+    var hero = false
+    var accent: Color = LeafWidgetPalette.forest
     var iconOnly = false
 
     var body: some View {
@@ -413,19 +428,31 @@ struct LeafWidgetButton<Intent: AppIntent>: View {
             Group {
                 if iconOnly {
                     Image(systemName: systemImage)
-                        .frame(width: 30, height: 30)
+                        .foregroundStyle(hero ? Color.white : accent)
+                        .frame(width: 34, height: 34)
                 } else {
-                    Label(title, systemImage: systemImage)
-                        .labelStyle(.titleAndIcon)
-                        .lineLimit(1)
-                        .fixedSize()
-                        .padding(.horizontal, 12)
-                        .frame(height: 30)
+                    HStack(spacing: 5) {
+                        Image(systemName: systemImage)
+                            .foregroundStyle(hero ? Color.white : accent)
+                        Text(title)
+                            .foregroundStyle(hero ? Color.white : LeafWidgetPalette.text)
+                    }
+                    .lineLimit(1)
+                    .fixedSize()
+                    .padding(.horizontal, 14)
+                    .frame(height: 34)
                 }
             }
             .font(.system(size: 13, weight: .semibold))
-            .foregroundStyle(prominent ? LeafWidgetPalette.onAccent : LeafWidgetPalette.ink)
-            .background(prominent ? LeafWidgetPalette.accent : LeafWidgetPalette.ink.opacity(0.08), in: Capsule())
+            .symbolRenderingMode(.hierarchical)
+            .background {
+                if hero {
+                    Capsule().fill(LeafWidgetPalette.hero)
+                } else {
+                    Capsule().fill(LeafWidgetPalette.surface)
+                        .overlay(Capsule().strokeBorder(LeafWidgetPalette.separator, lineWidth: 1))
+                }
+            }
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -434,63 +461,59 @@ struct LeafWidgetButton<Intent: AppIntent>: View {
     }
 }
 
-/// The actions for the moment: Read (and Steep) by day, Pause or Resume and a page while reading.
+/// The actions for the moment: Steep and Begin reading by day, Pause or Resume and a page while reading.
 struct LeafWidgetActions: View {
     let phase: LeafWidgetPhase
     var showsSteep = true
-    var compact = false
 
     var body: some View {
         HStack(spacing: 6) {
             switch phase {
             case .reading, .goalReached:
-                LeafWidgetButton(title: "Pause", systemImage: "pause.fill", intent: PauseReadingIntent(), prominent: false, iconOnly: compact)
-                LeafWidgetButton(title: "A page", systemImage: "plus", intent: LogPagesIntent(pages: 1), prominent: true, iconOnly: compact)
+                LeafWidgetButton(title: "Pause", systemImage: "pause.fill", intent: PauseReadingIntent(), accent: LeafWidgetPalette.dusk)
+                LeafWidgetButton(title: "A page", systemImage: "plus", intent: LogPagesIntent(pages: 1), accent: LeafWidgetPalette.dusk)
             case .paused:
-                LeafWidgetButton(title: "Resume", systemImage: "play.fill", intent: ResumeReadingIntent(), prominent: true, iconOnly: compact)
-            case .steeping, .teaReady:
-                LeafWidgetButton(title: phase == .teaReady ? "Start the cup" : "Open", systemImage: "book", intent: StartSteepIntent(), prominent: phase == .teaReady)
+                LeafWidgetButton(title: "Resume", systemImage: "play.fill", intent: ResumeReadingIntent(), hero: true)
+            case .steeping:
+                LeafWidgetButton(title: "Open", systemImage: LeafWidgetGlyph.tea, intent: StartSteepIntent(), accent: LeafWidgetPalette.clay)
+            case .teaReady:
+                LeafWidgetButton(title: "Start the cup", systemImage: "play.fill", intent: StartSteepIntent(), hero: true)
             case .empty:
                 EmptyView()
             case .today, .goalMet, .rest:
                 if showsSteep {
-                    LeafWidgetButton(title: "Steep", systemImage: "cup.and.heat.waves", intent: StartSteepIntent(), prominent: false, iconOnly: true)
+                    LeafWidgetButton(title: "Steep and read", systemImage: LeafWidgetGlyph.tea, intent: StartSteepIntent(), accent: LeafWidgetPalette.clay, iconOnly: true)
                 }
-                LeafWidgetButton(title: phase == .today ? "Read" : "Read on", systemImage: "book", intent: StartReadingIntent())
+                LeafWidgetButton(title: phase == .today ? "Begin reading" : "Read a little", systemImage: "play.fill", intent: StartReadingIntent(), hero: phase == .today)
             }
         }
     }
 }
 
-/// Paper, with the current book's blurred cover glowing through from the top corner. In StandBy and the tinted
-/// and clear Home Screens the system removes it.
+/// The cream page with Canopy's soft daylight falling from the top. In StandBy and the tinted and clear Home
+/// Screens the system removes it.
 struct LeafWidgetBackground: View {
-    let backdrop: Image?
-
     var body: some View {
-        ZStack {
-            LeafWidgetPalette.paper
-            if let backdrop {
-                backdrop
-                    .resizable()
-                    .scaledToFill()
-                    .opacity(0.55)
-                    .mask {
-                        RadialGradient(colors: [.black, .black.opacity(0)], center: .topTrailing, startRadius: 0, endRadius: 260)
-                    }
-            }
-        }
-        .accessibilityHidden(true)
+        LinearGradient(colors: [LeafWidgetPalette.surface, LeafWidgetPalette.canvas], startPoint: .top, endPoint: .bottom)
+            .accessibilityHidden(true)
+    }
+}
+
+/// "8:30 PM", in the reader's own clock.
+enum LeafWidgetTime {
+    static func text(_ slot: LeafWidgetSnapshot.Slot, in snapshot: LeafWidgetSnapshot) -> String {
+        snapshot.date(of: slot).formatted(date: .omitted, time: .shortened)
     }
 }
 
 // MARK: - Home Screen and StandBy
 
-/// Small: today's ring and the page to start from, or the timer while one runs. StandBy draws this one large.
+/// Small: the goal ring and the next reading time, or the timer while one runs. StandBy draws this one large.
 struct LeafWidgetSmall: View {
     let snapshot: LeafWidgetSnapshot
     let phase: LeafWidgetPhase
     let art: LeafWidgetArt
+    var now: Date = Date()
 
     var body: some View {
         if let timer = LeafWidgetTimer(snapshot: snapshot, phase: phase) {
@@ -500,57 +523,77 @@ struct LeafWidgetSmall: View {
         }
     }
 
+    private var next: LeafWidgetSnapshot.Slot? { snapshot.nextSlot(at: now) }
+
     private var todayBody: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: 0) {
-                LeafWidgetRing(progress: snapshot.goalProgress, lineWidth: 7) {
-                    LeafWidgetRingCentre(snapshot: snapshot, phase: phase, size: 28)
+                LeafWidgetRing(progress: snapshot.goalProgress) {
+                    LeafWidgetRingCentre(snapshot: snapshot, phase: phase)
                 }
-                .frame(width: 74, height: 74)
+                .frame(width: 70, height: 70)
                 Spacer(minLength: 6)
-                if let book = snapshot.current {
-                    LeafWidgetCover(book: book, image: art.covers[book.id], width: 30)
+                if let book = snapshot.current, phase != .empty {
+                    LeafWidgetCover(book: book, image: art.cover(book.id), width: 28)
                 }
             }
             Spacer(minLength: 6)
-            Text(headline)
-                .font(.system(.subheadline, design: .serif).weight(.medium))
-                .foregroundStyle(LeafWidgetPalette.ink)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-            Text(subline)
-                .font(.caption2.monospacedDigit())
-                .foregroundStyle(LeafWidgetPalette.inkSecondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
+            if phase == .empty {
+                Text("A book to begin")
+                    .font(.system(size: 15, weight: .semibold, design: .serif))
+                    .foregroundStyle(LeafWidgetPalette.text)
+                Text("Open Leaf to choose one")
+                    .font(.system(size: 11))
+                    .foregroundStyle(LeafWidgetPalette.textSecondary)
+            } else if let next, phase == .today {
+                LeafWidgetLabel(text: LeafWidgetTime.text(next, in: snapshot), glyph: LeafWidgetGlyph.readingTime, accent: LeafWidgetPalette.dusk)
+                Text(next.title)
+                    .font(.system(size: 15, weight: .semibold, design: .serif))
+                    .foregroundStyle(LeafWidgetPalette.text)
+                    .lineLimit(1)
+                Text(next.pagesText)
+                    .font(.system(size: 11, design: .rounded).monospacedDigit())
+                    .foregroundStyle(LeafWidgetPalette.textSecondary)
+                    .lineLimit(1)
+            } else if let book = snapshot.current {
+                LeafWidgetLabel(text: statusText, glyph: LeafWidgetGlyph.name(for: phase), accent: LeafWidgetPalette.forest)
+                Text(book.title)
+                    .font(.system(size: 15, weight: .semibold, design: .serif))
+                    .foregroundStyle(LeafWidgetPalette.text)
+                    .lineLimit(1)
+                Text("p. \(book.currentPage) of \(book.pages)")
+                    .font(.system(size: 11, design: .rounded).monospacedDigit())
+                    .foregroundStyle(LeafWidgetPalette.textSecondary)
+                    .lineLimit(1)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(phase == .empty ? "Leaf. Choose a book to begin." : snapshot.spoken)
+        .accessibilityLabel(spoken)
     }
 
-    private var headline: String {
-        guard phase != .empty, let book = snapshot.current else { return "A book to begin" }
-        return book.title
-    }
-
-    private var subline: String {
+    private var statusText: String {
         switch phase {
-        case .empty: return "Open Leaf to choose one"
-        case .goalMet: return snapshot.current.map { "Goal met · p. \($0.currentPage)" } ?? "Goal met"
-        case .rest: return snapshot.current.map { "Rest day · p. \($0.currentPage)" } ?? "Rest day"
-        default: return snapshot.current.map { "p. \($0.currentPage) · \(snapshot.minutesLeftText) min to go" } ?? ""
+        case .goalMet: return "Goal met"
+        case .rest: return "A rest day"
+        default: return "\(snapshot.minutesLeftText) min to go"
         }
+    }
+
+    private var spoken: String {
+        guard phase != .empty else { return "Leaf. Choose a book to begin." }
+        guard let next, phase == .today else { return snapshot.spoken }
+        return "\(snapshot.spoken) Next: \(LeafWidgetTime.text(next, in: snapshot)), \(next.title), \(next.pagesText)."
     }
 
     private func timerBody(_ timer: LeafWidgetTimer) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            LeafWidgetEyebrow(text: timer.eyebrow, glyph: timer.glyph, tint: timer.tint)
+            LeafWidgetLabel(text: timer.eyebrow, glyph: timer.glyph, accent: timer.accent)
             Spacer(minLength: 4)
-            LeafWidgetDigits(timer: timer, size: 38)
+            LeafWidgetDigits(timer: timer, size: 36)
             Text(timer.caption)
-                .font(.caption2)
-                .foregroundStyle(LeafWidgetPalette.inkSecondary)
+                .font(.system(size: 11))
+                .foregroundStyle(LeafWidgetPalette.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             LeafWidgetTimerBar(timer: timer)
@@ -558,8 +601,8 @@ struct LeafWidgetSmall: View {
             Spacer(minLength: 4)
             if let book = snapshot.current {
                 Text(timer.isSteep ? "Then \(book.title)" : "\(book.title) · p. \(book.currentPage)")
-                    .font(.system(.caption, design: .serif))
-                    .foregroundStyle(LeafWidgetPalette.inkSecondary)
+                    .font(.system(size: 12, design: .serif))
+                    .foregroundStyle(LeafWidgetPalette.textSecondary)
                     .lineLimit(1)
             }
         }
@@ -569,35 +612,34 @@ struct LeafWidgetSmall: View {
     }
 }
 
-/// The current book with its cover, author and place.
+/// A book with its cover, title, a second line and progress.
 struct LeafWidgetBookRow: View {
     let book: LeafWidgetSnapshot.Book
     let image: Image?
     var coverWidth: CGFloat = 36
     var detail: String?
+    var showsProgress = true
 
     var body: some View {
         HStack(alignment: .center, spacing: 10) {
             LeafWidgetCover(book: book, image: image, width: coverWidth)
             VStack(alignment: .leading, spacing: 2) {
                 Text(book.title)
-                    .font(.system(.headline, design: .serif))
-                    .foregroundStyle(LeafWidgetPalette.ink)
+                    .font(.system(size: 16, weight: .semibold, design: .serif))
+                    .foregroundStyle(LeafWidgetPalette.text)
                     .lineLimit(2)
                     .minimumScaleFactor(0.85)
-                Text(book.author)
-                    .font(.caption)
-                    .foregroundStyle(LeafWidgetPalette.inkSecondary)
-                    .lineLimit(1)
-                ProgressView(value: book.progress)
-                    .progressViewStyle(.linear)
-                    .tint(LeafWidgetPalette.accent)
-                    .padding(.top, 3)
-                Text(detail ?? "p. \(book.currentPage) of \(book.pages)")
-                    .font(.caption2.monospacedDigit())
-                    .foregroundStyle(LeafWidgetPalette.inkSecondary)
+                Text(detail ?? book.author)
+                    .font(.system(size: 12, design: .rounded).monospacedDigit())
+                    .foregroundStyle(LeafWidgetPalette.textSecondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
+                if showsProgress {
+                    ProgressView(value: book.progress)
+                        .progressViewStyle(.linear)
+                        .tint(LeafWidgetPalette.forest)
+                        .padding(.top, 3)
+                }
             }
         }
         .accessibilityElement(children: .ignore)
@@ -605,28 +647,32 @@ struct LeafWidgetBookRow: View {
     }
 }
 
-/// Medium: the ring and the week on the left, the book and what to do on the right.
+/// Medium: the ring on the left; the next reading time (cover, time, pages) and Begin reading on the right.
 struct LeafWidgetMedium: View {
     let snapshot: LeafWidgetSnapshot
     let phase: LeafWidgetPhase
     let art: LeafWidgetArt
+    var now: Date = Date()
 
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
             left
-                .frame(width: 104)
-            VStack(alignment: .leading, spacing: 0) {
-                if let book = snapshot.current, phase != .empty {
-                    LeafWidgetBookRow(book: book, image: art.covers[book.id], coverWidth: 38, detail: detail(book))
-                } else {
+                .frame(width: 96)
+            VStack(alignment: .leading, spacing: 6) {
+                if phase == .empty {
                     Text("A book to begin")
-                        .font(.system(.headline, design: .serif))
-                        .foregroundStyle(LeafWidgetPalette.ink)
+                        .font(.system(size: 16, weight: .semibold, design: .serif))
+                        .foregroundStyle(LeafWidgetPalette.text)
                     Text("Open Leaf and choose one from the library.")
-                        .font(.caption)
-                        .foregroundStyle(LeafWidgetPalette.inkSecondary)
+                        .font(.system(size: 12))
+                        .foregroundStyle(LeafWidgetPalette.textSecondary)
+                } else if let next = snapshot.nextSlot(at: now), phase == .today, let book = slotBook(next) {
+                    LeafWidgetLabel(text: "Next · " + LeafWidgetTime.text(next, in: snapshot), glyph: LeafWidgetGlyph.readingTime, accent: LeafWidgetPalette.dusk)
+                    LeafWidgetBookRow(book: book, image: art.cover(book.id), coverWidth: 34, detail: "\(Int(next.minutes)) min · \(next.pagesText)", showsProgress: false)
+                } else if let book = snapshot.current {
+                    LeafWidgetBookRow(book: book, image: art.cover(book.id), coverWidth: 34, detail: "p. \(book.currentPage) of \(book.pages)")
                 }
-                Spacer(minLength: 6)
+                Spacer(minLength: 4)
                 HStack {
                     Spacer(minLength: 0)
                     LeafWidgetActions(phase: phase)
@@ -636,15 +682,22 @@ struct LeafWidgetMedium: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
+    /// The slot's book, from the current book or the ones up next; else a stand-in with the slot's title.
+    private func slotBook(_ slot: LeafWidgetSnapshot.Slot) -> LeafWidgetSnapshot.Book? {
+        if let current = snapshot.current, current.id == slot.bookID { return current }
+        if let match = snapshot.upNext.first(where: { $0.id == slot.bookID }) { return match }
+        return LeafWidgetSnapshot.Book(id: slot.bookID, title: slot.title, author: "", currentPage: slot.fromPage, pages: 0, paletteSeed: slot.title.count, coverFileName: nil, finish: nil, isReading: true)
+    }
+
     @ViewBuilder private var left: some View {
         if let timer = LeafWidgetTimer(snapshot: snapshot, phase: phase) {
             VStack(alignment: .leading, spacing: 2) {
-                LeafWidgetEyebrow(text: timer.isSteep ? "Tea" : (phase == .paused ? "Paused" : "Reading"), glyph: timer.glyph, tint: timer.tint)
+                LeafWidgetLabel(text: timer.isSteep ? "Tea" : (phase == .paused ? "Paused" : "Reading"), glyph: timer.glyph, accent: timer.accent)
                 Spacer(minLength: 2)
-                LeafWidgetDigits(timer: timer, size: 32)
+                LeafWidgetDigits(timer: timer, size: 30)
                 Text(timer.caption)
-                    .font(.caption2)
-                    .foregroundStyle(LeafWidgetPalette.inkSecondary)
+                    .font(.system(size: 11))
+                    .foregroundStyle(LeafWidgetPalette.textSecondary)
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
                 LeafWidgetTimerBar(timer: timer)
@@ -653,47 +706,44 @@ struct LeafWidgetMedium: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(timer.spoken)
         } else {
-            VStack(alignment: .leading, spacing: 10) {
-                LeafWidgetRing(progress: snapshot.goalProgress, lineWidth: 7) {
-                    LeafWidgetRingCentre(snapshot: snapshot, phase: phase, size: 28)
+            VStack(alignment: .leading, spacing: 8) {
+                LeafWidgetRing(progress: snapshot.goalProgress) {
+                    LeafWidgetRingCentre(snapshot: snapshot, phase: phase)
                 }
-                .frame(width: 76, height: 76)
+                .frame(width: 74, height: 74)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(snapshot.spoken)
-                LeafWidgetWeek(snapshot: snapshot, dot: 10)
+                LeafWidgetWeek(snapshot: snapshot, dot: 9)
             }
         }
     }
-
-    private func detail(_ book: LeafWidgetSnapshot.Book) -> String {
-        if phase == .today, let from = snapshot.fromPage, let to = snapshot.toPage, to > from {
-            return "p. \(book.currentPage) · to p. \(to) today"
-        }
-        if phase == .goalMet { return "Goal met · p. \(book.currentPage) of \(book.pages)" }
-        return "p. \(book.currentPage) of \(book.pages)"
-    }
 }
 
-/// Large: today, the current book with its forecast, the next three books with theirs, and the week.
+/// Large: today at the top, today's reading times (or the books up next), the week, and the actions.
 struct LeafWidgetLarge: View {
     let snapshot: LeafWidgetSnapshot
     let phase: LeafWidgetPhase
     let art: LeafWidgetArt
+    var now: Date = Date()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
-            Rectangle().fill(LeafWidgetPalette.hairline).frame(height: 0.5)
-            if let book = snapshot.current, phase != .empty {
-                LeafWidgetBookRow(book: book, image: art.covers[book.id], coverWidth: 46, detail: detail(book))
+            Rectangle().fill(LeafWidgetPalette.separator).frame(height: 1)
+            if let slots = snapshot.slots, !slots.isEmpty, phase != .empty {
+                VStack(alignment: .leading, spacing: 8) {
+                    sectionLabel("Today’s reading times")
+                    ForEach(slots.prefix(3)) { slot in
+                        slotRow(slot, isNext: slot.id == snapshot.nextSlot(at: now)?.id)
+                    }
+                }
+            } else if let book = snapshot.current, phase != .empty {
+                LeafWidgetBookRow(book: book, image: art.cover(book.id), coverWidth: 40, detail: "p. \(book.currentPage) of \(book.pages)")
             }
-            if !snapshot.upNext.isEmpty {
+            if (snapshot.slots ?? []).count < 3, !snapshot.upNext.isEmpty, phase != .empty {
                 VStack(alignment: .leading, spacing: 7) {
-                    Text("UP NEXT")
-                        .font(.system(size: 10, weight: .semibold))
-                        .tracking(1)
-                        .foregroundStyle(LeafWidgetPalette.inkTertiary)
-                    ForEach(snapshot.upNext.prefix(3)) { book in
+                    sectionLabel("Up next")
+                    ForEach(snapshot.upNext.prefix(3 - min(2, (snapshot.slots ?? []).count))) { book in
                         upNextRow(book)
                     }
                 }
@@ -710,42 +760,49 @@ struct LeafWidgetLarge: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
+    private func sectionLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(LeafWidgetPalette.forest)
+    }
+
     @ViewBuilder private var header: some View {
         if let timer = LeafWidgetTimer(snapshot: snapshot, phase: phase) {
-            HStack(alignment: .center, spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    LeafWidgetEyebrow(text: timer.eyebrow, glyph: timer.glyph, tint: timer.tint)
-                    LeafWidgetDigits(timer: timer, size: 40)
-                    Text(timer.caption)
-                        .font(.caption)
-                        .foregroundStyle(LeafWidgetPalette.inkSecondary)
-                        .lineLimit(1)
-                }
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(timer.spoken)
-                Spacer(minLength: 0)
+            VStack(alignment: .leading, spacing: 3) {
+                LeafWidgetLabel(text: timer.eyebrow, glyph: timer.glyph, accent: timer.accent)
+                LeafWidgetDigits(timer: timer, size: 40)
+                Text(timer.caption)
+                    .font(.system(size: 12))
+                    .foregroundStyle(LeafWidgetPalette.textSecondary)
+                    .lineLimit(1)
+                LeafWidgetTimerBar(timer: timer)
+                    .padding(.top, 2)
             }
-            LeafWidgetTimerBar(timer: timer)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(timer.spoken)
         } else {
             HStack(alignment: .center, spacing: 12) {
                 VStack(alignment: .leading, spacing: 3) {
-                    LeafWidgetEyebrow(text: eyebrow, glyph: LeafWidgetGlyph.name(for: phase))
+                    Text(eyebrow)
+                        .font(.system(size: 11, weight: .semibold))
+                        .tracking(1)
+                        .foregroundStyle(LeafWidgetPalette.textSecondary)
                     Text(headline)
-                        .font(.system(.title2, design: .serif))
-                        .foregroundStyle(LeafWidgetPalette.ink)
+                        .font(.system(size: 26, weight: .semibold, design: .rounded))
+                        .foregroundStyle(LeafWidgetPalette.text)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                     Text(subline)
-                        .font(.caption)
-                        .foregroundStyle(LeafWidgetPalette.inkSecondary)
+                        .font(.system(size: 12))
+                        .foregroundStyle(LeafWidgetPalette.textSecondary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                 }
                 Spacer(minLength: 0)
                 LeafWidgetRing(progress: snapshot.goalProgress, lineWidth: 6) {
-                    LeafWidgetRingCentre(snapshot: snapshot, phase: phase, size: 22)
+                    LeafWidgetRingCentre(snapshot: snapshot, phase: phase, size: 20)
                 }
-                .frame(width: 62, height: 62)
+                .frame(width: 60, height: 60)
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(snapshot.spoken)
@@ -753,7 +810,7 @@ struct LeafWidgetLarge: View {
     }
 
     private var eyebrow: String {
-        "Today · " + snapshot.day.formatted(.dateTime.weekday(.wide))
+        snapshot.day.formatted(.dateTime.weekday(.wide).day().month(.wide)).uppercased()
     }
 
     private var headline: String {
@@ -761,9 +818,7 @@ struct LeafWidgetLarge: View {
         case .empty: return "A book to begin"
         case .goalMet: return "Goal met"
         case .rest: return "A rest day"
-        default:
-            let left = snapshot.minutesLeftText
-            return "\(left) min to go"
+        default: return "\(snapshot.minutesLeftText) min to go"
         }
     }
 
@@ -771,37 +826,62 @@ struct LeafWidgetLarge: View {
         switch phase {
         case .empty: return "Open Leaf and choose one from the library."
         case .goalMet: return "Anything more is a gift."
-        case .rest: return "Read if you like. Nothing is counting."
+        case .rest: return "Read a little if you like."
         default:
             let read = Int(snapshot.minutesReadToday.rounded())
-            let streak = snapshot.streak > 1 ? " · \(snapshot.streak) days in a row" : ""
+            let streak = snapshot.streak > 1 ? " · \(snapshot.streak)-day streak" : ""
             return "\(read) of \(snapshot.dailyMinutes) min read\(streak)"
         }
     }
 
-    private func detail(_ book: LeafWidgetSnapshot.Book) -> String {
-        var parts = ["p. \(book.currentPage) of \(book.pages)"]
-        if let finish = book.finish { parts.append("done around \(Self.day(finish))") }
-        return parts.joined(separator: " · ")
+    private func slotRow(_ slot: LeafWidgetSnapshot.Slot, isNext: Bool) -> some View {
+        let book = snapshot.current?.id == slot.bookID ? snapshot.current : snapshot.upNext.first(where: { $0.id == slot.bookID })
+        return HStack(spacing: 10) {
+            Text(LeafWidgetTime.text(slot, in: snapshot))
+                .font(.system(size: 12, weight: .semibold, design: .rounded).monospacedDigit())
+                .foregroundStyle(isNext ? Color.white : LeafWidgetPalette.dusk)
+                .lineLimit(1)
+                .fixedSize()
+                .padding(.horizontal, 8)
+                .frame(minWidth: 62, minHeight: 24)
+                .background(isNext ? LeafWidgetPalette.dusk : LeafWidgetPalette.duskSoft, in: Capsule())
+                .widgetAccentable()
+            if let book {
+                LeafWidgetCover(book: book, image: art.cover(book.id), width: 18)
+            }
+            VStack(alignment: .leading, spacing: 0) {
+                Text(slot.title)
+                    .font(.system(size: 14, weight: .semibold, design: .serif))
+                    .foregroundStyle(LeafWidgetPalette.text)
+                    .lineLimit(1)
+                Text("\(Int(slot.minutes)) min · \(slot.pagesText)")
+                    .font(.system(size: 11, design: .rounded).monospacedDigit())
+                    .foregroundStyle(LeafWidgetPalette.textSecondary)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(LeafWidgetTime.text(slot, in: snapshot)), \(slot.title), \(slot.pagesText).")
     }
 
     private func upNextRow(_ book: LeafWidgetSnapshot.Book) -> some View {
         HStack(spacing: 10) {
-            LeafWidgetCover(book: book, image: art.covers[book.id], width: 20)
+            LeafWidgetCover(book: book, image: art.cover(book.id), width: 18)
             VStack(alignment: .leading, spacing: 0) {
                 Text(book.title)
-                    .font(.system(.subheadline, design: .serif))
-                    .foregroundStyle(LeafWidgetPalette.ink)
+                    .font(.system(size: 14, weight: .semibold, design: .serif))
+                    .foregroundStyle(LeafWidgetPalette.text)
                     .lineLimit(1)
                 Text(book.author)
-                    .font(.caption2)
-                    .foregroundStyle(LeafWidgetPalette.inkSecondary)
+                    .font(.system(size: 11))
+                    .foregroundStyle(LeafWidgetPalette.textSecondary)
                     .lineLimit(1)
             }
             Spacer(minLength: 6)
             Text(book.finish.map { Self.day($0) } ?? (book.isReading ? "" : "To read"))
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(LeafWidgetPalette.inkSecondary)
+                .font(.system(size: 11, design: .rounded).monospacedDigit())
+                .foregroundStyle(LeafWidgetPalette.textSecondary)
                 .lineLimit(1)
         }
         .accessibilityElement(children: .ignore)
@@ -835,10 +915,10 @@ struct LeafWidgetCircular: View {
                     Image(systemName: timer.glyph)
                         .font(.system(size: 12, weight: .semibold))
                     if timer.phase == .teaReady {
-                        Text("Ready").font(.system(size: 11, weight: .medium, design: .rounded))
+                        Text("Ready").font(.system(size: 11, weight: .semibold, design: .rounded))
                     } else {
                         Text(timerInterval: timer.range, pauseTime: timer.pauseDate, countsDown: timer.countsDown, showsHours: false)
-                            .font(.system(size: 12, weight: .medium, design: .rounded).monospacedDigit())
+                            .font(.system(size: 12, weight: .semibold, design: .rounded).monospacedDigit())
                             .multilineTextAlignment(.center)
                             .minimumScaleFactor(0.6)
                     }
@@ -853,7 +933,7 @@ struct LeafWidgetCircular: View {
             } currentValueLabel: {
                 switch phase {
                 case .goalMet, .rest, .empty: Image(systemName: LeafWidgetGlyph.name(for: phase))
-                default: Text(snapshot.minutesLeftText)
+                default: Text(snapshot.minutesLeftText).font(.system(.body, design: .rounded).weight(.semibold))
                 }
             }
             .gaugeStyle(.accessoryCircularCapacity)
@@ -864,10 +944,11 @@ struct LeafWidgetCircular: View {
     }
 }
 
-/// Rectangular: "13 min · p. 143" over the book, with today's ring as a bar; the timer while one runs.
+/// Rectangular: "8:30 PM · Circe" with the pages and today's ring as a bar; the timer while one runs.
 struct LeafWidgetRectangular: View {
     let snapshot: LeafWidgetSnapshot
     let phase: LeafWidgetPhase
+    var now: Date = Date()
 
     var body: some View {
         if let timer = LeafWidgetTimer(snapshot: snapshot, phase: phase) {
@@ -880,10 +961,10 @@ struct LeafWidgetRectangular: View {
                 .widgetAccentable()
                 if timer.phase == .teaReady {
                     Text("Pour, then read")
-                        .font(.system(.title3, design: .serif))
+                        .font(.system(size: 18, weight: .semibold, design: .rounded))
                 } else {
                     Text(timerInterval: timer.range, pauseTime: timer.pauseDate, countsDown: timer.countsDown, showsHours: true)
-                        .font(.system(size: 22, weight: .medium, design: .rounded).monospacedDigit())
+                        .font(.system(size: 22, weight: .semibold, design: .rounded).monospacedDigit())
                         .lineLimit(1)
                 }
                 if timer.runsBar {
@@ -895,14 +976,16 @@ struct LeafWidgetRectangular: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(timer.spoken)
         } else {
+            let next = phase == .today ? snapshot.nextSlot(at: now) : nil
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 4) {
-                    Image(systemName: "leaf.fill")
-                    Text(phase == .empty ? "Leaf" : snapshot.line)
+                    Image(systemName: next == nil ? "leaf.fill" : LeafWidgetGlyph.readingTime)
+                    Text(headline(next))
+                        .lineLimit(1)
                 }
                 .font(.headline)
                 .widgetAccentable()
-                Text(phase == .empty ? "Choose a book to begin" : (snapshot.current?.title ?? ""))
+                Text(secondLine(next))
                     .font(.system(.body, design: .serif))
                     .lineLimit(1)
                 Gauge(value: snapshot.goalProgress) {
@@ -915,12 +998,25 @@ struct LeafWidgetRectangular: View {
             .accessibilityLabel(snapshot.spoken)
         }
     }
+
+    private func headline(_ next: LeafWidgetSnapshot.Slot?) -> String {
+        if phase == .empty { return "Leaf" }
+        if let next { return "\(LeafWidgetTime.text(next, in: snapshot)) · \(next.title)" }
+        return snapshot.line
+    }
+
+    private func secondLine(_ next: LeafWidgetSnapshot.Slot?) -> String {
+        if phase == .empty { return "Choose a book to begin" }
+        if let next { return "\(Int(next.minutes)) min · \(next.pagesText)" }
+        return snapshot.current?.title ?? ""
+    }
 }
 
-/// Inline: the line beside the clock, "13 min · The Hobbit", or the timer.
+/// Inline: "8:30 PM · Circe" beside the clock, else "13 min · The Hobbit", or the timer.
 struct LeafWidgetInline: View {
     let snapshot: LeafWidgetSnapshot
     let phase: LeafWidgetPhase
+    var now: Date = Date()
 
     var body: some View {
         if let timer = LeafWidgetTimer(snapshot: snapshot, phase: phase) {
@@ -929,6 +1025,9 @@ struct LeafWidgetInline: View {
             } else {
                 Text("\(Image(systemName: timer.glyph)) \(Text(timerInterval: timer.range, pauseTime: timer.pauseDate, countsDown: timer.countsDown, showsHours: true))")
             }
+        } else if phase == .today, let next = snapshot.nextSlot(at: now) {
+            Label("\(LeafWidgetTime.text(next, in: snapshot)) · \(next.title)", systemImage: LeafWidgetGlyph.readingTime)
+                .accessibilityLabel(snapshot.spoken)
         } else {
             Label(inline, systemImage: "leaf.fill")
                 .accessibilityLabel(snapshot.spoken)

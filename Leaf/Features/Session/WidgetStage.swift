@@ -69,13 +69,13 @@ struct WidgetStage: View {
     @ViewBuilder
     private func home(_ sizes: Sizes) -> some View {
         let snapshot = today
-        let phase = snapshot.phase(at: Date())
+        let phase = snapshot.phase(at: store.now)
         HStack(spacing: sizes.gap) {
-            tile(sizes.small, sizes.small) { LeafWidgetSmall(snapshot: snapshot, phase: phase, art: art) }
-            tile(sizes.small, sizes.small) { LeafWidgetSmall(snapshot: Self.goalMet(snapshot), phase: .goalMet, art: art) }
+            tile(sizes.small, sizes.small) { LeafWidgetSmall(snapshot: snapshot, phase: phase, art: art, now: store.now) }
+            tile(sizes.small, sizes.small) { LeafWidgetSmall(snapshot: Self.goalMet(snapshot), phase: .goalMet, art: art, now: store.now) }
         }
-        tile(sizes.wide, sizes.small) { LeafWidgetMedium(snapshot: snapshot, phase: phase, art: art) }
-        tile(sizes.wide, sizes.large) { LeafWidgetLarge(snapshot: snapshot, phase: phase, art: art) }
+        tile(sizes.wide, sizes.small) { LeafWidgetMedium(snapshot: snapshot, phase: phase, art: art, now: store.now) }
+        tile(sizes.wide, sizes.large) { LeafWidgetLarge(snapshot: snapshot, phase: phase, art: art, now: store.now) }
     }
 
     @ViewBuilder
@@ -84,21 +84,21 @@ struct WidgetStage: View {
         let paused = reading(paused: true)
         let steep = steeping()
         HStack(spacing: sizes.gap) {
-            tile(sizes.small, sizes.small) { LeafWidgetSmall(snapshot: live, phase: .reading, art: art) }
-            tile(sizes.small, sizes.small) { LeafWidgetSmall(snapshot: steep, phase: .steeping, art: art) }
+            tile(sizes.small, sizes.small) { LeafWidgetSmall(snapshot: live, phase: .reading, art: art, now: store.now) }
+            tile(sizes.small, sizes.small) { LeafWidgetSmall(snapshot: steep, phase: .steeping, art: art, now: store.now) }
         }
-        tile(sizes.wide, sizes.small) { LeafWidgetMedium(snapshot: paused, phase: .paused, art: art) }
-        tile(sizes.wide, sizes.small) { LeafWidgetMedium(snapshot: reading(cup: true), phase: .reading, art: art) }
+        tile(sizes.wide, sizes.small) { LeafWidgetMedium(snapshot: paused, phase: .paused, art: art, now: store.now) }
+        tile(sizes.wide, sizes.small) { LeafWidgetMedium(snapshot: reading(cup: true), phase: .reading, art: art, now: store.now) }
         HStack(spacing: sizes.gap) {
-            tile(sizes.small, sizes.small) { LeafWidgetSmall(snapshot: steeping(ready: true), phase: .teaReady, art: art) }
-            tile(sizes.small, sizes.small) { LeafWidgetSmall(snapshot: live, phase: .goalReached, art: art) }
+            tile(sizes.small, sizes.small) { LeafWidgetSmall(snapshot: steeping(ready: true), phase: .teaReady, art: art, now: store.now) }
+            tile(sizes.small, sizes.small) { LeafWidgetSmall(snapshot: live, phase: .goalReached, art: art, now: store.now) }
         }
     }
 
     @ViewBuilder
     private func lock(_ sizes: Sizes) -> some View {
         let rows: [(String, LeafWidgetSnapshot, LeafWidgetPhase)] = [
-            ("Today", today, today.phase(at: Date())),
+            ("Today", today, today.phase(at: store.now)),
             ("Goal met", Self.goalMet(today), .goalMet),
             ("Reading", reading(), .reading),
             ("Steeping", steeping(), .steeping),
@@ -113,12 +113,12 @@ struct WidgetStage: View {
         ForEach(rows.indices, id: \.self) { index in
             VStack(alignment: .leading, spacing: 6) {
                 Text(rows[index].0).font(.caption2).foregroundStyle(.white.opacity(0.6))
-                LeafWidgetInline(snapshot: rows[index].1, phase: rows[index].2)
+                LeafWidgetInline(snapshot: rows[index].1, phase: rows[index].2, now: store.now)
                     .font(.system(.subheadline, weight: .medium))
                 HStack(spacing: 12) {
                     LeafWidgetCircular(snapshot: rows[index].1, phase: rows[index].2)
                         .frame(width: 72, height: 72)
-                    LeafWidgetRectangular(snapshot: rows[index].1, phase: rows[index].2)
+                    LeafWidgetRectangular(snapshot: rows[index].1, phase: rows[index].2, now: store.now)
                         .padding(8)
                         .frame(width: 172, height: 76)
                         .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -132,10 +132,10 @@ struct WidgetStage: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("StandBy").font(.caption2).foregroundStyle(.white.opacity(0.6))
             HStack(spacing: 16) {
-                LeafWidgetSmall(snapshot: today, phase: today.phase(at: Date()), art: art)
+                LeafWidgetSmall(snapshot: today, phase: today.phase(at: store.now), art: art, now: store.now)
                     .padding(14)
                     .frame(width: (sizes.wide - 16) / 2, height: (sizes.wide - 16) / 2)
-                LeafWidgetSmall(snapshot: reading(cup: true), phase: .reading, art: art)
+                LeafWidgetSmall(snapshot: reading(cup: true), phase: .reading, art: art, now: store.now)
                     .padding(14)
                     .frame(width: (sizes.wide - 16) / 2, height: (sizes.wide - 16) / 2)
             }
@@ -164,14 +164,14 @@ struct WidgetStage: View {
         content()
             .padding(16)
             .frame(width: width, height: height)
-            .background(LeafWidgetBackground(backdrop: art.backdrop))
+            .background(LeafWidgetBackground())
             .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
             .shadow(color: .black.opacity(0.18), radius: 10, y: 4)
     }
 
     private var wallpaper: some View {
         LinearGradient(
-            colors: kind == .lock ? [Color(hex: 0x2B3A4A), Color(hex: 0x14181F)] : [Color(hex: 0x7C8F7A), Color(hex: 0x3C4A44)],
+            colors: kind == .lock ? [Color(hex: 0x2B3A4A), Color(hex: 0x14181F)] : [Color(hex: 0x9DB3A4), Color(hex: 0x4E6457)],
             startPoint: .top,
             endPoint: .bottom
         )
@@ -189,9 +189,6 @@ struct WidgetStage: View {
         for item in books where loaded.covers[item.id] == nil {
             let rendered = LiveActivityCover.images(for: item.book)
             loaded.covers[item.id] = rendered.cover.map { Image(uiImage: $0) }
-            if item.id == today.current?.id {
-                loaded.backdrop = rendered.backdrop.map { Image(uiImage: $0) }
-            }
         }
         art = loaded
     }
