@@ -136,6 +136,9 @@ def evaluate(work, author_name, author_key, popularity, summary, years, cover, t
     if textbook >= 1 and (textbook >= 2 or len(subjects) <= 8):
         reasons["textbook"] += 1
         return None
+    if rules.is_adult(folded):
+        reasons["adult"] += 1
+        return None
     year = rules.YEAR_OVERRIDES.get(wid)
     if year is None:
         first = work_year if work_year else (min(years) if years else None)

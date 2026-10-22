@@ -82,6 +82,15 @@ class FilterTests(unittest.TestCase):
         self.assertEqual(reasons["textbook"], 1)
         self.assertIsNotNone(evaluate(subjects=["Gardens", "Nursing homes"] + ["Fiction"] * 10)[0])
 
+    def test_erotica_is_left_out(self):
+        c, reasons = evaluate(subjects=["Fiction, erotica", "Erotic fiction", "Romance"] + ["Fiction"] * 10)
+        self.assertIsNone(c)
+        self.assertEqual(reasons["adult"], 1)
+        self.assertEqual(evaluate(subjects=["Erotica", "Fiction"])[1]["adult"], 1)
+        # One "eroticism" among many subjects (a literary classic) stays.
+        self.assertIsNotNone(evaluate(subjects=["Eroticism", "Psychological fiction"] + ["Fiction"] * 10)[0])
+        self.assertIsNotNone(evaluate(subjects=["Heroic fantasy", "Heroes"])[0])
+
     def test_anthologies_with_many_authors(self):
         self.assertEqual(evaluate(title="Best Short Stories of the Year", count=7)[1]["anthology"], 1)
         self.assertIsNotNone(evaluate(title="Best Short Stories of the Year", count=1)[0])

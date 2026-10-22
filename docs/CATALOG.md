@@ -114,7 +114,7 @@ the redirect maps are in memory. Each step marks itself done there, so `--resume
 steps. Downloads resume mid-file with HTTP Range requests, so a dropped connection costs seconds, not the 12 GB.
 
 **Quality rules** are the seed builder's own (`scripts/build_catalog.py` is imported, not copied): one entry per work; junk
-titles and authors (study guides, summaries, box sets, omnibuses, publishers); textbook subjects; anthologies; foreign
+titles and authors (study guides, summaries, box sets, omnibuses, publishers); textbook subjects; erotica (two erotica subjects, or one on a short subject list; live search drops the same works); anthologies; foreign
 titles and authors; require an author and a page count. Beyond the seed: a duplicate title and author surname keeps the most
 popular work.
 

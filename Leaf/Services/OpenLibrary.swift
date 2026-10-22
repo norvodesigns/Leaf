@@ -44,6 +44,7 @@ enum OpenLibrary {
         let decoded = try JSONDecoder().decode(SearchResponse.self, from: data)
         return decoded.docs.compactMap { doc in
             guard let title = doc.title, let pages = doc.number_of_pages_median, pages >= 20, pages <= 3000 else { return nil }
+            guard !isAdult(subjects: doc.subject ?? []) else { return nil }
             let id = doc.key.replacingOccurrences(of: "/works/", with: "")
             let genres = genreTags(from: doc.subject ?? [])
             return Book(
@@ -103,6 +104,17 @@ enum OpenLibrary {
             coverID: doc.cover_i,
             genres: genreTags(from: doc.subject ?? [])
         )
+    }
+
+    /// Erotica, by the catalog build's rule (`is_adult` in scripts/build_catalog.py): two such subjects, or one on a
+    /// short list. Search leaves it out, as the bundled catalog does; a scanned ISBN is the reader's own book and is
+    /// looked up as it is.
+    static func isAdult(subjects: [String]) -> Bool {
+        let matches = subjects.filter { subject in
+            let folded = subject.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+            return folded.range(of: #"\berotic|\bpornograph|\bbdsm\b|\bsadomasochism\b"#, options: [.regularExpression, .caseInsensitive]) != nil
+        }.count
+        return matches >= 1 && (matches >= 2 || subjects.count <= 8)
     }
 
     /// Maps Open Library's free-form subjects onto Leaf's small genre vocabulary.

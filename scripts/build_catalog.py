@@ -715,6 +715,16 @@ TEXTBOOK_SUBJECT = re.compile(
     r"law and legislation|engineering|\bcalculus\b|\balgebra\b|\bstatistics\b",
     re.I)
 
+# Erotica. Leaf is rated for everyone, so the catalog leaves it out. One stray "eroticism" on a long subject list
+# (literary classics, art history) is not enough; two such subjects, or one on a short list, is.
+ADULT_SUBJECT = re.compile(r"\berotic|\bpornograph|\bbdsm\b|\bsadomasochism\b", re.I)
+
+
+def is_adult(folded_subjects):
+    n = sum(1 for s in folded_subjects if ADULT_SUBJECT.search(s))
+    return n >= 1 and (n >= 2 or len(folded_subjects) <= 8)
+
+
 FOREIGN_WORDS = {
     "de", "la", "le", "les", "el", "los", "las", "del", "des", "du", "der",
     "das", "und", "het", "een", "il", "gli", "y", "et", "och", "dos", "uma",
@@ -1216,6 +1226,9 @@ def build_entry(doc, hints, reasons):
     tb = sum(1 for s in subjects if TEXTBOOK_SUBJECT.search(s))
     if tb >= 1 and (tb >= 2 or len(subjects) <= 8):
         reasons["textbook"] += 1
+        return None
+    if is_adult(subjects):
+        reasons["adult"] += 1
         return None
     year = YEAR_OVERRIDES.get(wid, robust_year(doc))
     tags, is_fiction = classify(doc, hints, year, pages)
