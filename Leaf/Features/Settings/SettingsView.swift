@@ -1,3 +1,4 @@
+import StoreKit
 import SwiftUI
 import UIKit
 import UserNotifications
@@ -15,9 +16,12 @@ struct SettingsView: View {
 
     @State private var confirmsErase = false
     @State private var watch = WatchStatus.current()
-    /// Seven taps on the version number reveal the Sound lab outside debug builds.
+    /// Seven taps on the version number reveal the Sound lab in TestFlight builds. App Store builds keep no hidden
+    /// features (App Review 2.3.1), so there the taps do nothing.
     @AppStorage("settings.soundLab") private var soundLabUnlocked = false
     @State private var versionTaps = 0
+    /// Whether this is a TestFlight build. Asked only once the Sound lab is (or is being) unlocked.
+    @State private var isTestFlight = false
     @State private var showsSoundLab = false
     @State private var showsWhatsNew = false
 
@@ -38,8 +42,11 @@ struct SettingsView: View {
                     if watch.isSupported {
                         watchSection
                     }
-                    SettingsCloudSection()
-                        .id("cloud")
+                    // A build without iCloud has nothing to show or switch on here.
+                    if CloudSync.isAvailable {
+                        SettingsCloudSection()
+                            .id("cloud")
+                    }
                     SettingsLibrarySection()
                         .id("data")
                     dataSection
@@ -298,10 +305,18 @@ struct SettingsView: View {
                 .contentShape(.rect)
                 .onTapGesture {
                     versionTaps += 1
-                    if versionTaps >= 7 && !soundLabUnlocked {
-                        soundLabUnlocked = true
-                        CanopyFeel.play(.saved)
+                    guard versionTaps == 7 else { return }
+                    Task {
+                        guard await Self.isTestFlightBuild() else { return }
+                        isTestFlight = true
+                        if !soundLabUnlocked {
+                            soundLabUnlocked = true
+                            CanopyFeel.play(.saved)
+                        }
                     }
+                }
+                .task {
+                    if soundLabUnlocked { isTestFlight = await Self.isTestFlightBuild() }
                 }
             if showsSoundLabRow {
                 Button {
@@ -347,8 +362,14 @@ struct SettingsView: View {
         #if DEBUG
         return true
         #else
-        return soundLabUnlocked
+        return soundLabUnlocked && isTestFlight
         #endif
+    }
+
+    /// TestFlight builds run against the App Store's sandbox; App Store builds against production.
+    private static func isTestFlightBuild() async -> Bool {
+        guard case .verified(let transaction)? = try? await AppTransaction.shared else { return false }
+        return transaction.environment == .sandbox
     }
 
     private var versionString: String {

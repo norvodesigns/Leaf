@@ -2,8 +2,8 @@ import SwiftUI
 
 /// The Sound lab: every ambience as it is now and as the first TestFlight had it, side by side at one volume, and
 /// every cue, for judging the sounds by ear on the phone itself. Nothing plays until a button is tapped, and leaving
-/// stops whatever the lab started. Always in Settings in debug builds; in others, seven taps on the version number
-/// reveal it.
+/// stops whatever the lab started. Always in Settings in debug builds; in TestFlight builds, seven taps on the version
+/// number reveal it. App Store builds never show it.
 struct SoundLabView: View {
     @State private var volume: Double = 0.6
     @State private var started = false
