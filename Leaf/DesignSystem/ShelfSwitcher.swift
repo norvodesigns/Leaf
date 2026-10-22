@@ -2,7 +2,7 @@ import SwiftUI
 
 /// The Library's shelves as a segmented control: Reading, To read, Finished. A control everyone already knows how to
 /// use, rather than a row of serif words that read like a second title. Counts live in the caption under it, so the
-/// segments stay short at every text size. Plays `selection()`.
+/// segments stay short at every text size. Plays `CanopyFeel.select`.
 struct ShelfSwitcher: View {
     @Binding var selection: Shelf
     /// The shelves to offer. Paused is not a segment: set-aside books sit at the end of Reading.
@@ -15,11 +15,11 @@ struct ShelfSwitcher: View {
         self.shelves = shelves
     }
 
-    /// "Reading", "To read", "Finished".
+    /// "Reading", "Up next", "Finished".
     static func title(for shelf: Shelf) -> String {
         switch shelf {
         case .reading: "Reading"
-        case .toRead: "To read"
+        case .toRead: "Up next"
         case .finished: "Finished"
         case .paused: "Set aside"
         }
@@ -40,8 +40,8 @@ struct ShelfSwitcher: View {
             get: { selection },
             set: { shelf in
                 guard shelf != selection else { return }
-                Haptics.shared.selection()
-                withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
+                CanopyFeel.play(.select)
+                withAnimation(Canopy.Motion.resolved(Canopy.Motion.smooth, reduceMotion: reduceMotion)) {
                     selection = shelf
                 }
             }

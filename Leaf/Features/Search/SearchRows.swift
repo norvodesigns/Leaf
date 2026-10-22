@@ -186,11 +186,11 @@ struct SearchAddActions: View {
 }
 
 enum SearchShelfName {
-    /// "On your Reading shelf", "On your To read list", "Finished".
+    /// "On your Reading shelf", "In your Up next", "Finished".
     static func status(_ shelf: Shelf?) -> String {
         switch shelf {
         case .reading: return "On your Reading shelf"
-        case .toRead: return "On your To read list"
+        case .toRead: return "In your Up next"
         case .finished: return "Finished"
         case .paused: return "Paused"
         case nil: return "Not in your library"

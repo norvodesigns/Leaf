@@ -879,7 +879,7 @@ struct LeafWidgetLarge: View {
                     .lineLimit(1)
             }
             Spacer(minLength: 6)
-            Text(book.finish.map { Self.day($0) } ?? (book.isReading ? "" : "To read"))
+            Text(book.finish.map { Self.day($0) } ?? (book.isReading ? "" : "Up next"))
                 .font(.system(size: 11, design: .rounded).monospacedDigit())
                 .foregroundStyle(LeafWidgetPalette.textSecondary)
                 .lineLimit(1)

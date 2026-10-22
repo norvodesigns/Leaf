@@ -17,7 +17,7 @@ struct PlanView: View {
                     if store.plan.books.isEmpty {
                         EmptyState(
                             title: "Nothing to forecast yet.",
-                            message: "Add a book to Reading or To read and Leaf will work out the odds.",
+                            message: "Add a book to Reading or Up next and Leaf will work out the odds.",
                             actionTitle: "Find a book"
                         ) {
                             router.tab = .search

@@ -39,7 +39,7 @@ struct FinishLineSheet: View {
                             .id(item.id)
                         answerCard
                     } else {
-                        EmptyState(title: "Nothing to aim for yet.", message: "Add a book to Reading or To read first.")
+                        EmptyState(title: "Nothing to aim for yet.", message: "Add a book to Reading or Up next first.")
                     }
                 }
                 .leafMargins()

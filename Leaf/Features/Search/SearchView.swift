@@ -58,7 +58,7 @@ struct SearchView: View {
         var message: String {
             switch shelf {
             case .reading: return "“\(book.title)” is on your Reading shelf."
-            case .toRead: return "“\(book.title)” is on your To read list."
+            case .toRead: return "“\(book.title)” is in your Up next."
             case .finished: return "“\(book.title)” is on your Finished shelf."
             case .paused: return "“\(book.title)” is paused."
             }

@@ -91,7 +91,7 @@ struct LibraryFinishedShelf: View {
             Button {
                 LibraryShelfActions.move(item.id, to: .toRead, store: store)
             } label: {
-                Label("Move to To read", systemImage: "bookmark")
+                Label("Move to Up next", systemImage: "bookmark")
             }
             Button(role: .destructive) {
                 onRemove(item.book)

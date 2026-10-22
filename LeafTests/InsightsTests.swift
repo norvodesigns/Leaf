@@ -695,7 +695,7 @@ struct InsightsTBRTests {
         let depth = fx.engine(data(items: [])).tbrDepth()
         #expect(depth.queueBooks == 0)
         #expect(depth.months == 0)
-        #expect(depth.sentence == "Your To read pile is empty.")
+        #expect(depth.sentence == "Your Up next pile is empty.")
     }
 
     @Test func depthComesFromTheGoalBeforeThereIsHistory() throws {

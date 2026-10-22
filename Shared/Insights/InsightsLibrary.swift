@@ -144,7 +144,7 @@ extension InsightsEngine {
         let months: Double? = perDay > 0.01 ? queueMinutes / perDay / 30.4375 : nil
         let sentence: String
         if queue.isEmpty {
-            sentence = "Your To read pile is empty."
+            sentence = "Your Up next pile is empty."
         } else if let months {
             sentence = "Your TBR is \(TBRDepth.phrase(months: months)) deep at this pace."
         } else {

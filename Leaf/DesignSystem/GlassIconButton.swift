@@ -62,7 +62,7 @@ struct GlassIconButton: View {
         GlassIconButton(systemImage: "plus", label: "Add", diameter: 36) {}
         Menu {
             Button("Start reading") {}
-            Button("Add to top of To read") {}
+            Button("Add to top of Up next") {}
         } label: {
             GlassIcon(systemImage: "plus", diameter: 36)
         }

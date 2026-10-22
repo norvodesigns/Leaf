@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// The Library tab (DESIGN.md §6): the large title, a trailing `plus` that opens the by-hand form, a segmented
-/// switcher over Reading, To read and Finished that follows `router.libraryShelf`, and one plain line saying what the
-/// shelf holds. Books set aside sit at the end of Reading rather than on a fourth tab.
+/// The Library tab (docs/design/REDESIGN.md §4.3): the large title, search and `plus` in the toolbar, a segmented
+/// switcher over Reading, Up next and Finished that follows `router.libraryShelf`, one plain line saying what the
+/// shelf holds, the shelf, and Discover at the foot (the swipe deck, browsing, the Librarian). Books set aside sit at
+/// the end of Reading rather than on a fourth tab.
 /// Lives inside `MainTabs`' navigation stack; book rows push `BookRoute`.
 struct LibraryView: View {
     @Environment(LibraryStore.self) private var store
@@ -10,6 +11,7 @@ struct LibraryView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var showsAddSheet = false
+    @State private var showsLibrarian = false
     /// Finished books as a wall of spines instead of a grid of covers; remembered on this device.
     @AppStorage("library.finishedAsShelf") private var finishedAsShelf = false
     /// Screenshots show the wall without changing what the reader chose.
@@ -49,25 +51,24 @@ struct LibraryView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     ShelfSwitcher(selection: $router.libraryShelf)
-                        .coachMarkAnchor("library.shelves")
                         .padding(.top, Space.s)
                     if let caption {
                         Text(caption)
-                            .leafStyle(.caption)
+                            .canopyText(.caption)
                             .fixedSize(horizontal: false, vertical: true)
-                            .coachMarkAnchor("library.hold")
                             .padding(.top, Space.s)
                             .contentTransition(.opacity)
                     }
                     shelf
                         .padding(.top, Space.l)
+                    discover
+                        .padding(.top, Canopy.Space.section)
                 }
                 .leafMargins()
                 .padding(.bottom, Space.xxl)
             }
             .scrollIndicators(.hidden)
             .scrollEdgeEffectStyle(.soft, for: .top)
-            .coachMarks(.library)
             .onAppear {
                 showSetAsideIfAsked(proxy)
                 if let stage = router.libraryStage {
@@ -85,9 +86,9 @@ struct LibraryView: View {
             if router.libraryShelf == .finished {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        Haptics.shared.selection()
+                        CanopyFeel.play(.select)
                         let next = !showsShelfWall
-                        withAnimation(Motion.resolved(Motion.paper, reduceMotion: reduceMotion)) {
+                        withAnimation(Canopy.Motion.resolved(Canopy.Motion.smooth, reduceMotion: reduceMotion)) {
                             stagedShelf = nil
                             finishedAsShelf = next
                         }
@@ -119,7 +120,7 @@ struct LibraryView: View {
                         Label("Scan a barcode", systemImage: "barcode.viewfinder")
                     }
                     Button {
-                        Haptics.shared.tap()
+                        CanopyFeel.play(.tap)
                         showsAddSheet = true
                     } label: {
                         Label("Add by hand", systemImage: "square.and.pencil")
@@ -136,6 +137,9 @@ struct LibraryView: View {
         }
         .sheet(isPresented: $showsAddSheet) {
             AddBookManuallyView()
+        }
+        .sheet(isPresented: $showsLibrarian) {
+            LibrarianScreen()
         }
         .confirmationDialog(
             "Remove from Library?",
@@ -181,6 +185,26 @@ struct LibraryView: View {
     }
 
     private static let setAsideID = "library.setAside"
+
+    // MARK: Discover
+
+    /// Level 1 and 2 under the shelves: pick by swiping, browse the catalog, or ask the Librarian.
+    private var discover: some View {
+        VStack(alignment: .leading, spacing: Canopy.Space.m) {
+            CanopyLabel("Find your next book", accent: .dusk)
+            HStack(spacing: Canopy.Space.s) {
+                CanopyGlassButton("Swipe to pick", systemImage: "rectangle.stack", accent: .dusk, compact: true) {
+                    router.showDeck = true
+                }
+                CanopyGlassButton("Browse", systemImage: "magnifyingglass", compact: true) {
+                    router.tab = .search
+                }
+            }
+            LibrarianBanner {
+                showsLibrarian = true
+            }
+        }
+    }
 
     /// Anything that asks for the old Paused shelf (a link, a screenshot stage) lands on Reading, at Set aside.
     private func showSetAsideIfAsked(_ proxy: ScrollViewProxy) {

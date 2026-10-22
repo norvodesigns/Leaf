@@ -420,7 +420,7 @@ struct BookDetailView: View {
                         startReadingNow()
                     }
                     .sessionZoomSource(zoomSourceID)
-                    SecondaryGlassButton("Add to To read", systemImage: "plus") {
+                    SecondaryGlassButton("Add to Up next", systemImage: "plus") {
                         addToQueue()
                     }
                 }
@@ -459,7 +459,7 @@ struct BookDetailView: View {
             Button {
                 addToQueue()
             } label: {
-                Label("Add to To read", systemImage: "bookmark")
+                Label("Add to Up next", systemImage: "bookmark")
             }
             Button {
                 markFinished()
@@ -482,7 +482,7 @@ struct BookDetailView: View {
                 Button {
                     LibraryShelfActions.move(book.id, to: .toRead, store: store)
                 } label: {
-                    Label("Move to To read", systemImage: "bookmark")
+                    Label("Move to Up next", systemImage: "bookmark")
                 }
             }
         case .paused?:
@@ -499,7 +499,7 @@ struct BookDetailView: View {
             Button {
                 LibraryShelfActions.move(book.id, to: .toRead, store: store)
             } label: {
-                Label("Move to To read", systemImage: "bookmark")
+                Label("Move to Up next", systemImage: "bookmark")
             }
         case .toRead?:
             if store.toRead.first?.id != book.id {
@@ -528,7 +528,7 @@ struct BookDetailView: View {
             Button {
                 LibraryShelfActions.move(book.id, to: .toRead, store: store)
             } label: {
-                Label("Move to To read", systemImage: "bookmark")
+                Label("Move to Up next", systemImage: "bookmark")
             }
         }
         if let shelf, shelf != .finished {

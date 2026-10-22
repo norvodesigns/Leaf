@@ -433,7 +433,7 @@ struct TBRCard: View {
     let depth: TBRDepth
 
     var body: some View {
-        TodayCard("To read pile") {
+        TodayCard("Up next pile") {
             HStack(alignment: .firstTextBaseline, spacing: Space.s) {
                 Text("\(depth.queueBooks)")
                     .leafStyle(.statNumeral)

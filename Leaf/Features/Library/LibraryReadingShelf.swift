@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// The Reading shelf (DESIGN.md §6): tall rows of a cover M with its ribbon, the title, the author,
-/// the page span bar, and "p. 142 of 310 · done by 26 Oct". Tapping a row opens the book.
+/// The Reading shelf (docs/design/REDESIGN.md §4.3): big covers two to a row on cream glass cards, each with the
+/// title, author, how far in, and "p. 142 of 310 · done by 26 Oct". Tapping a card opens the book.
 struct LibraryReadingShelf: View {
     @Environment(LibraryStore.self) private var store
     @Environment(AppRouter.self) private var router
@@ -17,17 +17,16 @@ struct LibraryReadingShelf: View {
         if items.isEmpty {
             EmptyState(
                 title: "Nothing open.",
-                message: "Start a book from To read or Search.",
+                message: "Start a book from Up next or Search.",
                 actionTitle: "Find a book"
             ) {
                 router.tab = .search
             }
         } else {
-            LazyVStack(alignment: .leading, spacing: 0) {
+            LazyVGrid(columns: Self.columns, alignment: .leading, spacing: Canopy.Space.cardGap) {
                 ForEach(items) { item in
                     LibraryReadingRow(
                         item: item,
-                        todayTo: todayTo(for: item),
                         finish: store.plan.book(item.id)?.finish,
                         now: store.now,
                         calendar: store.calendar,
@@ -40,16 +39,15 @@ struct LibraryReadingShelf: View {
         }
     }
 
-    /// The page today's assignment reaches, or the current page when nothing is scheduled.
-    private func todayTo(for item: LibraryItem) -> Int {
-        let assignment = store.plan.today?.assignments.first { $0.bookID == item.id }
-        return assignment?.toPage ?? item.currentPage
-    }
+    /// Two big covers to a row (docs/design/REDESIGN.md §4.3).
+    private static let columns = [
+        GridItem(.flexible(), spacing: Canopy.Space.cardGap, alignment: .top),
+        GridItem(.flexible(), spacing: Canopy.Space.cardGap, alignment: .top),
+    ]
 }
 
 private struct LibraryReadingRow: View {
     let item: LibraryItem
-    let todayTo: Int
     let finish: Date?
     let now: Date
     let calendar: Calendar
@@ -59,31 +57,34 @@ private struct LibraryReadingRow: View {
 
     var body: some View {
         NavigationLink(value: BookRoute(book: item.book)) {
-            HStack(alignment: .top, spacing: Space.l) {
-                BookCover(book: item.book, size: .m, ribbon: true)
+            VStack(alignment: .leading, spacing: Canopy.Space.s) {
+                BookCover(book: item.book, size: .m)
                     .libraryBookZoomSource(item.id)
-                    .padding(.bottom, BookCover.Size.m.ribbonTail)
-
-                VStack(alignment: .leading, spacing: Space.s) {
-                    Text(item.book.title)
-                        .leafStyle(.headline)
-                        .lineLimit(3)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text(item.book.author)
-                        .leafStyle(.author)
-                        .lineLimit(2)
-                    Spacer(minLength: Space.s)
-                    PageSpanBar(current: item.currentPage, todayTo: todayTo, total: item.book.pages)
-                    Text(caption)
-                        .leafStyle(.caption)
-                        .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity)
+                    .padding(.bottom, Canopy.Space.xs)
+                Text(item.book.title)
+                    .canopyText(.bookTitle)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(item.book.author)
+                    .canopyText(.caption)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                HStack(spacing: Canopy.Space.s) {
+                    Text("\(item.percent)%")
+                        .font(.system(.caption, design: .rounded, weight: .semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(CanopyAccent.forest.color)
+                    CanopyProgressBar(value: item.progress, height: 4)
                 }
-                .frame(maxWidth: .infinity, minHeight: BookCover.Size.m.height, alignment: .topLeading)
+                Text(caption)
+                    .canopyText(.caption, color: Canopy.textTertiary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.top, Space.m)
-            .padding(.bottom, Space.s)
-            .overlay(alignment: .bottom) { Hairline() }
-            .contentShape(.rect)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .canopyCard(padding: Canopy.Space.l)
+            .contentShape(RoundedRectangle(cornerRadius: Canopy.Radius.card, style: .continuous))
         }
         .buttonStyle(.pressable)
         .accessibilityHint("Opens book details")
@@ -92,7 +93,7 @@ private struct LibraryReadingRow: View {
                 Label("Mark finished", systemImage: "checkmark.circle")
             }
             Button(action: onMoveToQueue) {
-                Label("Move to To read", systemImage: "bookmark")
+                Label("Move to Up next", systemImage: "bookmark")
             }
             Button(role: .destructive, action: onRemove) {
                 Label("Remove from Library", systemImage: "trash")

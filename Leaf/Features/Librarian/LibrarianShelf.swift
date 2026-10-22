@@ -147,7 +147,7 @@ private struct LibrarianPickCard: View {
     private static func label(for shelf: Shelf) -> String {
         switch shelf {
         case .reading: "Reading now"
-        case .toRead: "On your To read"
+        case .toRead: "In your Up next"
         case .finished: "Already read"
         case .paused: "Set aside"
         }
