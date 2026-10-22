@@ -1,28 +1,30 @@
 import SwiftUI
 
-// MARK: - Step v: minutes
+// MARK: - Your time: minutes and days together
 
-/// "A little, often.": the dial over a live sentence about what those minutes add up to.
-struct OnboardingMinutesView: View {
+/// "Your time": the minutes dial and the reading days on one page (docs/design/REDESIGN.md §4.10), with one sentence
+/// for what the week adds up to.
+struct OnboardingTimeView: View {
     @Binding var minutes: Int
+    @Binding var days: Set<Int>
     let wpm: Double
-    let daysPerWeek: Int
 
     var body: some View {
-        let preview = OnboardingCopy.minutesPreview(minutes: minutes, wpm: wpm, daysPerWeek: daysPerWeek)
+        let preview = OnboardingCopy.minutesPreview(minutes: minutes, wpm: wpm, daysPerWeek: max(1, days.count))
         OnboardingPage {
-            VStack(spacing: Space.xxl) {
-                OnboardingHeading(title: "A little, often.", message: "Choose the minutes you can give most days.")
-                // The ruler runs edge to edge, past the page margins.
+            VStack(spacing: Space.xl) {
+                OnboardingHeading(title: "A little, often.", message: "The minutes you can give, and the days you read.")
                 MinutesDial(minutes: $minutes)
                     .padding(.horizontal, -Space.margin)
+                Text(preview.quote)
+                    .canopyText(.quote)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: 340)
                 VStack(spacing: Space.s) {
-                    Text(preview.quote)
-                        .leafStyle(.pullQuote)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text(preview.caption)
-                        .leafStyle(.caption)
+                    WeekdayPicker(selection: $days)
+                    Text(days.isEmpty ? OnboardingCopy.weekSummary(days) : OnboardingCopy.weeklyTime(minutes: minutes, days: days.count))
+                        .canopyText(.caption)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                 }

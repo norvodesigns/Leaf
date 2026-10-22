@@ -4,8 +4,8 @@ enum OnboardingStep: String, CaseIterable {
     case welcome, speedtest, quiz, result, minutes, days, reminder, deck, books
 }
 
-/// First-run onboarding (docs/design/REDESIGN.md §4.10): welcome, the daily minutes, the reading days, a reading
-/// time and the first books. The speed test is no longer on the way in: Leaf starts from a typical pace and learns
+/// First-run onboarding (docs/design/REDESIGN.md §4.10): welcome, your time (daily minutes and reading days on one
+/// page), a reading time and the first books. The speed test is no longer on the way in: Leaf starts from a typical pace and learns
 /// from real sessions, and the test stays in Settings. Its steps remain here for `startAt` (screenshots, previews). Everything is saved through `LibraryStore`
 /// as the reader goes; `onFinish` runs when they leave the last step.
 ///
@@ -106,7 +106,8 @@ private struct OnboardingFlowBody: View {
     }
 
     /// The steps a first run walks through; the speed test is off the path.
-    private static let path: [OnboardingStep] = [.welcome, .minutes, .days, .reminder, .deck, .books]
+    /// Minutes and days share one page (`.minutes`); `.days` stays for `startAt` only.
+    private static let path: [OnboardingStep] = [.welcome, .minutes, .reminder, .deck, .books]
 
     private var folio: Int {
         Self.path.firstIndex(of: displayStep) ?? 0
@@ -137,7 +138,7 @@ private struct OnboardingFlowBody: View {
         case .speedtest, .quiz, .result:
             SpeedTestStageBody(controller: test)
         case .minutes:
-            OnboardingMinutesView(minutes: $minutes, wpm: store.wpm, daysPerWeek: days.count)
+            OnboardingTimeView(minutes: $minutes, days: $days, wpm: store.wpm)
         case .days:
             OnboardingDaysView(days: $days, minutes: minutes)
         case .reminder:
@@ -194,7 +195,7 @@ private struct OnboardingFlowBody: View {
         case .speedtest, .quiz, .result:
             return testActions.primary
         case .minutes:
-            return OnboardingAction("Continue") { saveMinutes() }
+            return OnboardingAction("Continue", isEnabled: !days.isEmpty) { saveMinutes() }
         case .days:
             return OnboardingAction("Continue", isEnabled: !days.isEmpty) { saveDays() }
         case .reminder:
@@ -243,7 +244,7 @@ private struct OnboardingFlowBody: View {
             step = .minutes
         case .reminder:
             reminderDeclined = false
-            step = .days
+            step = .minutes
         case .deck:
             step = .reminder
         case .books:
@@ -268,8 +269,13 @@ private struct OnboardingFlowBody: View {
 
     private func saveMinutes() {
         let chosen = minutes
-        store.updatePreferences { $0.dailyMinutes = chosen }
-        step = .days
+        let chosenDays = days
+        guard !chosenDays.isEmpty else { return }
+        store.updatePreferences {
+            $0.dailyMinutes = chosen
+            $0.readingDays = chosenDays
+        }
+        step = .reminder
     }
 
     private func saveDays() {
