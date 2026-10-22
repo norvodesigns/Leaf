@@ -37,6 +37,9 @@ class Options:
     max_books: int = 250_000
     pool_size: int = 25_000
     isbns_per_work: int = 6
+    # (best-known rank, ISBNs kept): famous books come in dozens of printings and are the ones people scan, so the
+    # most read get more of theirs. Ranks past the last tier keep `isbns_per_work`.
+    isbn_tiers: tuple = ((10_000, 40), (50_000, 12))
     min_per_genre: int = 60
     resume: bool = False
     keep_work_dir: bool = True
@@ -425,7 +428,16 @@ def must_have_ids(rows):
     return found
 
 
-def build_rows(candidates, subjects_by_work, max_books, pool_size, min_per_genre, reasons, isbns_by_work=None):
+def isbn_limit(rank, per_work, tiers):
+    """How many ISBNs the book at popularity `rank` (1 is the most read) keeps."""
+    for last_rank, limit in tiers:
+        if rank <= last_rank:
+            return max(limit, per_work)
+    return per_work
+
+
+def build_rows(candidates, subjects_by_work, max_books, pool_size, min_per_genre, reasons, isbns_by_work=None,
+               isbns_per_work=6, isbn_tiers=()):
     """Select, classify and theme the best `max_books` candidates; returns BookRow objects in popularity order."""
     themes = legacy.themes()
     ordered = sorted(quality.dedupe(candidates, reasons), key=lambda c: (-c.popularity, c.work))[:max_books]
@@ -437,13 +449,13 @@ def build_rows(candidates, subjects_by_work, max_books, pool_size, min_per_genre
     df = themes.document_frequency(per_book)
 
     rows = []
-    for c, (hits, universes) in zip(ordered, per_book):
+    for rank, (c, (hits, universes)) in enumerate(zip(ordered, per_book), 1):
         genres, known_words = quality.genres_and_words(c, subjects_by_work.get(c.work) or [])
         rows.append(schema.BookRow(
             id=c.id, title=c.title, author=c.author, pages=c.pages, year=c.year, words=known_words, cover_id=c.cover,
             genres=genres, themes=themes.choose_themes(hits, universes, df, len(ordered)),
             popularity=c.popularity, language=c.language, page_counts=c.page_counts, page_sources=c.page_sources,
-            isbns=(isbns_by_work or {}).get(c.work, [])))
+            isbns=(isbns_by_work or {}).get(c.work, [])[:isbn_limit(rank, isbns_per_work, isbn_tiers)]))
     pool = quality.choose_pool(rows, pool_size, legacy.rules().GENRES, min_per_genre, must_have_ids(rows))
     log("pool: %s books" % format(pool, ","))
     return rows
@@ -493,7 +505,9 @@ def run(options):
     candidates = collect_candidates(db, author_redirects, options.languages, reasons)
     wanted = {c.work for c in candidates}
     rows = build_rows(candidates, load_subjects(db, wanted), options.max_books, options.pool_size,
-                      options.min_per_genre, reasons, load_isbns(db, wanted, options.isbns_per_work))
+                      options.min_per_genre, reasons,
+                      load_isbns(db, wanted, max([options.isbns_per_work] + [n for _r, n in options.isbn_tiers])),
+                      options.isbns_per_work, options.isbn_tiers)
     meta = {
         "source": "Open Library data dumps",
         "source_dump": source.dump_date(),

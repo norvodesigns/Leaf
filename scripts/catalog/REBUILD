@@ -6,4 +6,4 @@ touch this file, so it can never loop.
 
 You can also start it by hand: GitHub, Actions, Catalog, Run workflow (optionally pin a dump date such as 2026-09-30).
 
-Rebuild requests so far: 1 (2026-10-22: ISBNs for offline barcode scans)
+Rebuild requests so far: 2 (2026-10-22: ISBNs for offline barcode scans; more ISBNs for the most read)

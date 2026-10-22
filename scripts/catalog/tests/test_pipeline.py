@@ -123,13 +123,18 @@ class PipelineTests(unittest.TestCase):
 
     def test_isbns_per_work_keeps_the_newest(self):
         out = os.path.join(self._tmp.name, "one-isbn.sqlite")
-        run(self._tmp.name, out, resume=True, isbns_per_work=1)
+        run(self._tmp.name, out, resume=True, isbns_per_work=1, isbn_tiers=())
         db = schema.open_readonly(out)
         try:
             self.assertEqual(db.execute("SELECT isbn FROM isbns i JOIN books b ON b.rowid = i.book WHERE b.id = 'OL101W'").fetchall(),
                              [(9780000000019,)])   # 2001 beats 1997
         finally:
             db.close()
+
+    def test_the_most_read_keep_more_isbns(self):
+        tiers = ((2, 40), (5, 12))
+        self.assertEqual([pipeline.isbn_limit(r, 6, tiers) for r in (1, 2, 3, 5, 6, 250_000)], [40, 40, 12, 12, 6, 6])
+        self.assertEqual(pipeline.isbn_limit(1, 6, ()), 6)
 
     def test_metadata(self):
         meta = schema.read_meta(self.db)

@@ -67,9 +67,11 @@ Choices that matter:
 * **`detail=none`** removes word positions from the index. We only run "all of these prefixes" queries, bm25 still works,
   and it saves about a third of the file. Phrase and column queries are therefore unavailable; nothing uses them.
 * **ISBNs make barcode scans offline.** Every printed edition in a wanted language contributes its `isbn_13` and
-  `isbn_10` (checked, folded to 978), up to six per work, newest editions first: the copy someone scans is far more often
-  a recent printing. An ISBN two works claim goes to the more popular one. About a million rows cost about 16 MB, which
-  is why the size budget in `catalog.yml` is 70 MB. `ISBNLookup` asks the catalog first and Open Library only on a miss.
+  `isbn_10` (checked, folded to 978), newest editions first: the copy someone scans is far more often a recent printing.
+  The 10,000 most read keep up to 40, the next 40,000 up to 12, the rest 6 (`Options.isbn_tiers`). An ISBN two works
+  claim goes to the more popular one. The first build (six for every work) had 724,730 ISBNs for 96% of the books
+  and grew the file from 38.8 to 50.3 MB (about 16 bytes a row); the tiers add up to about 580,000 more, which is why
+  the size budget in `catalog.yml` is 70 MB. `ISBNLookup` asks the catalog first and Open Library only on a miss.
 * Optimised for one reader: no WAL, `journal_mode=DELETE`, vacuumed, opened with `immutable=1`.
 
 ## Search
