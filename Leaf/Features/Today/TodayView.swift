@@ -322,16 +322,18 @@ struct TodayView: View {
     }
 
     private func cardOrder(_ brief: TodayBrief) -> [CardKind] {
+        // Today answers "what now?" (REDESIGN.md §2): today's reading times, where you left off, one nudge, the
+        // forecast's sentence. The week, the year, challenges, quotes and picks live one tap away on You.
         var order: [CardKind]
         switch brief.mode {
         case .reading:
-            order = [.nudges, .leftOff, .wrapped, .times, .forecast, .teaWeek, .desk, .week, .year, .pick, .challenges, .quote]
+            order = [.times, .leftOff, .nudges, .wrapped, .forecast, .desk]
         case .goalMet:
-            order = [.leftOff, .wrapped, .week, .forecast, .teaWeek, .times, .desk, .year, .pick, .challenges, .quote, .nudges]
+            order = [.times, .leftOff, .wrapped, .forecast, .desk, .nudges]
         case .restDay:
-            order = [.wrapped, .week, .leftOff, .teaWeek, .quote, .desk, .pick, .year, .challenges, .times, .nudges]
+            order = [.wrapped, .times, .leftOff, .nudges]
         case .betweenBooks:
-            order = [.deck, .wrapped, .teaWeek, .week, .year, .challenges, .quote, .nudges, .times]
+            order = [.deck, .wrapped, .nudges, .times]
         case .brandNew:
             order = [.deck, .times]
         }
@@ -380,7 +382,7 @@ struct TodayView: View {
         switch kind {
         case .nudges:
             VStack(spacing: Space.s) {
-                ForEach(brief.nudges) { nudge in
+                ForEach(brief.nudges.prefix(1)) { nudge in
                     NudgeCard(nudge: nudge, actions: nudgeActions(nudge))
                 }
             }

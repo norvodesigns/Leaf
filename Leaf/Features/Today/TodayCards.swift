@@ -2,15 +2,13 @@ import SwiftUI
 
 // MARK: - Card
 
-/// One of Today's cards: a `paperRaised` tile with a hairline edge, an eyebrow, and an optional quiet action on the
-/// right. Cards are paper, never glass, and cast no shadow.
+/// One of Today's cards, on Canopy: a cream glass card with a green section label and an optional quiet action on
+/// the right ("Edit ›").
 struct TodayCard<Content: View>: View {
     let eyebrow: String
     var actionTitle: String?
     var action: (() -> Void)?
     let content: Content
-
-    @Environment(\.displayScale) private var displayScale
 
     init(_ eyebrow: String, actionTitle: String? = nil, action: (() -> Void)? = nil, @ViewBuilder content: () -> Content) {
         self.eyebrow = eyebrow
@@ -21,27 +19,10 @@ struct TodayCard<Content: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.m) {
-            HStack(alignment: .center, spacing: Space.s) {
-                Eyebrow(eyebrow)
-                    .accessibilityAddTraits(.isHeader)
-                Spacer(minLength: Space.s)
-                if let actionTitle, let action {
-                    TextButton(actionTitle, style: .caption, color: .accent) {
-                        Haptics.shared.tap()
-                        action()
-                    }
-                    .padding(.vertical, -Space.m)
-                }
-            }
+            CanopyLabel(eyebrow, linkTitle: actionTitle, link: action)
             content
         }
-        .padding(Space.l)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.paperRaised, in: Radius.shape(Radius.card))
-        .overlay {
-            Radius.shape(Radius.card)
-                .strokeBorder(Color.hairline, lineWidth: 1 / displayScale)
-        }
+        .canopyCard()
     }
 }
 
@@ -297,7 +278,7 @@ struct ReadingTimesCard: View {
         return HStack(alignment: .firstTextBaseline, spacing: Space.m) {
             HStack(alignment: .firstTextBaseline, spacing: Space.m) {
                 Text(LeafFormat.time(hour: slot.hour, minute: slot.minute, calendar: calendar))
-                    .leafStyle(.data, color: isPast ? Color.inkTertiary : Color.ink)
+                    .leafStyle(.data, color: isPast ? Color.inkTertiary : CanopyAccent.dusk.color)
                     .frame(minWidth: 64, alignment: .leading)
                 VStack(alignment: .leading, spacing: Space.xxs) {
                     HStack(spacing: Space.s) {
@@ -305,7 +286,7 @@ struct ReadingTimesCard: View {
                             .leafStyle(.ui, color: isPast ? Color.inkSecondary : Color.ink)
                         if isNext {
                             Circle()
-                                .fill(Color.ribbon)
+                                .fill(CanopyAccent.dusk.color)
                                 .frame(width: 6, height: 6)
                         }
                     }
@@ -336,7 +317,7 @@ struct ReadingTimesCard: View {
     }
 
     private func detail(_ plan: SlotPlan?) -> String {
-        guard let plan, !plan.parts.isEmpty else { return "Nothing planned. Read anyway if you like." }
+        guard let plan, !plan.parts.isEmpty else { return "Nothing planned. Read if you like." }
         return plan.parts.map { part in
             let name = title(part.bookID) ?? "Your book"
             let minutes = max(1, Int(part.minutes.rounded()))
@@ -559,14 +540,7 @@ struct NudgeCard: View {
                 .padding(.leading, 20 + Space.m)
             }
         }
-        .padding(.horizontal, Space.l)
-        .padding(.vertical, Space.m)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.accentSoft.opacity(0.55), in: Radius.shape(Radius.tile))
-        .overlay {
-            Radius.shape(Radius.tile)
-                .strokeBorder(Color.accent.opacity(0.25), lineWidth: 1 / displayScale)
-        }
+        .canopyCard(padding: Space.l, radius: Canopy.Radius.card, tint: .forest)
     }
 
     private var symbol: String {

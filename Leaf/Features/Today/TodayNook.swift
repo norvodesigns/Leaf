@@ -30,7 +30,8 @@ struct NookActions {
     var readingTimes: () -> Void
 }
 
-/// The Reading Nook (NEXT.md section 4, concept A): the top of Today. The day's light, the greeting set large in
+/// The Reading Nook, on Canopy (docs/design/REDESIGN.md §4.1): the top of Today, kept from the live app and cleaned up.
+/// The greeting set large in
 /// Instrument Serif, a still life of the book on the table beside a cup that fills as the day's minutes come in
 /// (the real minutes beside it), and one button: "Steep and read". Steeping happens here, before the session, so
 /// the session's clock only ever counts reading.
@@ -56,8 +57,6 @@ struct TodayNook: View {
 
     private var book: Book? { brief.current?.item.book }
 
-    private static let overscroll: CGFloat = 400
-
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             datelineView
@@ -76,17 +75,7 @@ struct TodayNook: View {
         .leafMargins()
         .padding(.top, Space.s)
         .padding(.bottom, Space.l)
-        .background {
-            // The light fills the screen from its very top edge down to the table; above that, a stretch of the top
-            // colour, so a pull past the top never shows a seam.
-            VStack(spacing: 0) {
-                NookAtmosphere.edge(daypart: daypart)
-                    .frame(height: Self.overscroll)
-                NookAtmosphere(daypart: daypart)
-            }
-            .padding(.top, -(topInset + Self.overscroll))
-            .accessibilityHidden(true)
-        }
+        // No lamp glow or bokeh any more: the page is Canopy's clean cream (DESIGN_SYSTEM.md §3).
     }
 
     // MARK: Dateline and greeting
@@ -166,27 +155,34 @@ struct TodayNook: View {
 
     /// A strip of tea-stained table under the cup and the book, full bleed.
     private var table: some View {
-        ZStack(alignment: .top) {
-            LinearGradient(colors: [CozyColor.teaPaper, CozyColor.teaPaper.opacity(0)], startPoint: .top, endPoint: .bottom)
-                .frame(height: 22)
-            Rectangle()
-                .fill(Color.hairlineStrong)
-                .frame(height: 1)
-        }
+        Rectangle()
+            .fill(Canopy.separator)
+            .frame(height: 1)
         .padding(.horizontal, -Space.margin)
         .accessibilityHidden(true)
     }
 
     private var cupCaption: some View {
         VStack(alignment: .leading, spacing: Space.xxs) {
-            Text(minutesLine)
-                .leafStyle(.data)
+            minutesLineView
                 .numericBlur(value: brief.minutesReadToday)
             Text(cupPhrase)
                 .leafStyle(.caption)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .accessibilityElement(children: .combine)
+    }
+
+    /// "12" large, "of 25 min" beside it.
+    private var minutesLineView: some View {
+        let read = Int(brief.minutesReadToday.rounded())
+        return HStack(alignment: .firstTextBaseline, spacing: Space.xs) {
+            Text("\(read)").canopyText(.stat)
+            Text(brief.goalMinutes > 0 ? "of \(brief.goalMinutes) min" : "min today")
+                .canopyText(.callout, color: Canopy.textSecondary)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(minutesLine)
     }
 
     /// "12 of 25 min today"
@@ -226,13 +222,13 @@ struct TodayNook: View {
         case .ready(let state):
             readyControls(state)
         case .live:
-            PrimaryGlassButton("Return to session", systemImage: "book") {
+            CanopyHeroButton("Back to your book", systemImage: "book", feel: .resume) {
                 actions.start()
             }
             .sessionZoomSource(ReadingSessionLauncher.heroSource)
         case .readMore:
             VStack(alignment: .leading, spacing: Space.s) {
-                SecondaryGlassButton("Read a little more", systemImage: "book") {
+                CanopyGlassButton("Read a little more", systemImage: "book", accent: .forest, feel: nil) {
                     actions.startWithoutTea()
                 }
                 .sessionZoomSource(ReadingSessionLauncher.heroSource)
@@ -242,7 +238,7 @@ struct TodayNook: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         case .findBook(let firstEver):
-            PrimaryGlassButton(firstEver ? "Find your first book" : "Browse the shelves", systemImage: "magnifyingglass") {
+            CanopyHeroButton(firstEver ? "Find your first book" : "Pick your next book", systemImage: "magnifyingglass", feel: .tap) {
                 actions.findBook()
             }
         }
@@ -264,12 +260,19 @@ struct TodayNook: View {
             }
         } label: {
             HStack(spacing: Space.xs) {
-                Chip("\(tea.name) · \(SteepText.duration(seconds: steepSeconds)) steep", systemImage: "cup.and.saucer")
+                Image(systemName: "cup.and.saucer")
+                    .foregroundStyle(CanopyAccent.clay.color)
+                Text("\(tea.name) · \(SteepText.duration(seconds: steepSeconds)) steep")
+                    .font(.system(.subheadline, weight: .medium))
+                    .foregroundStyle(Canopy.text)
                 Image(systemName: "chevron.down")
                     .font(.caption2.weight(.semibold))
-                    .foregroundStyle(Color.inkTertiary)
+                    .foregroundStyle(Canopy.textTertiary)
                     .accessibilityHidden(true)
             }
+            .padding(.horizontal, 12)
+            .frame(minHeight: 34)
+            .canopyGlass()
             .frame(minHeight: Space.hitTarget)
             .contentShape(.rect)
         }
@@ -300,7 +303,7 @@ struct TodayNook: View {
     }
 
     private func steepButton(prominent: Bool) -> some View {
-        SecondaryGlassButton("Steep and read", systemImage: "cup.and.heat.waves") {
+        CanopyGlassButton("Steep and read", systemImage: "cup.and.heat.waves", accent: .clay) {
             actions.steep()
         }
         .sessionZoomSource(ReadingSessionLauncher.heroSource)
@@ -308,12 +311,21 @@ struct TodayNook: View {
         .accessibilityHint("Steeps your tea first, then starts a cup of reading")
     }
 
-    /// Reading straight away, no tea. A ring of ink on a rest day, so neither choice pushes.
+    /// Reading straight away, no tea: the black glass Hero. On a rest day a quiet glass "Read a little" instead, so
+    /// nothing pushes. The launcher plays the start haptic.
+    @ViewBuilder
     private func beginButton(prominent: Bool) -> some View {
-        InkButton("Begin reading", outline: !prominent) {
-            actions.startWithoutTea()
+        if prominent {
+            CanopyHeroButton("Begin reading", feel: nil) {
+                actions.startWithoutTea()
+            }
+            .accessibilityHint("Starts reading now, without steeping tea")
+        } else {
+            CanopyGlassButton("Read a little", systemImage: "book", accent: .forest, feel: nil) {
+                actions.startWithoutTea()
+            }
+            .accessibilityHint("Starts reading now, without steeping tea")
         }
-        .accessibilityHint("Starts reading now, without steeping tea")
     }
 
     private var ritualCaption: some View {
@@ -326,10 +338,11 @@ struct TodayNook: View {
         VStack(alignment: .leading, spacing: Space.s) {
             HStack(alignment: .lastTextBaseline, spacing: Space.m) {
                 VStack(alignment: .leading, spacing: Space.xxs) {
-                    Eyebrow("\(state.tea.name) is steeping")
+                    CanopyLabel("\(state.tea.name) is steeping", accent: .clay)
+                    // The countdown is always sharp (blur is a moment, never a state).
                     Text(timerInterval: state.startedAt...state.readyAt, countsDown: true)
-                        .font(LeafType.statNumeral.monospacedDigit())
-                        .foregroundStyle(Color.ink)
+                        .font(CanopyType.stat.font.monospacedDigit())
+                        .foregroundStyle(Canopy.text)
                         .dynamicTypeSize(...DynamicTypeSize.accessibility2)
                 }
                 Spacer(minLength: 0)
@@ -337,7 +350,7 @@ struct TodayNook: View {
             Text("Find your page and settle in. It’s ready at \(LeafFormat.format(state.readyAt, template: "jmm")).")
                 .leafStyle(.caption)
                 .fixedSize(horizontal: false, vertical: true)
-            PrimaryGlassButton("Start reading now", systemImage: "book") {
+            CanopyHeroButton("Start reading now", feel: nil) {
                 actions.start()
             }
             .sessionZoomSource(ReadingSessionLauncher.heroSource)
@@ -349,11 +362,12 @@ struct TodayNook: View {
 
     private func readyControls(_ state: TeaSteepState) -> some View {
         VStack(alignment: .leading, spacing: Space.s) {
-            Eyebrow("Your \(state.tea.name) is ready")
+            CanopyLabel("Your \(state.tea.name) is ready", accent: .clay)
+                .canopyFocusInTransition()
             Text("One cup is \(brief.cupMinutes) minutes. Leaf counts it down for you.")
                 .leafStyle(.caption)
                 .fixedSize(horizontal: false, vertical: true)
-            PrimaryGlassButton("Start reading", systemImage: "book") {
+            CanopyHeroButton("Begin reading", feel: nil) {
                 actions.start()
             }
             .sessionZoomSource(ReadingSessionLauncher.heroSource)
