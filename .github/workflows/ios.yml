@@ -10,9 +10,11 @@ on:
     paths-ignore: ['docs/**', '**.md']
   workflow_dispatch:
 
+# A running build finishes; GitHub keeps only the newest pending run behind it,
+# so with several pushes a full run (archive and screenshots) still completes.
 concurrency:
   group: ios-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
