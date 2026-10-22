@@ -28,6 +28,7 @@ struct SessionView: View {
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
 
     @ScaledMetric(relativeTo: .headline) private var controlHeight: CGFloat = 54
+    @ScaledMetric(relativeTo: .largeTitle) private var compactTimerSize: CGFloat = 56
 
     private var session: ActiveSession? { store.activeSession ?? frozen }
 
@@ -124,12 +125,21 @@ struct SessionView: View {
                 .opacity(isEnding ? 0 : (isDimmed ? 0.25 : 1))
                 .allowsHitTesting(!isEnding)
 
+            // With a scene on, the timer moves up under the top bar so the scene has the middle of the screen.
+            if sceneIsOn && !isEnding {
+                face(session: session, compact: true)
+                    .padding(.top, Space.l)
+                    .transition(.opacity)
+            }
+
             Spacer(minLength: Space.l)
 
             if !isEnding {
-                face(session: session)
-                    .transition(.opacity)
-                Spacer(minLength: Space.l)
+                if !sceneIsOn {
+                    face(session: session, compact: false)
+                        .transition(.opacity)
+                    Spacer(minLength: Space.l)
+                }
                 extras
                     .opacity(isDimmed ? 0.25 : 1)
                     .padding(.bottom, Space.l)
@@ -175,19 +185,31 @@ struct SessionView: View {
 
     // MARK: The face: ring, timer, caption
 
-    private func face(session: ActiveSession) -> some View {
+    /// A scene other than plain is on.
+    private var sceneIsOn: Bool { nookScene != .plain }
+
+    private func face(session: ActiveSession, compact: Bool) -> some View {
         TimelineView(.periodic(from: session.startedAt, by: 1)) { context in
             let clock = SessionClock(session: session, store: store, at: context.date)
-            VStack(spacing: Space.l) {
-                ProgressRing.session(progress: clock.ringProgress)
-                    .overlay {
-                        Text(LeafFormat.clock(seconds: clock.displaySeconds))
-                            .leafStyle(.timer, color: timerColor(clock: clock, isPaused: session.isPaused))
-                            .contentTransition(.numericText(countsDown: clock.countsDown))
-                            .animation(reduceMotion ? nil : Animation.snappy(duration: 0.3), value: Int(clock.displaySeconds))
-                            .breathing(session.isPaused)
-                            .padding(.horizontal, Space.xxl)
+            VStack(spacing: compact ? Space.xs : Space.l) {
+                if compact {
+                    // A small ring beside a smaller timer, high on the screen.
+                    HStack(spacing: Space.m) {
+                        ProgressRing(progress: clock.ringProgress, diameter: 40, lineWidth: 3, showsHead: true)
+                        timerText(clock: clock, session: session)
+                            .font(.system(size: compactTimerSize, weight: .light, design: .serif).monospacedDigit())
+                            .foregroundStyle(timerColor(clock: clock, isPaused: session.isPaused))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
                     }
+                } else {
+                    ProgressRing.session(progress: clock.ringProgress)
+                        .overlay {
+                            timerText(clock: clock, session: session)
+                                .leafStyle(.timer, color: timerColor(clock: clock, isPaused: session.isPaused))
+                                .padding(.horizontal, Space.xxl)
+                        }
+                }
                 VStack(spacing: Space.xs) {
                     if let tea = store.tea(id: session.teaID) {
                         Text(cupLine(clock: clock, tea: tea))
@@ -224,6 +246,13 @@ struct SessionView: View {
                 goalIsMet = met
             }
         }
+    }
+
+    private func timerText(clock: SessionClock, session: ActiveSession) -> some View {
+        Text(LeafFormat.clock(seconds: clock.displaySeconds))
+            .contentTransition(.numericText(countsDown: clock.countsDown))
+            .animation(reduceMotion ? nil : Animation.snappy(duration: 0.3), value: Int(clock.displaySeconds))
+            .breathing(session.isPaused)
     }
 
     private func timerColor(clock: SessionClock, isPaused: Bool) -> Color {
