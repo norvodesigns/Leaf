@@ -22,8 +22,8 @@ enum Canopy {
     /// The Hero button's fill, black in both modes.
     static let hero = Color.black
 
-    static func dynamic(light: UInt32, dark: UInt32) -> Color {
-        Color(uiColor: UIColor.leafDynamic(light: light, dark: dark))
+    static func dynamic(light: UInt32, dark: UInt32, highContrast: (light: UInt32, dark: UInt32)? = nil) -> Color {
+        Color(uiColor: UIColor.leafDynamic(light: light, dark: dark, highContrast: highContrast))
     }
 
     // MARK: Space and shape (§5)
@@ -195,9 +195,11 @@ struct CanopyColors {
         canvas = Canopy.dynamic(light: h[0].0, dark: h[0].1)
         surface = Canopy.dynamic(light: h[1].0, dark: h[1].1)
         text = Canopy.dynamic(light: h[2].0, dark: h[2].1)
-        textSecondary = Canopy.dynamic(light: h[3].0, dark: h[3].1)
-        textTertiary = Canopy.dynamic(light: h[4].0, dark: h[4].1)
-        separator = Canopy.dynamic(light: h[5].0, dark: h[5].1)
+        // Increase Contrast: secondary text darkens toward the ink, tertiary text takes secondary's place, and hairlines
+        // firm up, so small captions and eyebrows clear 4.5:1 on the cream.
+        textSecondary = Canopy.dynamic(light: h[3].0, dark: h[3].1, highContrast: (light: 0x4A443B, dark: 0xD3CABA))
+        textTertiary = Canopy.dynamic(light: h[4].0, dark: h[4].1, highContrast: (light: h[3].0, dark: h[3].1))
+        separator = Canopy.dynamic(light: h[5].0, dark: h[5].1, highContrast: (light: 0xB4AA9A, dark: 0x554D42))
         forest = Canopy.dynamic(light: h[6].0, dark: h[6].1)
         forestSoft = Color(uiColor: UIColor.leafDynamic(light: h[6].0, dark: h[6].1, lightAlpha: 0.12, darkAlpha: 0.22))
     }

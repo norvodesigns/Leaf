@@ -27,12 +27,18 @@ extension UIColor {
         )
     }
 
-    /// A colour that follows light and dark mode.
-    static func leafDynamic(light: UInt32, dark: UInt32, lightAlpha: CGFloat = 1, darkAlpha: CGFloat = 1) -> UIColor {
+    /// A colour that follows light and dark mode, and Increase Contrast when given a stronger pair for it.
+    static func leafDynamic(
+        light: UInt32, dark: UInt32, lightAlpha: CGFloat = 1, darkAlpha: CGFloat = 1,
+        highContrast: (light: UInt32, dark: UInt32)? = nil
+    ) -> UIColor {
         let lightColor = UIColor(hex: light, alpha: lightAlpha)
         let darkColor = UIColor(hex: dark, alpha: darkAlpha)
+        let strong = highContrast.map { (light: UIColor(hex: $0.light, alpha: lightAlpha), dark: UIColor(hex: $0.dark, alpha: darkAlpha)) }
         return UIColor { traits in
-            traits.userInterfaceStyle == .dark ? darkColor : lightColor
+            let isDark = traits.userInterfaceStyle == .dark
+            if let strong, traits.accessibilityContrast == .high { return isDark ? strong.dark : strong.light }
+            return isDark ? darkColor : lightColor
         }
     }
 }
