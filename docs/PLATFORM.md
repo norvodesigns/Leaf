@@ -131,11 +131,14 @@ App Group, and controls need nothing extra.
   timelines and the controls. Covers are the Live Activity's (`LiveActivityCover.prepare`), written once per book per
   launch. Screenshot runs never write it.
 - **The Today widget** (`LeafWidgets/LeafTodayWidget.swift`, views in `LiveActivityShared/LeafWidgetViews.swift` so the
-  app can stage them): small, medium and large on the Home Screen (the small one is what StandBy shows), and circular,
-  rectangular and inline on the Lock Screen, matching the watch complications. One entry now and one at each moment it
-  changes by itself (the goal crossed, the tea ready, the pot cold, midnight); the seconds are `Text(timerInterval:)`.
-  Interactive buttons: Read (`StartReadingIntent`) and Steep (`StartSteepIntent`) by day, Pause or Resume and "A page"
-  while reading.
+  app can stage them), in Canopy's Oat palette (REDESIGN.md §4.12; the extension repeats the token values in
+  `LeafWidgetPalette`, keep them in step with `CanopyTokens.swift`): small (goal ring and the next reading time),
+  medium (the next reading time's book and pages, Begin reading as the black hero), large (today's reading times, then
+  up next, the week), and circular, rectangular ("8:30 PM · Circe") and inline on the Lock Screen, matching the watch
+  complications. One entry now and one at each moment it changes by itself (the goal crossed, the tea ready, the pot
+  cold, a reading time passing, midnight); the seconds are `Text(timerInterval:)`, Dusk for reading and Clay for tea.
+  Interactive buttons: Steep and read (`StartSteepIntent`) and Begin reading (`StartReadingIntent`) by day, Pause or
+  Resume and "A page" while reading.
 - **Controls** (`LeafWidgets/LeafControls.swift`): Start reading, Steep a pot, and Log pages (the reader picks how many
   pages per press when adding it; `LogPagesControlConfiguration`). Each works from Control Center, the Lock Screen and the
   Action button.
