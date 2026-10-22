@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Leaf's app icon, "Leaf, open": an open book whose two pages curve into one leaf, the spine as its midrib.
-Two cream glass panes on deep forest green. Writes the iPhone (light, dark, tinted) and Watch masters at 1024 px
+Two green glass panes on a clean cream. Writes the iPhone (light, dark, tinted) and Watch masters at 1024 px
 and previews to docs/design/icon/. Needs Pillow. Run from the repo root: python3 scripts/design/make_icon.py"""
 import math
 from PIL import Image, ImageDraw, ImageFilter, ImageChops
@@ -144,15 +144,15 @@ def render(background, pane_left, pane_right, rim_alpha, vein_color, shadow_alph
 
 
 def main():
-    forest_bg = radial((S, S), hexrgb(0x2F6B4C), hexrgb(0x0F2C1E))
-    cream_l = (hexrgb(0xEEE9DE), hexrgb(0xDAD2C2))
-    cream_r = (hexrgb(0xFCFAF4), hexrgb(0xEBE5D7))
-    light = render(forest_bg, cream_l, cream_r, 230, hexrgb(0x1F4D36, 70), 120, hexrgb(0xE9DEC7))
+    cream_bg = radial((S, S), hexrgb(0xFFFDF8), hexrgb(0xEEE7D8), center=(0.4, 0.25), reach=0.95)
+    green_l = (hexrgb(0x3F7055), hexrgb(0x2E5A43))
+    green_r = (hexrgb(0x6E9D80), hexrgb(0x4A7A5E))
+    light = render(cream_bg, green_l, green_r, 235, hexrgb(0xFAF6EE, 90), 70, hexrgb(0x3A6A4F))
 
-    night_bg = radial((S, S), hexrgb(0x15281E), hexrgb(0x050A07))
-    green_l = (hexrgb(0x6FAF87), hexrgb(0x3E7A57))
-    green_r = (hexrgb(0x9BD3AE), hexrgb(0x5E9E77))
-    dark = render(night_bg, green_l, green_r, 200, hexrgb(0x0E1813, 90), 160, hexrgb(0x5E9E77))
+    night_bg = radial((S, S), hexrgb(0x2A2722), hexrgb(0x0F0E0C))
+    sage_l = (hexrgb(0x7FB08F), hexrgb(0x4F7F62))
+    sage_r = (hexrgb(0xA8D2B5), hexrgb(0x73A486))
+    dark = render(night_bg, sage_l, sage_r, 200, hexrgb(0x161513, 90), 160, hexrgb(0x73A486))
 
     grey_bg = radial((S, S), hexrgb(0x2A2A2A), hexrgb(0x000000))
     grey_l = (hexrgb(0xC9C9C9), hexrgb(0x9E9E9E))

@@ -1,6 +1,8 @@
 # Leaf redesign: Phase 1
 
-Chief of Design, 2026-10-21. Status: **waiting for the owner's OK before Phase 2 (rebuild)**.
+Chief of Design, 2026-10-21. Status: **revision 2, waiting for the owner's OK before Phase 2 (rebuild)**. Revision 2 (2026-10-22) follows the
+owner's note that the green was too heavy and the cream not prominent: it evolves the live look instead of replacing
+it, and offers three cream palettes to choose from (Linen, Oat, Ivory).
 
 The engines stay. The UI starts over on a new system, **Canopy** (`docs/design/DESIGN_SYSTEM.md`,
 `Leaf/DesignSystem/Canopy/`). This doc covers what the app is, where things live, every screen, the haptics map,
@@ -57,11 +59,11 @@ that *sentence* may appear at level 0 or 1; its chart may not.
 
 ## 3. Brand
 
-**Minimal, clean, cozy.** A reading nook with the clutter taken out. Deep **forest green** leads on a **clean cream**
-(warm off-white, not the old yellow wash); dark mode is cream on a forest night. Three muted supporting accents have one
-job each: **Dusk** (reading and time), **Clay** (tea, and the lamplight glow), **Bloom** (memories and insights).
-Liquid Glass on everything you touch. New York serif for books and words worth savouring; SF Pro Rounded for every
-number. Blur is a moment: things arrive soft and resolve to sharp. Full spec in `DESIGN_SYSTEM.md`.
+**Minimal, clean, cozy, and still Leaf.** Built from the live app: its masthead, Instrument Serif greeting, cover and
+cup, and the Steep / Begin pair stay. What changes: a brighter, cleaner cream page with the amber wash and bokeh gone;
+green used as ink (labels, links, progress, toggles), never as big fills; black for the one hero button; glass cards
+tinted cream; Dusk, Clay and Bloom used small for reading time, tea and memories. Three palettes are on offer: Linen
+(recommended), Oat, Ivory. Full spec in `DESIGN_SYSTEM.md`.
 
 ## 4. Screens
 
@@ -70,33 +72,26 @@ Sketches show light mode; dark mode swaps tokens only. `[▓ … ▓]` is the bl
 
 ### 4.1 Today
 
-The whole app's front door. One hero, the day's plan, nothing else competing.
+Evolved from the live Today: same masthead, greeting, cover and cup, and the Steep / Begin pair; cleaner cream, no
+amber bokeh, and today's reading times added right under the actions.
 
 ```
- Good evening                        (⚙)       ← display, New York; settings lives in You, this is the avatar
- You've read 12 of 25 min today                ← callout, numerals rounded
+ THURSDAY, OCTOBER 22                  NO. 42  ← eyebrow, kept
+ ─────────────────────────────────────────────
+ Evening hush.                                 ← Instrument Serif, kept
+ The lamp and the book do the talking.         ← italic subline, kept
 
+ ┌────────┐   ╭─╮
+ │ cover  │   ╰─╯  12 of 25 min                ← cover + cup, kept; green progress line
+ └────────┘        ━━━━━━─────
+ ( ☕ Bedtime blend · 7 min steep )             ← glass chip, Clay icon
+ ( ☕ Steep and read )  [▓ Begin reading ▓]     ← glass + black glass Hero
  ╭───────────────────────────────────────────╮
- │ Next · 8:30 PM                     (◷ 20m)│ ← Dusk label, glass time chip
- │ ┌──┐ Circe                                │
- │ │▒▒│ Madeline Miller                      │ ← bookTitle (New York)
- │ └──┘ pp. 142–158 · 48% ━━━━━━━━──────     │ ← Forest progress
- │                                           │
- │ [▓▓▓▓▓▓▓▓  ▶  Begin reading  ▓▓▓▓▓▓▓▓▓]   │ ← THE Hero: black glass
- │ (  ☕ Steep and read  ·  Earl Grey 4m  )   │ ← glass, Clay icon
+ │ Today's reading times            Edit ›   │ ← green label
+ │ (7:30) ┌┐ ✓ Project Hail Mary    (⇄)      │
+ │ (8:30) ┌┐ ● The Hobbit  pp.143–154 (⇄)    │ ← tap time or ⇄ to change
  ╰───────────────────────────────────────────╯
-
- Today's plan                         Edit ›   ← Dusk label → Plan
- ╭───────────────────────────────────────────╮
- │ 7:30 AM  ✓ Project Hail Mary   pp. 80–96  │ ← done slots dim, Forest check
- │ 8:30 PM  ● Circe              pp. 142–158 │ ← next, Dusk dot
- │ 10:00 PM ○ Circe (shared)     pp. 158–164 │
- ╰───────────────────────────────────────────╯
-
- ╭──────────────────╮ ╭──────────────────────╮
- │  ◔ 12/25 min     │ │ 🔥 9-day streak       │ ← Forest ring, stat
- │  (+ Log pages)   │ │ M T W T F S S ●●●●○  │
- ╰──────────────────╯ ╰──────────────────────╯
+ ╭ 🍃 A short book would bring the year goal back within reach. Find a short book ╮
 ```
 
 States (one hero always): **reading** (above); **goal met** (Hero becomes "Keep reading", ring full, a single Forest
@@ -358,11 +353,10 @@ respects Settings → Feel. ✱ = new Core Haptics pattern added in Phase 1.
 ## 7. App icon
 
 **Concept: "Leaf, open."** An open book seen from above whose two pages curve into a single leaf: the spine is the
-leaf's midrib, the page edges are its veins. Two cream glass panes (the left page a shade deeper, the right one lit,
-a bright rim and a soft sheen) on a deep forest-green gradient, with a short stem. It is the brand in one picture:
-forest and cream, glass, a book. It holds at 40 px (see `docs/design/icon/sizes.png`).
+leaf's midrib, the page edges are its veins. Revision 2 follows the live icon's lead (a green leaf on cream): two green
+glass panes with a bright rim on a clean cream, a short stem. It holds at 40 px (`docs/design/icon/sizes.png`).
 
-- iPhone: 1024 px light (cream on forest), dark (soft green panes on a forest night), and tinted (greyscale for the
+- iPhone: 1024 px light (green on cream), dark (sage panes on warm charcoal), and tinted (greyscale for the
   system tint).
 - Watch: 1024 px, the same mark, centred for the circular mask.
 - Single-size asset catalog entries: Xcode renders every required size from the 1024 master.
@@ -404,4 +398,5 @@ Each step is a small batch of commits that builds, pushed together to save CI mi
 1. **Tabs:** Today · Plan · Library · You, with search inside Library. OK, or keep search as its own tab?
 2. **Speed test:** move it out of onboarding (Leaf learns your speed from sessions; the test stays in Settings)?
 3. **Rest days:** no Hero on a rest day, just a quiet "Read a little". OK?
-4. **Icon:** the open-book leaf, cream glass on forest green (previews attached). Keep, or try another direction?
+4. **Icon:** the open-book leaf, green glass on cream (previews attached). Keep, or try another direction?
+5. **Palette:** Linen, Oat or Ivory (screenshots C2-canopy-today-*)?

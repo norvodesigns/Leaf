@@ -4,9 +4,8 @@ import SwiftUI
 
 // MARK: - Backdrop
 
-/// The screen base: `canvas` plus two large, soft, static glows (the screen's accent top-leading, a second
-/// one bottom-trailing)
-/// so the glass above has light to bend. Plain gradients, no live blur, so it costs nothing.
+/// The screen base: the cream `canvas`, a soft daylight fall from the top and the faintest tint of the screen's accent
+/// low down, so the glass above has light to bend. Plain gradients, no live blur, so it costs nothing.
 struct CanopyBackdrop: View {
     var accent: CanopyAccent = .forest
 
@@ -16,26 +15,25 @@ struct CanopyBackdrop: View {
     var body: some View {
         let dark = colorScheme == .dark
         let scale = reduceTransparency ? 0.5 : 1
-        let primary = (dark ? 0.20 : 0.10) * scale
-        let secondary = (dark ? 0.10 : 0.06) * scale
-        // The second glow: lamplight (Clay) on Forest screens, Forest elsewhere.
-        let warmth: CanopyAccent = accent == .forest ? .clay : .forest
+        // Light falls on the page from the top: bright on cream, a faint lift at night. No amber wash.
+        let light = dark ? Canopy.text.opacity(0.05 * scale) : Color.white.opacity(0.75 * scale)
+        let tint = accent.glow.opacity((dark ? 0.08 : 0.05) * scale)
         GeometryReader { proxy in
             let size = proxy.size
             let reach = max(size.width, size.height)
             ZStack {
                 Canopy.canvas
                 RadialGradient(
-                    colors: [accent.glow.opacity(primary), accent.glow.opacity(0)],
-                    center: UnitPoint(x: 0.1, y: 0.05),
-                    startRadius: 0,
-                    endRadius: reach * 0.75
-                )
-                RadialGradient(
-                    colors: [warmth.glow.opacity(secondary), warmth.glow.opacity(0)],
-                    center: UnitPoint(x: 0.95, y: 0.85),
+                    colors: [light, light.opacity(0)],
+                    center: UnitPoint(x: 0.3, y: 0),
                     startRadius: 0,
                     endRadius: reach * 0.7
+                )
+                RadialGradient(
+                    colors: [tint, tint.opacity(0)],
+                    center: UnitPoint(x: 0.95, y: 0.9),
+                    startRadius: 0,
+                    endRadius: reach * 0.6
                 )
             }
         }
@@ -73,7 +71,7 @@ private struct CanopyCardModifier: ViewModifier {
                 .overlay { shape.strokeBorder(Canopy.separator) }
         } else {
             padded
-                .glassEffect(.regular.tint(tint?.soft), in: shape)
+                .glassEffect(.regular.tint(tint?.soft ?? Canopy.surface.opacity(0.55)), in: shape)
         }
     }
 }

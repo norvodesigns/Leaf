@@ -7,15 +7,14 @@ The redesign itself (IA, screens, haptics, icon) is in `docs/design/REDESIGN.md`
 
 ## 1. The feel
 
-**Minimal, clean, cozy.** A reading nook with the clutter taken out: deep forest green, a clean cream, soft lamplight
-on glass.
+**Minimal, clean, cozy, and still Leaf.** Revision 2 (2026-10-22) evolves the live app instead of replacing it: the same
+masthead, Instrument Serif greetings, New York book titles, cover and cup, and the Steep / Begin pair, on a brighter,
+cleaner cream with the amber wash removed. Cream is the page; green is the ink you act with (labels, links, progress,
+toggles), never a big fill; black is the one hero button.
 
-- **Minimal:** one obvious action per screen, few things at once, generous space. Nothing decorative that needs
-  explaining.
-- **Clean:** a clean cream (warm off-white, never the old yellow wash), crisp type, big legible numbers, nothing
-  sits blurred.
-- **Cozy:** deep forest green as the brand, warm lamplight glows behind the glass, New York serif for books, soft
-  haptics, a cup of tea one tap away.
+- **Minimal:** one obvious action per screen, few things at once, generous space.
+- **Clean:** a clean cream page, crisp type, nothing sits blurred, no bokeh or amber glow.
+- **Cozy:** the live app's editorial voice, the teacup, soft haptics, warm ink instead of pure black text.
 
 If a screen needs explaining, it is redesigned, not annotated. No coach marks, no tours.
 
@@ -40,62 +39,55 @@ Every screen follows these, in this order.
 
 ## 3. Colour
 
-Deep forest green on a clean cream; dark mode turns it around into cream on a forest night. Three supporting accents
-each have one job. Hex values are light / dark.
+Cream is the page, green the ink you act with. Three candidate palettes are built in for the owner to choose from
+(`CanopyPalette`, default **Linen**; `-CanopyPalette oat|ivory` for screenshots). Only the neutrals and the green differ.
+Hex values are light / dark.
 
-### Neutrals
-
-| Token | Light | Dark | Use |
+| Token | Linen (recommended) | Oat | Ivory |
 |---|---|---|---|
-| `Canopy.canvas` | `#F5F1E8` cream | `#0E1813` forest night | Every screen's base, under the backdrop glow |
-| `Canopy.surface` | `#FCFAF5` | `#172520` | Opaque stand-in for glass under Reduce Transparency; list cells |
-| `Canopy.text` | `#16211B` | `#F3EEE2` | Titles, body, numerals (14.7:1 / 15.7:1) |
-| `Canopy.textSecondary` | `#5B675F` | `#AEB9B0` | Authors, captions, meta (5.3:1 / 9.0:1) |
-| `Canopy.textTertiary` | `#7A847D` | `#7C8A81` | Large or non-text only: placeholders, units beside big numerals |
-| `Canopy.separator` | `#E4DED1` | `#22332A` | Hairlines, progress tracks |
-| `Canopy.hero` | `#000000` | `#000000` | The Hero button, in both modes (a specular rim lifts it off the forest night) |
+| `canvas` (the page) | `#FAF6EE` / `#161513` | `#F5EFE4` / `#1B1916` | `#FCFBF7` / `#121413` |
+| `surface` (cards) | `#FFFDF9` / `#211F1C` | `#FCF8F1` / `#26231F` | `#FFFFFF` / `#1C1F1D` |
+| `text` (warm ink) | `#1F1C17` / `#F4EDDF` | `#24201A` / `#F2EADA` | `#1A1D1B` / `#F1EEE6` |
+| `textSecondary` | `#625C52` / `#B8AF9F` | `#665F54` / `#B5AB99` | `#5D625E` / `#AEB2AD` |
+| `textTertiary` (non-text) | `#8B8478` / `#857D70` | `#8C8478` / `#847B6E` | `#878C88` / `#7E837F` |
+| `separator` | `#E8E1D4` / `#34302A` | `#E5DCCB` / `#3A352E` | `#ECEAE3` / `#2C302D` |
+| **Forest** (the green) | `#3A6A4F` / `#9CC8A9` | `#48705A` / `#A9CDB2` sage | `#2C5A43` / `#8FC2A2` pine |
 
-### Accents (each has `.color`, `.soft` for tints and fills, `.glow` for the backdrop)
+Dark mode is a warm charcoal with cream text, not green. `hero` is black in both modes.
 
-| Accent | Light | Dark | Job | Examples |
-|---|---|---|---|---|
-| **Forest** (primary) | `#1F4D36` | `#93CFA9` | Brand, selection, growth: progress, done, goals, streaks | Tab tint, toggles, progress bars, "Done", goal ring, labels |
-| **Dusk** | `#46559A` | `#A9B5F2` | Reading and time: sessions, reading times, timers, "now" | Slot times, session ring, Live Activity, next-up dot |
-| **Clay** | `#A44A28` | `#EB9C74` | Tea: steeping, cabinet, caffeine; also the lamplight glow | Steep ring, tea chips, "Steep and read" icon |
-| **Bloom** | `#963B62` | `#E79BBB` | Memories and insights: journal, quotes, challenges, stamps, year in books | Quote cards, challenge rings, insight highlights |
+Supporting accents, same in every palette, used small (a word, a ring, a chip):
 
-All text tokens and accents pass 4.5:1 on `canvas` and `surface` in both modes (Clay light is the tightest at 5.2:1).
-Supporting accents are muted on purpose so the green leads. An accent never floods a screen; it is a word, a ring, a
-chip, a glow.
+| Accent | Light | Dark | Job |
+|---|---|---|---|
+| **Dusk** | `#46559A` | `#A9B5F2` | Reading and time: sessions, reading times, timers |
+| **Clay** | `#A44A28` | `#EB9C74` | Tea: steeping, cabinet, caffeine |
+| **Bloom** | `#963B62` | `#E79BBB` | Memories and insights: journal, quotes, challenges |
+
+Every text token and accent passes 4.5:1 on its canvas and surface in both modes (Oat's sage is the tightest at 4.9:1).
 
 ### Backdrop
 
-Glass needs something to bend. `CanopyBackdrop(_ accent:)` paints `canvas` plus two large, very soft, static glows:
-the screen's accent top-leading (10% light, 20% dark) and a second one bottom-trailing (6% / 10%): Clay lamplight on
-Forest screens, Forest elsewhere. Pre-rendered gradients, not a live blur, so it costs nothing. Today, Library and You
-use Forest (so they get the warm lamp corner), the session uses Dusk, Tea uses Clay, insights use Bloom. Under Reduce
-Transparency the glows halve.
+`CanopyBackdrop` is the cream canvas with a soft daylight fall from the top (white on cream, a faint lift at night)
+and the faintest tint of the screen's accent low down. No amber, no bokeh. Glass cards carry a cream tint so the cream
+reads clearly through them.
 
 ## 4. Type
 
-Dynamic Type everywhere; every style is built on a text style so it scales.
+Kept from the live app: Instrument Serif for greetings and big numbers, New York for books, quotes and timers, SF Pro
+for everything you operate. Dynamic Type everywhere.
 
-| Style | Face | Base | Use |
-|---|---|---|---|
-| `.display` | New York, semibold | 34 (largeTitle) | Today's greeting, a finished book's title |
-| `.title` | SF Pro, bold | 28 (title) | Screen titles inside content |
-| `.bookTitle` | New York, semibold | 22 (title2) | Book titles on cards and detail |
-| `.headline` | SF Pro, semibold | 17 | Card titles, row titles, buttons |
-| `.body` | SF Pro | 17 | Running text |
-| `.callout` | SF Pro | 16 | Card supporting lines |
-| `.caption` | SF Pro, medium | 13 (footnote) | Meta, authors on small rows |
-| `.label` | SF Pro, semibold | 13 (footnote) | Section labels, in the section's accent. Sentence case, never all caps |
-| `.timer` | SF Pro Rounded, semibold, monospaced digits | 76 | Session and steep timers |
-| `.stat` | SF Pro Rounded, semibold, monospaced digits | 34 | Minutes today, pages, streak |
-| `.statSmall` | SF Pro Rounded, semibold, monospaced digits | 20 (title3) | Numbers inside rows and chips |
-| `.quote` | New York, regular italic | 20 (title3) | Journal quotes |
-
-Instrument Serif retires. Numbers use `contentTransition(.numericText())` when they change.
+| Style | Face | Use |
+|---|---|---|
+| `.eyebrow` | SF Pro semibold, caption 2, uppercase, tracked | The masthead date line |
+| `.display` | Instrument Serif 52 | Today's greeting ("Evening hush.") |
+| `.subline` | Instrument Serif Italic 24 | The greeting's second line |
+| `.title` | SF Pro bold, title | Titles inside content |
+| `.bookTitle` | New York semibold, title 2 | Book titles |
+| `.headline` / `.body` / `.callout` | SF Pro | Rows, buttons, running text |
+| `.caption` / `.label` | SF Pro footnote | Meta; section labels in green |
+| `.timer` | New York light 80, monospaced digits | Session and steep timers |
+| `.stat` | Instrument Serif 36 | Minutes today, pages, streak |
+| `.quote` | New York italic | Journal quotes |
 
 ## 5. Space and shape
 

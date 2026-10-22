@@ -190,7 +190,7 @@ struct CanopySlotRow: View {
                         .padding(.leading, Canopy.Space.m)
                 }
             }
-            .frame(minWidth: 92, alignment: .leading)
+            .frame(minWidth: 72, alignment: .leading)
 
             if let paletteIndex {
                 CanopyCoverSwatch(title: title, paletteIndex: paletteIndex, width: 34)

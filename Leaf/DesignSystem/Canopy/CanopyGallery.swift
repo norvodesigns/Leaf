@@ -1,10 +1,11 @@
 import SwiftUI
 
 /// The Canopy gallery: foundations, components, and Today and Plan mock-ups built on the real tokens with sample
-/// data. Screenshot runs open it with `-LeafScreen gallery.canopy` (`.components`, `.today`, `.plan`).
+/// data. Screenshot runs open it with `-LeafScreen gallery.canopy` (`.components`, `.today`, `.plan`, `.palettes`), and
+/// `-CanopyPalette linen|oat|ivory` picks the palette.
 struct CanopyGallery: View {
     enum Page: String, CaseIterable, Identifiable {
-        case foundations, components, today, plan
+        case foundations, components, today, plan, palettes
 
         var id: String { rawValue }
 
@@ -14,6 +15,7 @@ struct CanopyGallery: View {
             case .components: return "Components"
             case .today: return "Today"
             case .plan: return "Plan"
+            case .palettes: return "Palettes"
             }
         }
     }
@@ -29,6 +31,7 @@ struct CanopyGallery: View {
                     case .components: CanopyComponentsPage()
                     case .today: CanopyTodayMock()
                     case .plan: CanopyPlanMock()
+                    case .palettes: CanopyPalettesPage()
                     }
                 }
                 .padding(.horizontal, Canopy.Space.margin)
@@ -36,8 +39,9 @@ struct CanopyGallery: View {
                 .id(page)
                 .canopyFocusInTransition()
             }
-            .canopyBackdrop(page == .plan || page == .today ? .forest : .clay)
-            .navigationTitle(page.title)
+            .canopyBackdrop(.forest)
+            .navigationTitle(page == .today ? "" : page.title)
+            .navigationBarTitleDisplayMode(page == .today ? .inline : .large)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
@@ -62,8 +66,8 @@ struct CanopyGallery: View {
 private struct CanopyFoundationsPage: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Canopy.Space.l) {
-            CanopyLabel("Minimal, clean, cozy")
-            Text("Deep forest green on a clean cream. Glass you can touch. Blur is a moment, never a state.")
+            CanopyLabel("\(CanopyPalette.current.title) · \(CanopyPalette.current.summary)")
+            Text("Cream is the page, green is the ink you act with, black is the one hero button. Glass you can touch. Blur is a moment, never a state.")
                 .canopyText(.callout, color: Canopy.textSecondary)
         }
 
@@ -225,59 +229,134 @@ private struct CanopyComponentsPage: View {
 
 // MARK: - Mock-ups
 
-/// Today on Canopy, with sample data: one Hero, today's reading times, the goal and the streak.
+/// Today, evolved from the live screen: the same masthead, greeting, cover and cup, and the Steep / Begin pair, on a
+/// cleaner cream with green as a light touch, then today's reading times.
 private struct CanopyTodayMock: View {
     var body: some View {
-        VStack(alignment: .leading, spacing: Canopy.Space.xs) {
-            Text("Good evening").canopyText(.display)
-            Text("12 of 25 minutes read today").canopyText(.callout, color: Canopy.textSecondary)
+        VStack(alignment: .leading, spacing: Canopy.Space.s) {
+            HStack {
+                Text("Thursday, October 22").canopyText(.eyebrow)
+                Spacer()
+                Text("No. 42").canopyText(.eyebrow)
+            }
+            Rectangle().fill(Canopy.separator).frame(height: 1)
+            Text("Evening hush.")
+                .canopyText(.display)
+                .padding(.top, Canopy.Space.l)
+            Text("The lamp and the book do the talking.").canopyText(.subline)
         }
 
-        VStack(alignment: .leading, spacing: Canopy.Space.l) {
-            CanopyLabel("Next · 8:30 PM", accent: .dusk)
-            HStack(spacing: Canopy.Space.l) {
-                CanopyCoverSwatch(title: "Circe", paletteIndex: 2, width: 64)
-                VStack(alignment: .leading, spacing: Canopy.Space.xs) {
-                    Text("Circe").canopyText(.bookTitle)
-                    Text("Madeline Miller").canopyText(.caption)
-                    Text("20 min · pp. 142–158").canopyText(.caption, color: CanopyAccent.dusk.color)
-                    CanopyProgressBar(value: 0.48, height: 4)
-                        .padding(.top, Canopy.Space.xs)
+        HStack(alignment: .bottom, spacing: Canopy.Space.xl) {
+            CanopyCoverSwatch(title: "The Hobbit", paletteIndex: 5, width: 104)
+            VStack(alignment: .leading, spacing: Canopy.Space.s) {
+                TeaCup(fill: 0.48, liquor: CanopyAccent.clay.color.opacity(0.55), width: 84)
+                HStack(alignment: .firstTextBaseline, spacing: Canopy.Space.xs) {
+                    Text("12").canopyText(.stat)
+                    Text("of 25 min").canopyText(.callout, color: Canopy.textSecondary)
                 }
+                CanopyProgressBar(value: 0.48, height: 4)
             }
-            CanopyHeroButton("Begin reading", systemImage: "play.fill") {}
-            CanopyGlassButton("Steep and read", systemImage: "cup.and.heat.waves", accent: .clay, compact: true, feel: .steepStart) {}
         }
-        .canopyCard()
 
         VStack(alignment: .leading, spacing: Canopy.Space.m) {
-            CanopyLabel("Today’s plan", accent: .dusk, linkTitle: "Edit") {}
-            CanopySlotRow(time: "7:30 AM", title: "Project Hail Mary", detail: "15 min · pp. 80–96", paletteIndex: 5, state: .done)
-            CanopySlotRow(time: "8:30 PM", title: "Circe", detail: "20 min · pp. 142–158", paletteIndex: 2, state: .next)
-            CanopySlotRow(time: "10:00 PM", title: "Circe", detail: "10 min · pp. 158–164", paletteIndex: 2)
+            HStack(spacing: Canopy.Space.xs) {
+                Image(systemName: "cup.and.saucer")
+                    .foregroundStyle(CanopyAccent.clay.color)
+                Text("Bedtime blend · 7 min steep")
+                    .font(.system(.subheadline, weight: .medium))
+                    .foregroundStyle(Canopy.text)
+            }
+            .padding(.horizontal, 12)
+            .frame(minHeight: 32)
+            .canopyGlass(interactive: false)
+            GlassEffectContainer(spacing: Canopy.Space.m) {
+                HStack(spacing: Canopy.Space.m) {
+                    CanopyGlassButton("Steep and read", systemImage: "cup.and.heat.waves", accent: .clay, feel: .steepStart) {}
+                    CanopyHeroButton("Begin reading") {}
+                }
+            }
+        }
+
+        VStack(alignment: .leading, spacing: Canopy.Space.m) {
+            CanopyLabel("Today’s reading times", linkTitle: "Edit") {}
+            CanopySlotRow(time: "7:30", period: "Morning", title: "Project Hail Mary", detail: "15 min · pp. 80–96", paletteIndex: 1, state: .done)
+            CanopySlotRow(time: "8:30", period: "Evening", title: "The Hobbit", detail: "20 min · pp. 143–154", paletteIndex: 5, state: .next)
         }
         .canopyCard()
 
-        HStack(spacing: Canopy.Space.cardGap) {
-            VStack(alignment: .leading, spacing: Canopy.Space.m) {
-                CanopyRing(value: 0.48) {
-                    Text("12").canopyText(.statSmall)
-                }
-                .frame(width: 56, height: 56)
-                Text("of 25 min").canopyText(.caption)
+        HStack(alignment: .top, spacing: Canopy.Space.m) {
+            Image(systemName: "leaf")
+                .foregroundStyle(CanopyAccent.forest.color)
+            VStack(alignment: .leading, spacing: Canopy.Space.xs) {
+                Text("A short book would bring the year goal back within reach.")
+                    .font(.system(.body, design: .serif))
+                    .foregroundStyle(Canopy.text)
+                Text("Find a short book")
+                    .font(.system(.subheadline, weight: .semibold))
+                    .foregroundStyle(CanopyAccent.forest.color)
             }
-            .canopyCard()
-            VStack(alignment: .leading, spacing: Canopy.Space.s) {
-                CanopyStat(value: "9", unit: "days", caption: "Reading streak", accent: .forest)
-                HStack(spacing: 6) {
-                    ForEach(0..<7, id: \.self) { day in
-                        Circle()
-                            .fill(day < 5 ? CanopyAccent.forest.color : Canopy.separator)
-                            .frame(width: 10, height: 10)
+        }
+        .canopyCard(tint: .forest)
+    }
+}
+
+/// The three palettes side by side, each drawn with its own colours, in the current light or dark mode.
+private struct CanopyPalettesPage: View {
+    var body: some View {
+        Text("Same layout, three creams. Each shows the page, a card, text, the green and the hero button.")
+            .canopyText(.callout, color: Canopy.textSecondary)
+        HStack(alignment: .top, spacing: Canopy.Space.s) {
+            ForEach(CanopyPalette.allCases) { palette in
+                swatch(palette)
+            }
+        }
+    }
+
+    private func swatch(_ palette: CanopyPalette) -> some View {
+        let c = palette.colors
+        return VStack(alignment: .leading, spacing: Canopy.Space.s) {
+            Text("Evening hush.")
+                .font(.custom(LeafFontName.regular, size: 24, relativeTo: .title2))
+                .foregroundStyle(c.text)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+            Text("Thu · No. 42")
+                .font(.system(.caption2, weight: .semibold))
+                .foregroundStyle(c.textSecondary)
+            VStack(alignment: .leading, spacing: Canopy.Space.xs) {
+                Text("The Hobbit")
+                    .font(.system(.footnote, design: .serif, weight: .semibold))
+                    .foregroundStyle(c.text)
+                Capsule().fill(c.separator).frame(height: 4)
+                    .overlay(alignment: .leading) {
+                        Capsule().fill(c.forest).frame(width: 40, height: 4)
                     }
-                }
+                Text("Edit ›")
+                    .font(.system(.caption2, weight: .semibold))
+                    .foregroundStyle(c.forest)
             }
-            .canopyCard()
+            .padding(Canopy.Space.s)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(c.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            Text("Begin")
+                .font(.system(.caption, weight: .semibold))
+                .foregroundStyle(Color.white)
+                .frame(maxWidth: .infinity, minHeight: 30)
+                .background(Canopy.hero, in: Capsule())
+            Text(palette.title)
+                .font(.system(.subheadline, weight: .semibold))
+                .foregroundStyle(c.text)
+            Text(palette.summary)
+                .font(.system(.caption2))
+                .foregroundStyle(c.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(Canopy.Space.s)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .background(c.canvas, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(palette == CanopyPalette.current ? c.forest : c.separator, lineWidth: palette == CanopyPalette.current ? 2 : 1)
         }
     }
 }

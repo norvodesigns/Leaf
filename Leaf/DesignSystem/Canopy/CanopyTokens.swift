@@ -1,24 +1,24 @@
 import SwiftUI
 import UIKit
 
-/// Canopy, Leaf's design system (docs/design/DESIGN_SYSTEM.md): minimal, clean, cozy. Deep forest green on a clean
-/// cream, three supporting accents with one job each, Liquid Glass on everything you touch. Every screen reads its colours, type, space and motion
-/// from here.
+/// Canopy, Leaf's design system (docs/design/DESIGN_SYSTEM.md): the live app's editorial warmth, made cleaner. Cream is
+/// the page, green is the ink you act with (text, progress, key controls), black is the one hero button, and glass sits
+/// on everything you touch. Every screen reads its colours, type, space and motion from here.
 enum Canopy {
-    // MARK: Neutrals (§3)
+    // MARK: Neutrals (§3), from the palette in use
 
-    /// Every screen's base, under the backdrop glow.
-    static let canvas = dynamic(light: 0xF5F1E8, dark: 0x0E1813)
-    /// The opaque stand-in for glass under Reduce Transparency, and list cells.
-    static let surface = dynamic(light: 0xFCFAF5, dark: 0x172520)
-    /// Titles, body and numerals.
-    static let text = dynamic(light: 0x16211B, dark: 0xF3EEE2)
+    /// Every screen's base: the cream page.
+    static var canvas: Color { CanopyPalette.current.colors.canvas }
+    /// Cards under Reduce Transparency, list cells: a brighter cream.
+    static var surface: Color { CanopyPalette.current.colors.surface }
+    /// Titles, body and numerals: warm ink.
+    static var text: Color { CanopyPalette.current.colors.text }
     /// Authors, captions, meta.
-    static let textSecondary = dynamic(light: 0x5B675F, dark: 0xAEB9B0)
+    static var textSecondary: Color { CanopyPalette.current.colors.textSecondary }
     /// Large or non-text only: placeholders, units beside big numerals.
-    static let textTertiary = dynamic(light: 0x7A847D, dark: 0x7C8A81)
+    static var textTertiary: Color { CanopyPalette.current.colors.textTertiary }
     /// Hairlines and progress tracks.
-    static let separator = dynamic(light: 0xE4DED1, dark: 0x22332A)
+    static var separator: Color { CanopyPalette.current.colors.separator }
     /// The Hero button's fill, black in both modes.
     static let hero = Color.black
 
@@ -111,20 +111,98 @@ enum CanopyAccent: String, CaseIterable, Identifiable, Sendable {
     }
 
     /// Text-safe on `canvas` and `surface` in both modes (4.5:1 or better).
-    var color: Color { CanopyAccentCache.color[self]! }
+    var color: Color { self == .forest ? CanopyPalette.current.colors.forest : CanopyAccentCache.color[self]! }
     /// Fills and glass tints behind accent content.
-    var soft: Color { CanopyAccentCache.soft[self]! }
+    var soft: Color { self == .forest ? CanopyPalette.current.colors.forestSoft : CanopyAccentCache.soft[self]! }
     /// The backdrop glow: the accent itself, used at low opacity.
-    var glow: Color { CanopyAccentCache.glow[self]! }
+    var glow: Color { self == .forest ? CanopyPalette.current.colors.forest : CanopyAccentCache.glow[self]! }
 
     fileprivate var hex: (light: UInt32, dark: UInt32) {
         switch self {
-        case .forest: return (0x1F4D36, 0x93CFA9)
+        case .forest: return (0x3A6A4F, 0x9CC8A9) // stand-in; the palette's green is used
         case .dusk: return (0x46559A, 0xA9B5F2)
         case .clay: return (0xA44A28, 0xEB9C74)
         case .bloom: return (0x963B62, 0xE79BBB)
         }
     }
+}
+
+// MARK: - Palettes
+
+/// The cream-and-green palettes on offer while the owner chooses. Linen is the default; a launch argument
+/// (`-CanopyPalette oat`) picks another for screenshots. Only the neutrals and the green change; Dusk, Clay and Bloom
+/// keep their jobs and values.
+enum CanopyPalette: String, CaseIterable, Identifiable, Sendable {
+    /// A bright, clean cream with the live app's green. Recommended.
+    case linen
+    /// A warmer oat cream with a soft sage green: the most cream on screen.
+    case oat
+    /// Near-white ivory with a deep pine green: the cleanest.
+    case ivory
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .linen: return "Linen"
+        case .oat: return "Oat"
+        case .ivory: return "Ivory"
+        }
+    }
+
+    var summary: String {
+        switch self {
+        case .linen: return "Bright cream, the live app’s green"
+        case .oat: return "Warmer cream, soft sage"
+        case .ivory: return "Near-white, deep pine"
+        }
+    }
+
+    /// The palette in use, read once from the launch arguments or defaults.
+    static let current: CanopyPalette = CanopyPalette(rawValue: UserDefaults.standard.string(forKey: "CanopyPalette") ?? "") ?? .linen
+
+    var colors: CanopyColors { CanopyColors.cache[self]! }
+
+    /// Light and dark hex values: canvas, surface, text, secondary, tertiary, separator, green.
+    fileprivate var hex: [(UInt32, UInt32)] {
+        switch self {
+        case .linen:
+            return [(0xFAF6EE, 0x161513), (0xFFFDF9, 0x211F1C), (0x1F1C17, 0xF4EDDF), (0x625C52, 0xB8AF9F),
+                    (0x8B8478, 0x857D70), (0xE8E1D4, 0x34302A), (0x3A6A4F, 0x9CC8A9)]
+        case .oat:
+            return [(0xF5EFE4, 0x1B1916), (0xFCF8F1, 0x26231F), (0x24201A, 0xF2EADA), (0x665F54, 0xB5AB99),
+                    (0x8C8478, 0x847B6E), (0xE5DCCB, 0x3A352E), (0x48705A, 0xA9CDB2)]
+        case .ivory:
+            return [(0xFCFBF7, 0x121413), (0xFFFFFF, 0x1C1F1D), (0x1A1D1B, 0xF1EEE6), (0x5D625E, 0xAEB2AD),
+                    (0x878C88, 0x7E837F), (0xECEAE3, 0x2C302D), (0x2C5A43, 0x8FC2A2)]
+        }
+    }
+}
+
+/// One palette's colours, built once.
+struct CanopyColors {
+    let canvas: Color
+    let surface: Color
+    let text: Color
+    let textSecondary: Color
+    let textTertiary: Color
+    let separator: Color
+    let forest: Color
+    let forestSoft: Color
+
+    fileprivate init(_ palette: CanopyPalette) {
+        let h = palette.hex
+        canvas = Canopy.dynamic(light: h[0].0, dark: h[0].1)
+        surface = Canopy.dynamic(light: h[1].0, dark: h[1].1)
+        text = Canopy.dynamic(light: h[2].0, dark: h[2].1)
+        textSecondary = Canopy.dynamic(light: h[3].0, dark: h[3].1)
+        textTertiary = Canopy.dynamic(light: h[4].0, dark: h[4].1)
+        separator = Canopy.dynamic(light: h[5].0, dark: h[5].1)
+        forest = Canopy.dynamic(light: h[6].0, dark: h[6].1)
+        forestSoft = Color(uiColor: UIColor.leafDynamic(light: h[6].0, dark: h[6].1, lightAlpha: 0.12, darkAlpha: 0.22))
+    }
+
+    fileprivate static let cache: [CanopyPalette: CanopyColors] = Dictionary(uniqueKeysWithValues: CanopyPalette.allCases.map { ($0, CanopyColors($0)) })
 }
 
 /// Built once: dynamic colours are cheap to keep and costly to rebuild in every body.
@@ -142,14 +220,16 @@ private enum CanopyAccentCache {
 
 // MARK: - Type (§4)
 
-/// The type ramp. New York for books and words worth savouring, SF Pro Rounded for numbers, SF Pro for the rest.
-/// Every style is built on a text style, so it follows Dynamic Type.
+/// The type ramp, kept from the live app's editorial voice: Instrument Serif for greetings and big numbers, New York for
+/// books and quotes, SF Pro for everything you operate. Every style follows Dynamic Type.
 enum CanopyType: CaseIterable {
-    case display, title, bookTitle, headline, body, callout, caption, label, timer, stat, statSmall, quote
+    case display, subline, eyebrow, title, bookTitle, headline, body, callout, caption, label, timer, stat, statSmall, quote
 
     var font: Font {
         switch self {
-        case .display: return .system(.largeTitle, design: .serif, weight: .semibold)
+        case .display: return .custom(LeafFontName.regular, size: 52, relativeTo: .largeTitle)
+        case .subline: return .custom(LeafFontName.italic, size: 24, relativeTo: .title2)
+        case .eyebrow: return .system(.caption2, weight: .semibold)
         case .title: return .system(.title, weight: .bold)
         case .bookTitle: return .system(.title2, design: .serif, weight: .semibold)
         case .headline: return .system(.headline, weight: .semibold)
@@ -157,9 +237,9 @@ enum CanopyType: CaseIterable {
         case .callout: return .system(.callout)
         case .caption: return .system(.footnote, weight: .medium)
         case .label: return .system(.footnote, weight: .semibold)
-        case .timer: return .system(size: 76, weight: .semibold, design: .rounded).monospacedDigit()
-        case .stat: return .system(.largeTitle, design: .rounded, weight: .semibold).monospacedDigit()
-        case .statSmall: return .system(.title3, design: .rounded, weight: .semibold).monospacedDigit()
+        case .timer: return .system(size: 80, weight: .light, design: .serif).monospacedDigit()
+        case .stat: return .custom(LeafFontName.regular, size: 36, relativeTo: .title)
+        case .statSmall: return .system(.title3, design: .serif, weight: .medium).monospacedDigit()
         case .quote: return .system(.title3, design: .serif).italic()
         }
     }
@@ -167,7 +247,8 @@ enum CanopyType: CaseIterable {
     /// The colour a style takes unless the caller gives one.
     var defaultColor: Color {
         switch self {
-        case .caption: return Canopy.textSecondary
+        case .caption, .subline: return Canopy.textSecondary
+        case .eyebrow: return Canopy.textTertiary
         case .label: return CanopyAccent.forest.color
         default: return Canopy.text
         }
@@ -176,6 +257,8 @@ enum CanopyType: CaseIterable {
     var name: String {
         switch self {
         case .display: return "display"
+        case .subline: return "subline"
+        case .eyebrow: return "eyebrow"
         case .title: return "title"
         case .bookTitle: return "bookTitle"
         case .headline: return "headline"
@@ -194,6 +277,9 @@ enum CanopyType: CaseIterable {
 extension View {
     /// Sets a Canopy text style and its default colour (or `color`).
     func canopyText(_ style: CanopyType, color: Color? = nil) -> some View {
-        font(style.font).foregroundStyle(color ?? style.defaultColor)
+        font(style.font)
+            .foregroundStyle(color ?? style.defaultColor)
+            .tracking(style == .eyebrow ? 1.5 : (style == .display ? -1 : 0))
+            .textCase(style == .eyebrow ? .uppercase : nil)
     }
 }
