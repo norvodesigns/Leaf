@@ -18,11 +18,15 @@ struct LibraryFinishedShelf: View {
         var id: Int { year }
     }
 
-    /// Newest year first; within a year, newest finish first (`store.finished` is already sorted).
+    /// The group year of undated finishes; sorts after every real year.
+    private static let beforeLeaf = 0
+
+    /// Newest year first; within a year, newest finish first (`store.finished` is already sorted). Books read before
+    /// Leaf have no finish date and come last, under `beforeLeaf`.
     private var groups: [YearGroup] {
         let calendar = store.calendar
         let grouped = Dictionary(grouping: store.finished) { item in
-            calendar.component(.year, from: item.finishedAt ?? item.addedAt)
+            item.finishedAt.map { calendar.component(.year, from: $0) } ?? Self.beforeLeaf
         }
         return grouped.keys.sorted(by: >).map { year in
             YearGroup(year: year, items: grouped[year] ?? [])
@@ -56,7 +60,7 @@ struct LibraryFinishedShelf: View {
     private func yearHeader(_ group: YearGroup) -> some View {
         VStack(alignment: .leading, spacing: Space.s) {
             HStack(alignment: .lastTextBaseline, spacing: Space.m) {
-                Text(String(group.year))
+                Text(group.year == Self.beforeLeaf ? "Before Leaf" : String(group.year))
                     .leafStyle(.display)
                     .accessibilityAddTraits(.isHeader)
                 Spacer(minLength: Space.m)

@@ -190,6 +190,23 @@ final class LibraryStore {
 
     func startReading(_ id: String) { move(id, to: .reading) }
 
+    /// "Already read" for a book read before Leaf: Finished with no dates, so it counts in no year's numbers, streaks
+    /// or challenges and is never "finished today" (the Finished shelf files it under Before Leaf). A book with
+    /// sittings in Leaf has a real finish, so that one finishes now, as `markFinished` does.
+    func addReadBeforeLeaf(_ book: Book) {
+        if let existing = item(book.id), existing.shelf == .finished || sessionCount(for: book.id) > 0 {
+            if existing.shelf != .finished { markFinished(book.id) }
+            return
+        }
+        add(book, to: .finished)
+        guard let index = data.items.firstIndex(where: { $0.id == book.id }) else { return }
+        // Adding to Reading (or "Where are you?" on a book just started) stamped a start; nothing was read here.
+        data.items[index].startedAt = nil
+        data.items[index].finishedAt = nil
+        data.items[index].updatedAt = stamp
+        commit()
+    }
+
     func markFinished(_ id: String, rating: Int? = nil) {
         move(id, to: .finished)
         if let rating { setRating(id, rating: rating) }
@@ -268,8 +285,13 @@ final class LibraryStore {
     func apply(_ position: StartingPosition, to id: String) {
         guard let item = item(id) else { return }
         if case .alreadyRead(let date) = position {
+            guard let date else {
+                // No date given: read before Leaf, unless it was started here.
+                addReadBeforeLeaf(item.book)
+                return
+            }
             markFinished(id)
-            if let date, let index = data.items.firstIndex(where: { $0.id == id }) {
+            if let index = data.items.firstIndex(where: { $0.id == id }) {
                 data.items[index].finishedAt = date
                 data.items[index].updatedAt = stamp
                 commit()

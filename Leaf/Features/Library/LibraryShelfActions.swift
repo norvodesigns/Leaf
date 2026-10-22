@@ -5,9 +5,12 @@ import Foundation
 enum LibraryShelfActions {
     /// Marks a book finished (adding it to the Finished shelf first if it isn't in the library):
     /// `bookFinished` scaled by the book's heft, then `success()` a second later (DESIGN.md §8).
-    static func markFinished(_ book: Book, store: LibraryStore) {
+    /// `readBeforeLeaf` is Search's "Already read": no finish date unless the book was started in Leaf.
+    static func markFinished(_ book: Book, store: LibraryStore, readBeforeLeaf: Bool = false) {
         Motion.animate(Motion.paper) {
-            if store.item(book.id) == nil {
+            if readBeforeLeaf {
+                store.addReadBeforeLeaf(book)
+            } else if store.item(book.id) == nil {
                 store.add(book, to: .finished)
             } else {
                 store.markFinished(book.id)

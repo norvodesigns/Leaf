@@ -280,6 +280,28 @@ struct LibraryStoreTests {
         #expect(store.item("a")?.finishedAt == long)
     }
 
+    @Test func readBeforeLeafIsFinishedWithoutAFinishToday() {
+        let store = makeStore()
+        store.addReadBeforeLeaf(book("old"))
+        #expect(store.item("old")?.shelf == .finished)
+        #expect(store.item("old")?.finishedAt == nil)
+        #expect(store.item("old")?.currentPage == 300)
+        let year = store.calendar.component(.year, from: Date())
+        #expect(ReadingStats.booksFinished(in: year, items: store.data.items, calendar: store.calendar) == 0)
+        #expect(store.item("old")?.readThroughs.isEmpty == true)
+
+        // On a shelf but never read here: still before Leaf, and the start stamped by adding it goes too.
+        store.add(book("queued"), to: .reading)
+        store.apply(.alreadyRead(on: nil), to: "queued")
+        #expect(store.item("queued")?.shelf == .finished)
+        #expect(store.item("queued")?.finishedAt == nil)
+        #expect(store.item("queued")?.startedAt == nil)
+
+        // Already finished: nothing changes.
+        store.addReadBeforeLeaf(book("old"))
+        #expect(store.finished.filter { $0.id == "old" }.count == 1)
+    }
+
     @Test func aDamagedFileFallsBackToTheBackupAndIsKept() throws {
         let persistence = Persistence.ephemeral()
         var good = LeafData()

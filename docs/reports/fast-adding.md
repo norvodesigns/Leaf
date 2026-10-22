@@ -47,8 +47,9 @@ Adding a book should take seconds. Built first on the paper design (27df227), th
 
 - ~~The catalog has no ISBN column, so scanning and typed ISBNs need a connection.~~ Done 2026-10-22: `isbns` table
   in `catalog.sqlite` (see docs/CATALOG.md); `ISBNLookup` asks the catalog first.
-- "Already read" from Search uses `store.add(book, to: .finished)`, which dates the finish today. That counts toward
-  this year's stats. A "read before Leaf" add (`addEarlierRead` without a date, or a flag) would be more honest.
+- ~~"Already read" from Search dates the finish today.~~ Done 2026-10-22: `LibraryStore.addReadBeforeLeaf` puts the
+  book on Finished with no dates (no year's stats, no "finished today"); the Finished shelf files it under Before Leaf.
+  "Where are you?" › Already read without a date does the same. A book with sittings in Leaf still finishes today.
 
 ## Known issues
 

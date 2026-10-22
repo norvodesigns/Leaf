@@ -592,7 +592,7 @@ struct SearchView: View {
             add(book, to: .toRead, atFront: next)
             shelf = .toRead
         case .alreadyRead:
-            LibraryShelfActions.markFinished(book, store: store)
+            LibraryShelfActions.markFinished(book, store: store, readBeforeLeaf: true)
             shelf = .finished
         }
         if let feel, choice != .alreadyRead { CanopyFeel.play(feel) }
