@@ -217,7 +217,8 @@ struct CanopySlotRow: View {
                 }
                 Text(detail)
                     .canopyText(.caption)
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .opacity(state == .done ? 0.6 : 1)
 
