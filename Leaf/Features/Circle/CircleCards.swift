@@ -11,6 +11,10 @@ struct CircleShelf: View {
     let onNew: () -> Void
 
     @Namespace private var underline
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// The cover stays 96 wide; at accessibility sizes the tile widens so names wrap at word breaks, not mid-word.
+    private var tileWidth: CGFloat { dynamicTypeSize.isAccessibilitySize ? 168 : 96 }
 
     var body: some View {
         ScrollView(.horizontal) {
@@ -42,7 +46,7 @@ struct CircleShelf: View {
                     Text(circle.name)
                         .canopyText(.callout, color: isSelected ? Canopy.text : Canopy.textSecondary)
                         .fontWeight(isSelected ? .semibold : .regular)
-                        .lineLimit(2)
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? 4 : 2)
                         .fixedSize(horizontal: false, vertical: true)
                     Text(when(circle))
                         .canopyText(.caption, color: circle.isArchived ? Canopy.textSecondary : CanopyAccent.dusk.color)
@@ -57,7 +61,7 @@ struct CircleShelf: View {
                 }
                 .frame(height: 3)
             }
-            .frame(width: 96, alignment: .leading)
+            .frame(width: tileWidth, alignment: .leading)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
@@ -80,7 +84,7 @@ struct CircleShelf: View {
                 Text("New circle")
                     .canopyText(.callout, color: Canopy.textSecondary)
             }
-            .frame(width: 96, alignment: .leading)
+            .frame(width: tileWidth, alignment: .leading)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
