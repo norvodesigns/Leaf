@@ -164,7 +164,9 @@ struct LibraryView: View {
             VStack(alignment: .leading, spacing: 0) {
                 LibraryReadingShelf(onRemove: requestRemoval)
                 if pausedCount > 0 {
-                    SectionHeader("Set aside")
+                    CanopyLabel("Set aside", accent: .dusk)
+                        .padding(.top, Canopy.Space.section)
+                        .padding(.bottom, Canopy.Space.s)
                         .id(Self.setAsideID)
                     LibraryPausedShelf(onRemove: requestRemoval)
                 }
