@@ -246,7 +246,7 @@ struct ForecastPage: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .containerBackground(WatchTheme.tea.opacity(0.35).gradient, for: .tabView)
+        .containerBackground(WatchTheme.dusk.opacity(0.22).gradient, for: .tabView)
         .navigationTitle("Forecast")
     }
 

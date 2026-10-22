@@ -266,7 +266,7 @@ struct WeekPage: View {
     }
 }
 
-/// One day as a tea ring: bigger the longer the read, a drip at the goal, a dash for rest, a faint dot to come.
+/// One day as a ring in Forest (Canopy's colour for progress): bigger the longer the read, a drip at the goal, a dash for rest, a faint dot to come.
 struct WatchTeaRing: View {
     let day: WatchDay
 
@@ -276,8 +276,8 @@ struct WatchTeaRing: View {
         ZStack {
             if day.minutes > 0 {
                 Circle()
-                    .fill(WatchTheme.tea.opacity(0.18))
-                    .overlay { Circle().strokeBorder(WatchTheme.tea, lineWidth: share >= 1 ? 2 : 1.2) }
+                    .fill(WatchTheme.accent.opacity(share >= 1 ? 0.35 : 0.16))
+                    .overlay { Circle().strokeBorder(WatchTheme.accent, lineWidth: share >= 1 ? 2 : 1.2) }
                     .scaleEffect(0.4 + 0.6 * min(1, share))
             } else if !day.isReadingDay {
                 Capsule().fill(WatchTheme.track).frame(width: 8, height: 2)

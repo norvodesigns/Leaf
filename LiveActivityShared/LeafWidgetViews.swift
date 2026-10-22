@@ -447,7 +447,9 @@ struct LeafWidgetButton<Intent: AppIntent>: View {
             .symbolRenderingMode(.hierarchical)
             .background {
                 if hero {
+                    // A faint rim, so the black reads as Canopy's glass hero on the dark canvas too.
                     Capsule().fill(LeafWidgetPalette.hero)
+                        .overlay(Capsule().strokeBorder(Color.white.opacity(0.18), lineWidth: 1))
                 } else {
                     Capsule().fill(LeafWidgetPalette.surface)
                         .overlay(Capsule().strokeBorder(LeafWidgetPalette.separator, lineWidth: 1))
@@ -743,7 +745,7 @@ struct LeafWidgetLarge: View {
             if (snapshot.slots ?? []).count < 3, !snapshot.upNext.isEmpty, phase != .empty {
                 VStack(alignment: .leading, spacing: 7) {
                     sectionLabel("Up next")
-                    ForEach(snapshot.upNext.prefix(3 - min(2, (snapshot.slots ?? []).count))) { book in
+                    ForEach(snapshot.upNext.prefix(max(1, 4 - (snapshot.slots ?? []).count))) { book in
                         upNextRow(book)
                     }
                 }
@@ -1002,13 +1004,17 @@ struct LeafWidgetRectangular: View {
     private func headline(_ next: LeafWidgetSnapshot.Slot?) -> String {
         if phase == .empty { return "Leaf" }
         if let next { return "\(LeafWidgetTime.text(next, in: snapshot)) · \(next.title)" }
-        return snapshot.line
+        switch phase {
+        case .goalMet: return "Goal met"
+        case .rest: return "Rest day"
+        default: return "\(snapshot.minutesLeftText) min to go"
+        }
     }
 
     private func secondLine(_ next: LeafWidgetSnapshot.Slot?) -> String {
         if phase == .empty { return "Choose a book to begin" }
         if let next { return "\(Int(next.minutes)) min · \(next.pagesText)" }
-        return snapshot.current?.title ?? ""
+        return snapshot.current.map { "\($0.title) · p. \($0.currentPage)" } ?? ""
     }
 }
 
