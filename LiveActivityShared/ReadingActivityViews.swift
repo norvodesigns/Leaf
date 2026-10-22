@@ -8,17 +8,26 @@ import UIKit
 //
 // Hard limits (NEXT.md section 11): nothing animates per second except what the system draws for
 // `Text(timerInterval:)` and `ProgressView(timerInterval:)`. The focus pull comes from state changes (pause, resume,
-// goal, page logged), which the system animates with the transitions below, over a cover blurred in advance by the app.
+// goal, page logged), which the system animates with the transitions below. In Canopy (docs/design/REDESIGN.md §4.12)
+// the timer is Dusk and always sharp, a steep is Clay, and the activity sits on Oat's warm charcoal, not a blurred cover.
 
-/// The fixed colours of the Live Activity. It always sits on a darkened, blurred cover, so it uses Leaf's night palette
-/// (the watch palette in DESIGN.md §2) in both appearances.
+/// The fixed colours of the Live Activity: Canopy's Oat palette in its dark form, in both appearances, so it reads the
+/// same on the Lock Screen, in StandBy and on the wrist.
 enum ReadingActivityPalette {
-    static let ink = Color(red: 0xF1 / 255, green: 0xEA / 255, blue: 0xDC / 255)
-    static let inkSecondary = Color(red: 0xB9 / 255, green: 0xB0 / 255, blue: 0xA0 / 255)
-    static let accent = Color(red: 0x8D / 255, green: 0xBB / 255, blue: 0x98 / 255)
-    static let ribbon = Color(red: 0xE0 / 255, green: 0x69 / 255, blue: 0x4F / 255)
-    static let amber = Color(red: 0xE5 / 255, green: 0xAA / 255, blue: 0x55 / 255)
-    static let night = Color(red: 0x1A / 255, green: 0x17 / 255, blue: 0x14 / 255)
+    /// Oat's cream text.
+    static let ink = Color(red: 0xF2 / 255, green: 0xEA / 255, blue: 0xDA / 255)
+    static let inkSecondary = Color(red: 0xB5 / 255, green: 0xAB / 255, blue: 0x99 / 255)
+    /// Forest: done, the goal met.
+    static let accent = Color(red: 0xA9 / 255, green: 0xCD / 255, blue: 0xB2 / 255)
+    /// Dusk: reading and time.
+    static let dusk = Color(red: 0xA9 / 255, green: 0xB5 / 255, blue: 0xF2 / 255)
+    /// Clay: tea.
+    static let clay = Color(red: 0xEB / 255, green: 0x9C / 255, blue: 0x74 / 255)
+    /// The reading timer's colour (Dusk); the name stays for the places that already use it.
+    static let amber = ReadingActivityPalette.dusk
+    static let ribbon = ReadingActivityPalette.dusk
+    /// Oat's dark canvas, a warm charcoal.
+    static let night = Color(red: 0x1B / 255, green: 0x19 / 255, blue: 0x16 / 255)
     static let track = Color.white.opacity(0.16)
 }
 
@@ -127,9 +136,9 @@ struct ReadingActivityModel {
     }
 
     var timerColor: Color {
-        if teaReady { return ReadingActivityPalette.amber }
+        if teaReady || isSteeping { return ReadingActivityPalette.clay }
         if isPaused { return ReadingActivityPalette.inkSecondary }
-        return goalReached ? ReadingActivityPalette.accent : ReadingActivityPalette.ink
+        return goalReached ? ReadingActivityPalette.accent : ReadingActivityPalette.dusk
     }
 
     var spokenSummary: String {
@@ -165,11 +174,9 @@ struct ReadingActivityTimer: View {
 
     var body: some View {
         Text(timerInterval: model.timerRange, pauseTime: model.pauseDate, countsDown: model.countsDown, showsHours: true)
-            .font(.system(size: size, weight: .light, design: .serif).monospacedDigit())
+            .font(.system(size: size, weight: .medium, design: .rounded).monospacedDigit())
             .foregroundStyle(model.timerColor)
             .multilineTextAlignment(.trailing)
-            .blur(radius: model.isPaused ? 0.8 : 0)
-            .opacity(model.isPaused ? 0.75 : 1)
             .lineLimit(1)
             .minimumScaleFactor(0.6)
     }
@@ -193,7 +200,7 @@ struct ReadingActivityProgress: View {
             }
         }
         .progressViewStyle(.linear)
-        .tint(model.goalReached ? ReadingActivityPalette.accent : ReadingActivityPalette.amber)
+        .tint(model.goalReached ? ReadingActivityPalette.accent : (model.content.isSteep ? ReadingActivityPalette.clay : ReadingActivityPalette.dusk))
         .accessibilityHidden(true)
     }
 }
@@ -273,25 +280,17 @@ struct ReadingActivityCover: View {
     }
 }
 
-/// The blurred cover behind everything, darkened so cream text reads on any cover. Plain night paper without one.
+/// Oat's warm charcoal with a faint lift at the top. Canopy retired the blurred cover backdrop (nothing sits blurred),
+/// so `image` is no longer drawn; it stays a parameter so the callers don't change.
 struct ReadingActivityBackdrop: View {
     let image: Image?
 
     var body: some View {
-        ZStack {
-            ReadingActivityPalette.night
-            if let image {
-                image
-                    .resizable()
-                    .scaledToFill()
-                    .opacity(0.9)
-            }
-            LinearGradient(
-                colors: [Color.black.opacity(0.42), Color.black.opacity(0.62)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        }
+        LinearGradient(
+            colors: [Color(red: 0x26 / 255, green: 0x23 / 255, blue: 0x1F / 255), ReadingActivityPalette.night],
+            startPoint: .top,
+            endPoint: .bottom
+        )
         .accessibilityHidden(true)
     }
 }
@@ -361,8 +360,8 @@ struct ReadingActivityCompactLeading: View {
 
     var body: some View {
         if model.content.teaName != nil && !model.goalReached {
-            Image(systemName: "cup.and.saucer.fill")
-                .foregroundStyle(ReadingActivityPalette.amber)
+            Image(systemName: "cup.and.heat.waves")
+                .foregroundStyle(ReadingActivityPalette.clay)
                 .accessibilityLabel("Tea and a book")
         } else {
             ReadingActivityCover(image: images.cover, width: 16)
@@ -400,7 +399,7 @@ struct ReadingActivityMinimal: View {
                 .tint(ReadingActivityPalette.amber)
                 .accessibilityLabel("Reading")
         } else {
-            Image(systemName: "book.fill")
+            Image(systemName: "book.pages")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(ReadingActivityPalette.amber)
                 .accessibilityLabel("Reading")
@@ -484,14 +483,14 @@ struct ReadingActivityWatchCard: View {
     let model: ReadingActivityModel
 
     private var glyph: String {
-        if model.content.isSteep { return model.teaReady ? "cup.and.saucer.fill" : "cup.and.heat.waves" }
-        if model.isPaused { return "pause.circle" }
-        if model.goalReached { return "checkmark.circle" }
-        return model.content.teaName == nil ? "book" : "cup.and.saucer"
+        if model.content.isSteep { return model.teaReady ? "cup.and.heat.waves" : "timer" }
+        if model.isPaused { return "pause.fill" }
+        if model.goalReached { return "checkmark" }
+        return model.content.teaName == nil ? "book.pages" : "cup.and.heat.waves"
     }
 
     private var tint: Color {
-        if model.teaReady { return ReadingActivityPalette.amber }
+        if model.content.isSteep { return ReadingActivityPalette.clay }
         if model.goalReached { return ReadingActivityPalette.accent }
         if model.isPaused { return ReadingActivityPalette.inkSecondary }
         return ReadingActivityPalette.amber
@@ -511,11 +510,11 @@ struct ReadingActivityWatchCard: View {
             }
             if model.teaReady {
                 Text("Ready")
-                    .font(.system(size: 26, weight: .regular, design: .serif))
-                    .foregroundStyle(ReadingActivityPalette.amber)
+                    .font(.system(size: 26, weight: .medium, design: .rounded))
+                    .foregroundStyle(ReadingActivityPalette.clay)
             } else {
                 Text(timerInterval: model.timerRange, pauseTime: model.pauseDate, countsDown: model.countsDown, showsHours: true)
-                    .font(.system(size: 26, weight: .regular, design: .serif).monospacedDigit())
+                    .font(.system(size: 26, weight: .medium, design: .rounded).monospacedDigit())
                     .foregroundStyle(model.timerColor)
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
