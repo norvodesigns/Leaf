@@ -58,8 +58,7 @@ struct BookDetailView: View {
                             BookEditionPicker(item: item)
                                 .id("edition")
                         }
-                        status
-                        actions
+                        statusAndActions
                         if shelf != .finished {
                             TeaPairingSection(book: shown)
                                 .id("pairing")
@@ -140,21 +139,13 @@ struct BookDetailView: View {
 
     // MARK: Stage
 
+    /// The cover, sharp on the cream backdrop. No blurred cover behind it: blur is a moment, never a state.
     private var stage: some View {
         BookCover(book: shown, size: .xl, ribbon: shelf == .reading)
             .padding(.bottom, shelf == .reading ? BookCover.Size.xl.ribbonTail : 0)
+            .shadow(color: .black.opacity(0.18), radius: 24, y: 14)
             .frame(maxWidth: .infinity)
-            .frame(height: 360)
-            .background {
-                stageTint
-                    .backgroundExtensionEffect()
-            }
-    }
-
-    /// The cover itself, blurred to colour and light behind the stage, fading to paper at the bottom
-    /// (`BlurredCoverBackdrop`; a flat 18% wash under Reduce Transparency).
-    private var stageTint: some View {
-        BlurredCoverBackdrop(book: shown, scrim: 0.45)
+            .padding(.top, Canopy.Space.l)
     }
 
     // MARK: Header and facts
@@ -223,6 +214,24 @@ struct BookDetailView: View {
 
     // MARK: Status by shelf
 
+    /// Where you are and the one thing to do next. On Reading they share a cream glass card with the hero in it
+    /// (docs/design/REDESIGN.md §4.4).
+    @ViewBuilder
+    private var statusAndActions: some View {
+        if shelf == .reading || shelf == .paused {
+            VStack(alignment: .leading, spacing: Canopy.Space.l) {
+                status
+                actions
+            }
+            .canopyCard()
+        } else {
+            VStack(spacing: Space.xl) {
+                status
+                actions
+            }
+        }
+    }
+
     @ViewBuilder
     private var status: some View {
         switch shelf {
@@ -286,7 +295,7 @@ struct BookDetailView: View {
                 Eyebrow("Your rating")
                 ratingRow(current: item.rating)
             }
-            SecondaryGlassButton("Read it again", systemImage: "arrow.counterclockwise", compact: true) {
+            CanopyGlassButton("Read it again", systemImage: "arrow.counterclockwise", compact: true) {
                 confirmsReread = true
             }
         }
@@ -416,28 +425,28 @@ struct BookDetailView: View {
         case nil:
             GlassEffectContainer(spacing: Space.m) {
                 VStack(spacing: Space.m) {
-                    PrimaryGlassButton(isSessionLive ? "Return to session" : "Start reading", systemImage: "play.fill") {
+                    CanopyHeroButton(isSessionLive ? "Return to session" : "Start reading", systemImage: "play.fill", feel: nil) {
                         startReadingNow()
                     }
                     .sessionZoomSource(zoomSourceID)
-                    SecondaryGlassButton("Add to Up next", systemImage: "plus") {
+                    CanopyGlassButton("Add to Up next", systemImage: "plus", feel: nil) {
                         addToQueue()
                     }
                 }
             }
         case .toRead?:
-            SecondaryGlassButton(isSessionLive ? "Return to session" : "Start reading now", systemImage: "play.fill") {
+            CanopyHeroButton(isSessionLive ? "Return to session" : "Start reading", systemImage: "play.fill", feel: nil) {
                 startReadingNow()
             }
             .sessionZoomSource(zoomSourceID)
         case .reading?, .paused?:
             GlassEffectContainer(spacing: Space.m) {
                 VStack(spacing: Space.m) {
-                    PrimaryGlassButton(isSessionLive ? "Return to session" : (shelf == .paused ? "Pick it back up" : "Start reading"), systemImage: "play.fill") {
+                    CanopyHeroButton(isSessionLive ? "Return to session" : (shelf == .paused ? "Pick it back up" : "Start reading"), systemImage: "play.fill", feel: nil) {
                         startReadingNow()
                     }
                     .sessionZoomSource(zoomSourceID)
-                    SecondaryGlassButton("Mark finished", systemImage: "checkmark", compact: true, playsHaptic: false) {
+                    CanopyGlassButton("Mark finished", systemImage: "checkmark", compact: true, feel: nil) {
                         markFinished()
                     }
                 }
@@ -577,7 +586,7 @@ struct BookDetailView: View {
 
     private func addToQueue() {
         Motion.animate(Motion.paper) { store.add(shown, to: .toRead) }
-        Haptics.shared.success()
+        CanopyFeel.play(.keep)
     }
 
     private func addToReading() {
