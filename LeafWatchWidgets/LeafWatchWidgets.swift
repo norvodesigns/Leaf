@@ -36,7 +36,7 @@ struct ComplicationEntryView: View {
     var body: some View {
         switch family {
         case .accessoryCorner: ComplicationCorner(snapshot: entry.snapshot)
-        case .accessoryRectangular: ComplicationRectangular(snapshot: entry.snapshot)
+        case .accessoryRectangular: ComplicationRectangular(snapshot: entry.snapshot, now: entry.date)
         case .accessoryInline: ComplicationInline(snapshot: entry.snapshot)
         default: ComplicationCircular(snapshot: entry.snapshot)
         }

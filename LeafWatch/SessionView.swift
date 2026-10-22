@@ -45,8 +45,8 @@ struct SessionView: View {
         }
     }
 
-    /// The focus-pull countdown: big minutes to go, crisp for most of each minute, softening towards the change and
-    /// pulling sharp as the next minute lands. Past the goal it counts up. In Always-On it keeps only the minutes.
+    /// The countdown: big rounded minutes to go, always sharp (Canopy never leaves a number blurred); each new minute
+    /// rolls in. Past the goal it counts up. In Always-On it keeps only the minutes.
     private func timer(for session: ActiveSession) -> some View {
         let book = store.snapshot.book(session.bookID)
         let target = store.sessionTarget(for: session)
@@ -56,9 +56,7 @@ struct SessionView: View {
             let countingDown = left > 0
             let minutes = countingDown ? Int((left / 60).rounded(.up)) : Int(elapsed / 60)
             let progress = session.goalSeconds.map { elapsed / max($0, 1) } ?? store.goalProgress(at: context.date)
-            let blur = focusBlur(left: left, elapsed: elapsed, countingDown: countingDown, paused: session.isPaused)
             ZStack {
-                WatchAtmosphere(isPaused: session.isPaused, isDimmed: isLuminanceReduced)
                 VStack(spacing: 6) {
                     ZStack {
                         GoalRing(progress: progress, lineWidth: 8)
@@ -68,9 +66,7 @@ struct SessionView: View {
                                 .font(WatchTheme.display(isLuminanceReduced ? 44 : 48).monospacedDigit())
                                 .foregroundStyle(session.isPaused || isLuminanceReduced ? WatchTheme.inkSecondary : WatchTheme.paper)
                                 .contentTransition(.numericText(countsDown: countingDown))
-                                .animation(.snappy, value: minutes)
-                                .blur(radius: blur)
-                                .animation(.linear(duration: 0.95), value: blur)
+                                .animation(reduceMotion ? nil : .snappy, value: minutes)
                             Text(caption(paused: session.isPaused, countingDown: countingDown, progress: progress))
                                 .font(.system(size: 11))
                                 .foregroundStyle(!countingDown && progress >= 1 ? WatchTheme.accent : WatchTheme.inkSecondary)
@@ -136,15 +132,6 @@ struct SessionView: View {
                 .accessibilityLabel("Minimize")
             }
         }
-    }
-
-    /// Sharp for the first two thirds of each minute, then softening up to the change; the next digit lands sharp.
-    private func focusBlur(left: Double, elapsed: Double, countingDown: Bool, paused: Bool) -> CGFloat {
-        guard !paused, !reduceMotion, !isLuminanceReduced else { return 0 }
-        let intoMinute = countingDown ? (60 - left.truncatingRemainder(dividingBy: 60)) : elapsed.truncatingRemainder(dividingBy: 60)
-        let fraction = min(1, max(0, intoMinute / 60))
-        guard fraction > 0.66, fraction < 0.995 else { return 0 }
-        return CGFloat(2.6 * (fraction - 0.66) / 0.34)
     }
 
     private func caption(paused: Bool, countingDown: Bool, progress: Double) -> String {

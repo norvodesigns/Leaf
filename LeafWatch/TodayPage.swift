@@ -28,7 +28,7 @@ struct TodayPage: View {
             VStack(alignment: .leading, spacing: 6) {
                 if let greeting = snapshot.greeting {
                     Text(greeting.headline)
-                        .font(WatchTheme.display(22))
+                        .font(WatchTheme.serif(22))
                         .foregroundStyle(WatchTheme.paper)
                         .lineLimit(2)
                         .minimumScaleFactor(0.8)

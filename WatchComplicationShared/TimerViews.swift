@@ -16,11 +16,12 @@ struct TimerWords {
     /// Down to the goal (or the tea) while it lasts; up through the time read once it's met, or with no goal.
     var countsDown: Bool { timer.hasGoal && !isReached }
 
+    /// Canopy's symbols, the same as the iPhone's widgets (`LeafWidgetGlyph`): steep timer, tea, pause, done, reading.
     var glyph: String {
-        if timer.isSteep { return isReached ? "cup.and.saucer.fill" : "cup.and.heat.waves" }
-        if isPaused { return "pause.circle" }
-        if isReached { return "checkmark.circle" }
-        return "book"
+        if timer.isSteep { return isReached ? "cup.and.heat.waves" : "timer" }
+        if isPaused { return "pause.fill" }
+        if isReached { return "checkmark" }
+        return "book.pages"
     }
 
     /// "Earl Grey · steeping", "Earl Grey is ready", "Paused", "Goal met", "Reading".
@@ -81,12 +82,12 @@ struct TimerRectangular: View {
                     .lineLimit(1)
             }
             .font(.system(size: 13, weight: .semibold))
-            .foregroundStyle(ComplicationPalette.tea)
+            .foregroundStyle(timer.isSteep ? ComplicationPalette.tea : ComplicationPalette.dusk)
             TimerDigits(words: words, size: 24)
             if words.countsDown && !words.isPaused {
                 ProgressView(timerInterval: timer.range(countsDown: true), countsDown: false, label: { EmptyView() }, currentValueLabel: { EmptyView() })
                     .progressViewStyle(.linear)
-                    .tint(ComplicationPalette.tea)
+                    .tint(timer.isSteep ? ComplicationPalette.tea : ComplicationPalette.dusk)
             }
             Text(words.line)
                 .font(.system(size: 12))

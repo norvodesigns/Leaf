@@ -1,20 +1,27 @@
 import SwiftUI
 import WatchKit
 
-/// Watch palette: "paper at night" — warm ink on black, one leaf-green accent.
+/// Watch palette: Canopy on black (docs/design/REDESIGN.md §4.11). The Oat palette's dark tokens: cream text, sage
+/// green as the ink you act with, Dusk for reading and time, Clay for tea.
 enum WatchTheme {
-    static let accent = Color(red: 0x8D / 255, green: 0xBB / 255, blue: 0x98 / 255)
-    static let accentDeep = Color(red: 0x1E / 255, green: 0x33 / 255, blue: 0x26 / 255)
-    /// The label on an accent button: deep green on the mint, about 9:1 (white on it is barely 2:1).
+    /// Forest (Oat, dark): progress, done, the action you take.
+    static let accent = Color(red: 0xA9 / 255, green: 0xCD / 255, blue: 0xB2 / 255)
+    /// A deep sage behind the Today page, fading to black.
+    static let accentDeep = Color(red: 0x1F / 255, green: 0x2C / 255, blue: 0x24 / 255)
+    /// The label on an accent button: deep green on the sage, about 10:1 (white on it is barely 2:1).
     static let onAccent = Color(red: 0x0E / 255, green: 0x1A / 255, blue: 0x12 / 255)
-    static let paper = Color(red: 0xF1 / 255, green: 0xEA / 255, blue: 0xDC / 255)
-    static let inkSecondary = Color(red: 0xB9 / 255, green: 0xB0 / 255, blue: 0x9F / 255)
-    static let ribbon = Color(red: 0xE0 / 255, green: 0x69 / 255, blue: 0x4F / 255)
+    /// Text: Oat's cream.
+    static let paper = Color(red: 0xF2 / 255, green: 0xEA / 255, blue: 0xDA / 255)
+    static let inkSecondary = Color(red: 0xB5 / 255, green: 0xAB / 255, blue: 0x99 / 255)
+    /// Dusk: reading and time, "now" (the live dot, the next reading time).
+    static let dusk = Color(red: 0xA9 / 255, green: 0xB5 / 255, blue: 0xF2 / 255)
+    /// Kept for the places that mark "now"; it is Dusk in Canopy.
+    static let ribbon = dusk
     static let track = Color.white.opacity(0.14)
-    /// Chai: the tea's own colour, for the cup and the steep timer.
-    static let tea = Color(red: 0xC9 / 255, green: 0x9A / 255, blue: 0x6E / 255)
-    /// A warm near-black for raised rows: paper at night, never pure black.
-    static let warm = Color(red: 0x2A / 255, green: 0x21 / 255, blue: 0x18 / 255)
+    /// Clay: tea, the cup and the steep timer.
+    static let tea = Color(red: 0xEB / 255, green: 0x9C / 255, blue: 0x74 / 255)
+    /// Raised rows: Oat's dark surface, warm charcoal rather than black.
+    static let warm = Color(red: 0x26 / 255, green: 0x23 / 255, blue: 0x1F / 255)
 
     /// Generated-cover colours: the ten cover backgrounds from DESIGN.md §2, in the same order as the phone.
     static let covers: [Color] = [
@@ -24,7 +31,10 @@ enum WatchTheme {
 
     static func cover(for seed: Int) -> Color { covers[abs(seed) % covers.count] }
 
-    static func display(_ size: CGFloat) -> Font { .system(size: size, weight: .regular, design: .serif) }
+    /// Numerals: rounded, as everywhere in Canopy.
+    static func display(_ size: CGFloat) -> Font { .system(size: size, weight: .medium, design: .rounded) }
+    /// The greeting and book titles: literary.
+    static func serif(_ size: CGFloat) -> Font { .system(size: size, weight: .regular, design: .serif) }
 }
 
 enum WatchHaptics {
