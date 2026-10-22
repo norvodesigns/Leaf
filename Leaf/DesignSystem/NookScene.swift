@@ -83,10 +83,20 @@ struct NookSceneBackdrop: View {
     /// False for a still card: no timelines at all.
     var isLive: Bool = true
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+
+    /// A filmed loop plays only while the scene may move.
+    private var videoPlays: Bool {
+        isLive && calm > 0.001 && !reduceMotion && scenePhase == .active && !ProcessInfo.processInfo.isLowPowerModeEnabled
+    }
+
     var body: some View {
         ZStack {
             Group {
-                if let program = scene.program {
+                if let video = NookVideo.url(for: scene) {
+                    NookVideoView(url: video, isPlaying: videoPlays)
+                } else if let program = scene.program {
                     NookShaderView(program: program, calm: calm, isLive: isLive)
                 } else {
                     switch scene {
@@ -125,24 +135,20 @@ struct NookSceneThumbnail: View {
     }
 }
 
-/// Darkens behind the timer and along the bottom, where the controls are.
+/// Darkens the top, where the timer sits while a scene is on, and the bottom, where the controls are; the middle is
+/// left to the scene.
 private struct NookScrim: View {
     var body: some View {
-        GeometryReader { proxy in
-            ZStack {
-                RadialGradient(
-                    colors: [Color.black.opacity(0.36), Color.black.opacity(0)],
-                    center: UnitPoint(x: 0.5, y: 0.42),
-                    startRadius: 0,
-                    endRadius: min(proxy.size.width, proxy.size.height) * 0.62
-                )
-                LinearGradient(
-                    stops: [.init(color: .clear, location: 0.7), .init(color: Color.black.opacity(0.4), location: 1)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            }
-        }
+        LinearGradient(
+            stops: [
+                .init(color: Color.black.opacity(0.5), location: 0),
+                .init(color: Color.black.opacity(0), location: 0.3),
+                .init(color: Color.black.opacity(0), location: 0.72),
+                .init(color: Color.black.opacity(0.42), location: 1),
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
     }
 }
 
