@@ -20,7 +20,7 @@ struct SettingsTeaSection: View {
     @State private var strength = CozySettings.teaStrength
     @State private var cues = CozySettings.soundCues
     @State private var volume = 0.5
-    @AppStorage(NookScene.storageKey) private var nookScene: NookScene = .lamp
+    @AppStorage(NookScene.storageKey) private var nookScene: NookScene = .plain
 
     private static let cupChoices = [15, 20, 25, 30, 40, 45, 50, 60]
 
@@ -88,7 +88,7 @@ struct SettingsTeaSection: View {
         } header: {
             settingsHeader("Reading nook")
         } footer: {
-            settingsFooter("The light behind a reading session. \(nookScene.blurb) Scenes are quiet; sound is its own choice below.")
+            settingsFooter("What sits behind a reading session. \(nookScene.blurb) Scenes are quiet drawings; sound is its own choice below.")
         }
         .settingsRows()
 

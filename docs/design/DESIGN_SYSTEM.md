@@ -162,6 +162,7 @@ is in `docs/design/REDESIGN.md` §6; the enum lives in `Leaf/DesignSystem/Canopy
 | `CanopyTimerText` | The timer numeral: rounded, monospaced, numeric-text roll, Focus In on start, never blurred |
 | `CanopySlotRow` | A reading time: time chip (Dusk), cover, title, pages; swap and time actions |
 | `CanopyBookRow` | Cover, title (New York), author, progress |
+| `NookSceneBackdrop` | The session's scene over the Dusk backdrop: plain (default), or rain on a window, a lamp, shelves, in crisp fine lines. Only the rain moves (15 fps, inside the pane, still when paused, Reduce Motion, Low Power). Picked in `NookSceneSheet` or Settings; light only, never a sound |
 | `CanopyGallery` | Foundations, components, and Today and Plan mock-ups on the real tokens |
 
 ## 11. Accessibility

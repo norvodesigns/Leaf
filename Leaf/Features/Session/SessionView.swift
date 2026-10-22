@@ -24,7 +24,7 @@ struct SessionView: View {
     @State private var showsAmbience = false
     @State private var showsJournal = false
     @State private var showsScene = false
-    @AppStorage(NookScene.storageKey) private var nookScene: NookScene = .lamp
+    @AppStorage(NookScene.storageKey) private var nookScene: NookScene = .plain
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
 
     @ScaledMetric(relativeTo: .headline) private var controlHeight: CGFloat = 54
