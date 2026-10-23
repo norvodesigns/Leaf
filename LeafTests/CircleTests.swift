@@ -85,7 +85,7 @@ struct CircleTests {
         let snap = CirclePlanner.snapshot(for: c, myPage: 200, wpm: 250, now: day(2, hour: 9), calendar: calendar)
         let index = snap.nextMeetingIndex
         #expect(index == 0)
-        #expect(snap.statusLine == "The meeting is today, up to page 200. You’re ready.")
+        #expect(snap.statusLine == "Today’s goal is page 200. You’re there.")
     }
 
     @Test func paceIsMeasuredAgainstASteadyLine() {
@@ -121,14 +121,157 @@ struct CircleTests {
         let snap = CirclePlanner.snapshot(for: c, myPage: 400, wpm: 250, now: day(3), calendar: calendar)
         #expect(snap.isComplete)
         #expect(snap.nextMeeting == nil)
-        #expect(snap.statusLine == "The last meeting has been. A whole book, read together.")
+        #expect(snap.statusLine == "Every goal has passed. A whole book, read together.")
     }
 
     @Test func noMeetingsAsksForADate() {
         let c = circle(meetings: [], members: [])
         let snap = CirclePlanner.snapshot(for: c, myPage: nil, wpm: 250, now: day(0), calendar: calendar)
         #expect(!snap.isComplete)
-        #expect(snap.statusLine.hasPrefix("No meetings yet"))
+        #expect(snap.statusLine.hasPrefix("No goals yet"))
+    }
+
+    // MARK: Goals by a finish date
+
+    @Test func goalsRunWeeklyToTheFinishDate() {
+        let finish = day(28, hour: 20)
+        let goals = CirclePlanner.goals(pages: 400, startsOn: day(0), finishBy: finish, everyDays: 7, calendar: calendar)
+        #expect(goals.map(\.throughPage) == [100, 200, 300, 400])
+        let offsets = goals.map { calendar.dateComponents([.day], from: calendar.startOfDay(for: day(0)), to: calendar.startOfDay(for: $0.date)).day ?? 0 }
+        #expect(offsets == [7, 14, 21, 28])
+        #expect(goals.last?.date == finish)
+        #expect(goals.allSatisfy { calendar.component(.hour, from: $0.date) == 20 })
+    }
+
+    @Test func aFinishBetweenWeeksStillEndsOnTheDay() {
+        // 30 days is about four weeks: three weekly goals, then the end of the book on day 30.
+        let goals = CirclePlanner.goals(pages: 400, startsOn: day(0), finishBy: day(30, hour: 20), everyDays: 7, calendar: calendar)
+        let offsets = goals.map { calendar.dateComponents([.day], from: calendar.startOfDay(for: day(0)), to: calendar.startOfDay(for: $0.date)).day ?? 0 }
+        #expect(offsets == [7, 14, 21, 30])
+        #expect(goals.last?.throughPage == 400)
+        let single = CirclePlanner.goals(pages: 400, startsOn: day(0), finishBy: day(10, hour: 20), everyDays: 0, calendar: calendar)
+        #expect(single.map(\.throughPage) == [400])
+        #expect(single.first?.date == day(10, hour: 20))
+    }
+
+    // MARK: Logs
+
+    @Test func movesAreLoggedAsSittings() {
+        var sam = CircleMember(name: "Sam", remoteID: "_sam", updatedAt: day(0))
+        sam.move(to: 30, at: day(0, hour: 20))
+        #expect(sam.log == [CircleCheckIn(date: day(0, hour: 20), page: 30, pages: 0)], "joining at page 30 isn’t reading 30 pages")
+        sam.move(to: 50, at: day(1, hour: 20))
+        sam.move(to: 62, at: day(1, hour: 20).addingTimeInterval(10 * 60))
+        #expect(sam.log.count == 2, "a sitting logged page by page is one entry")
+        #expect(sam.log.last?.pages == 32)
+        #expect(sam.page == 62)
+        #expect(sam.updatedAt == day(1, hour: 20).addingTimeInterval(10 * 60))
+        for hour in 0..<60 { sam.move(to: 62 + hour + 1, at: day(2).addingTimeInterval(Double(hour) * 3600)) }
+        #expect(sam.log.count == CircleCheckIn.logLimit)
+    }
+
+    @Test func myPageGoesInWithItsLog() {
+        let c = shared(updated: 1, me: 0, sam: 30)
+        let started = CircleShareRules.withMyPage(c, page: 0, now: day(2))
+        #expect(started.me?.log.map(\.pages) == [0], "the first time is where the reader starts")
+        let read = CircleShareRules.withMyPage(started, page: 24, now: day(3))
+        #expect(read.me?.log.map(\.pages) == [0, 24])
+        #expect(CircleShareRules.withMyPage(read, page: 24, now: day(4)) == read)
+    }
+
+    @Test func sessionsAreTheReadersLog() {
+        let sessions = [
+            ReadingSession(bookID: book.id, startedAt: day(1), seconds: 1200, fromPage: 10, toPage: 30),
+            ReadingSession(bookID: "other", startedAt: day(1), seconds: 600, fromPage: 0, toPage: 9),
+            ReadingSession(bookID: book.id, startedAt: day(0), seconds: 600, fromPage: 0, toPage: 10),
+            ReadingSession(bookID: book.id, startedAt: day(2), seconds: 60, fromPage: 30, toPage: 30),
+        ]
+        let log = CircleCheckIn.log(from: sessions, bookID: book.id)
+        #expect(log.map(\.page) == [10, 30])
+        #expect(log.map(\.pages) == [10, 20])
+        #expect(log.first?.date == day(0).addingTimeInterval(600))
+    }
+
+    @Test func membersFromBeforeLogsStillDecode() throws {
+        let json = #"{"id":"00000000-0000-0000-0000-0000000000E2","name":"Sam","kind":"friend","page":30,"paletteToken":"chai","updatedAt":0}"#
+        let sam = try JSONDecoder().decode(CircleMember.self, from: Data(json.utf8))
+        #expect(sam.log.isEmpty)
+        #expect(sam.page == 30)
+        var moved = sam
+        moved.move(to: 40, at: day(1))
+        let back = try JSONDecoder().decode(CircleMember.self, from: JSONEncoder().encode(moved))
+        #expect(back == moved)
+    }
+
+    // MARK: Standings
+
+    /// Sam reads at seven in the evening, Jo at six.
+    private func race() -> ReadingCircle {
+        func friend(_ name: String, joined: Int, hour: Int, _ moves: [(Int, Int)]) -> CircleMember {
+            var member = CircleMember(name: name, remoteID: "_\(name)", updatedAt: day(joined, hour: hour))
+            member.move(to: 0, at: day(joined, hour: hour))
+            for (offset, page) in moves { member.move(to: page, at: day(offset, hour: hour)) }
+            return member
+        }
+        let goals = [CircleMeeting(date: day(3), throughPage: 100), CircleMeeting(date: day(10), throughPage: 200), CircleMeeting(date: day(17), throughPage: 400)]
+        return circle(meetings: goals, members: [
+            CircleMember(name: "You", kind: .me, page: 0, remoteID: "_me"),
+            friend("Sam Reed", joined: 0, hour: 19, [(2, 60), (3, 110), (5, 150)]),
+            friend("Jo", joined: 1, hour: 18, [(4, 90), (5, 120)]),
+        ])
+    }
+
+    @Test func standingsRankByPageWithLatelyAndGoals() {
+        let c = race()
+        let mine = [CircleCheckIn(date: day(1), page: 40, pages: 40), CircleCheckIn(date: day(5, hour: 8), page: 120, pages: 80)]
+        let snap = CirclePlanner.snapshot(for: c, myPage: 120, myLog: mine, wpm: 250, now: day(5, hour: 22), calendar: calendar)
+        #expect(snap.standings.map(\.member.name) == ["Sam Reed", "You", "Jo"], "level on the page, the reader goes first")
+        #expect(snap.members.map(\.rank) == [2, 1, 2])
+        let sam = snap.members[1]
+        #expect(sam.pagesToday == 40)
+        #expect(sam.pagesThisWeek == 150)
+        #expect(sam.goalsMet == 1, "Sam reached page 100 on the goal's day")
+        #expect(sam.pagesToGoal == 50)
+        let jo = snap.members[2]
+        #expect(jo.goalsMet == 0, "Jo got to page 100 a day late")
+        #expect(snap.me?.goalsMet == 0)
+        #expect(snap.me?.pagesToday == 80)
+        #expect(snap.standingLine == "You’re 30 pages behind Sam.")
+    }
+
+    @Test func standingLinesSayWhereTheReaderIs() {
+        func line(me: Int, _ others: [(String, Int)]) -> String? {
+            let members = [CircleMember(name: "You", kind: .me)] + others.map { CircleMember(name: $0.0, page: $0.1) }
+            let c = circle(meetings: [CircleMeeting(date: day(10), throughPage: 400)], members: members)
+            return CirclePlanner.snapshot(for: c, myPage: me, wpm: 250, now: day(1), calendar: calendar).standingLine
+        }
+        #expect(line(me: 50, []) == nil)
+        #expect(line(me: 50, [("Sam", 51)]) == "You’re 1 page behind Sam.")
+        #expect(line(me: 50, [("Sam", 70), ("Jo", 70), ("Ada", 90)]) == "You’re 20 pages behind Sam and Jo.")
+        #expect(line(me: 90, [("Sam", 70), ("Jo", 40)]) == "You’re out in front, 20 pages ahead of Sam.")
+        #expect(line(me: 70, [("Sam", 70)]) == "You and Sam are on the same page.")
+        #expect(line(me: 70, [("Sam", 70), ("Jo", 70)]) == "You’re all on the same page.")
+        #expect(line(me: 70, [("Sam", 70), ("Jo", 20)]) == "You and Sam are out in front.")
+        #expect(line(me: 400, [("Sam", 400)]) == "Everyone has finished the book.")
+    }
+
+    @Test func latelyListsSittingsGoalsFinishesAndJoins() {
+        var c = race()
+        var bea = CircleMember(name: "Bea", remoteID: "_bea", updatedAt: day(4))
+        bea.move(to: 380, at: day(4))
+        bea.move(to: 400, at: day(5, hour: 7))
+        c.members.append(bea)
+        let events = CirclePlanner.activity(for: c, myLog: [], now: day(5, hour: 22), calendar: calendar, limit: 10)
+        let first = events.first
+        #expect(first?.kind == .read(pages: 40), "Sam's sitting tonight is the newest")
+        #expect(events.contains { $0.kind == .finished && $0.memberID == bea.id })
+        #expect(events.contains { $0.kind == .joined(page: 380) && $0.memberID == bea.id })
+        let samGoal = events.first { $0.memberID == c.members[1].id && $0.date == day(3) }
+        #expect(samGoal?.kind == .reachedGoal(page: 100, goalDate: day(3)))
+        #expect(events.map(\.date) == events.map(\.date).sorted(by: >))
+        #expect(CirclePlanner.activity(for: c, myLog: [], now: day(5, hour: 22), calendar: calendar, limit: 2).count == 2)
+        // Long ago is not "lately".
+        #expect(CirclePlanner.activity(for: c, myLog: [], now: day(40), calendar: calendar).isEmpty)
     }
 
     // MARK: Prompts

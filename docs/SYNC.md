@@ -160,6 +160,10 @@ Otherwise the Invite button does not show and the app delegate leaves SwiftUI's 
   (`CircleShareRules.withMyPage`) and is saved if it moved, after merging the server's copy. On coming to the front
   every shared circle is fetched and merged with the sync rules (newest circle, then newest copy of each member).
   `kind` is per device: `CircleShareRules.localized` makes the member with this person's `remoteID` the `.me`.
+- **Standings.** Each member also carries a short log of where their page moved (`CircleMember.log`, at most 40
+  `CircleCheckIn`s, the first one where they started), written by `withMyPage` through `CircleMember.move(to:at:)`. It
+  travels inside the member, so the per-member merge keeps it; the circle screens make "pages today", goals met and
+  the "lately" list from it. On the reader's own phone their sittings come from their sessions instead.
 - **Ending.** Deleting a shared circle deletes the owner's zone (ending the share) or leaves it (participant). When the
   owner stops sharing or deletes, participants keep their copy as a local circle.
 - Which circles are shared lives in `circle-shares.json` beside the library (not synced; each device finds shared

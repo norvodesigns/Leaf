@@ -34,7 +34,10 @@ iPhone. Nothing is sent to Leaf or anyone else.
 
 **Reading circles.** Circles live in your library. If you choose to share a
 circle, Leaf uses iCloud sharing: only the people you invite can see that circle,
-and you can remove people or stop sharing at any time from the same sheet.
+and you can remove people or stop sharing at any time from the same sheet. The
+people in a circle see the name you give it, your page in that circle's book, and
+when your page moved over the last few weeks (for the standings). Nothing else
+from your library is shared.
 
 **Notifications.** Daily reminders are scheduled locally on your device. They
 are not push notifications from a server.

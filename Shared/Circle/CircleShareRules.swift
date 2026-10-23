@@ -47,15 +47,15 @@ enum CircleShareRules {
         return localized(copy, me: me)
     }
 
-    /// The reader's page (from their library) written into their own member, so the others see how far they are.
-    /// Unchanged when there is no page or it is already there.
+    /// The reader's page (from their library) written into their own member, so the others see how far they are,
+    /// and noted in the member's log for the circle's standings and "lately" list. The first time it is where they
+    /// start. Unchanged when there is no page, or it is already there and logged.
     static func withMyPage(_ circle: ReadingCircle, page: Int?, now: Date) -> ReadingCircle {
         guard let page, let index = circle.members.firstIndex(where: { $0.kind == .me }) else { return circle }
         let clamped = min(max(0, page), circle.book.pages)
-        guard circle.members[index].page != clamped else { return circle }
+        guard circle.members[index].page != clamped || circle.members[index].log.isEmpty else { return circle }
         var copy = circle
-        copy.members[index].page = clamped
-        copy.members[index].updatedAt = now
+        copy.members[index].move(to: clamped, at: now)
         copy.updatedAt = now
         return copy
     }
