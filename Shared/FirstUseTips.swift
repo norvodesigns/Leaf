@@ -58,7 +58,7 @@ enum FirstUseTip: String, CaseIterable, Codable, Sendable {
         case .sessionNook:
             return "Change the scene behind your timer here, and pick a sound to read by beside it."
         case .sessionMinimize:
-            return "The arrow tucks your session into a bar above the tabs, so you can look around. Tap the bar to come back."
+            return "The arrow at the top tucks your session into a bar above the tabs, so you can look around. Tap it to come back."
         case .planTimes:
             return "Tap a time to move it, or the arrows to read a different book then. The plan reflows by itself."
         case .libraryAdd:

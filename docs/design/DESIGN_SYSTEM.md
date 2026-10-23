@@ -186,7 +186,7 @@ Linux), `Leaf/Services/FirstUseTipStore.swift` (`FirstUseTips.shared`), `CanopyT
 |---|---|---|---|
 | Two ways to begin | Today, under the nook (only when Steep / Begin show) | Steep and read, Begin reading | a session opens |
 | Make it your nook | The reading timer, over the extras | Scene, with the sound beside it | the scene or sound sheet opens |
-| Your timer keeps going | The reading timer, next visit, under the top bar | The minimise arrow | the session is tucked away |
+| Your timer keeps going | The reading timer, next visit, in the same spot (clear of the timer) | (no pointer; names the arrow) | the session is tucked away |
 | Your reading times | Plan, under today's times | The time chips | a time or a book is changed |
 | Add a book | Library, over the shelves | `plus` | Search opens |
 | Not on this page? | A book you're reading, over its card | The page chip | "Where are you?" opens |

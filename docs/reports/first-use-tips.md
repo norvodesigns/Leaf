@@ -13,7 +13,8 @@ What it does:
 The tips (Shared/FirstUseTips.swift):
   today.start       Today, under Steep / Begin       "Two ways to begin"         done when a session opens
   session.nook      Reading timer, over the extras   "Make it your nook"         done when Scene or Sound opens
-  session.minimize  Reading timer, next visit        "Your timer keeps going"    done when the session is tucked away
+  session.minimize  Reading timer, next visit, same  "Your timer keeps going"    done when the session is tucked away
+                    spot over the extras (the timer stays clear)
   plan.times        Plan, under today's times        "Your reading times"        done when a time or book changes
   library.add       Library, over the shelves        "Add a book"                done when Search opens
   book.page         A book you're reading            "Not on this page?"         done when "Where are you?" opens

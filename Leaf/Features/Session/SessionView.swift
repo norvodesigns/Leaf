@@ -123,7 +123,6 @@ struct SessionView: View {
     private func content(session: ActiveSession, book: Book) -> some View {
         VStack(spacing: 0) {
             topBar(session: session, book: book)
-                .firstUseTip(.sessionMinimize, edge: .bottom, pointer: 0.06, floating: true)
                 .opacity(isEnding ? 0 : (isDimmed ? 0.25 : 1))
                 .allowsHitTesting(!isEnding)
 
@@ -136,6 +135,7 @@ struct SessionView: View {
                 Spacer(minLength: Space.l)
                 extras
                     .firstUseTip(.sessionNook, edge: .top, floating: true)
+                    .firstUseTip(.sessionMinimize, edge: .top, pointer: nil, floating: true)
                     .opacity(isDimmed ? 0.25 : 1)
                     .padding(.bottom, Space.l)
             } else {
