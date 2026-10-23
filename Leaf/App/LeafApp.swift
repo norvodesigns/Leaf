@@ -99,6 +99,7 @@ struct LeafApp: App {
                 .onChange(of: scenePhase) { _, phase in
                     switch phase {
                     case .active:
+                        router.noteActive()
                         loadDeferredLibrary()
                         store.sync?.retryPendingErase()
                         if !LaunchOptions.current.isScripted {
@@ -110,6 +111,7 @@ struct LeafApp: App {
                         LiveActivityController.shared.sync()
                         WidgetFeed.shared.schedule()
                     case .background:
+                        router.noteAway()
                         CircleSharing.shared.stopPolling()
                         store.flush()
                         WidgetFeed.shared.publish()

@@ -6,7 +6,8 @@ import SwiftUI
 /// year, a pick, challenges, a line from the journal, and gentle nudges.
 ///
 /// Everything comes from `store.todayBrief(catalog:forecast:weather:)`, worked out when the library changes rather
-/// than on every render. The greeting is pinned for the day (and mode) so it never flickers.
+/// than on every render. Every open of the app brings a fresh greeting, typed in glyph by glyph; it then stays put
+/// until the next open (or a new day, or mode) so it never flickers.
 struct TodayView: View {
     @Environment(LibraryStore.self) private var store
     @Environment(AppRouter.self) private var router
@@ -23,6 +24,11 @@ struct TodayView: View {
     /// Where the scroll view's content begins below the screen's top edge, so the nook's light can reach up to it.
     @State private var topInset: CGFloat = 0
     @State private var cardsUnderClock = false
+    /// The sky has scrolled away under the clock, so it can rest.
+    @State private var skyOutOfView = false
+    @State private var isOnScreen = false
+    /// When the greeting on screen began typing in.
+    @State private var greetingRevealAt: Date?
     /// The year whose Wrapped offer was put off with "Not now".
     @AppStorage("wrapped.putOffYear") private var wrappedPutOff = 0
     /// The reading circles suggestion was put away.
@@ -43,6 +49,8 @@ struct TodayView: View {
         var pinned: PinnedGreeting?
         var briefKey: BriefKey?
         var forecastKey: DataKey?
+        /// A new greeting is waiting to be typed in, the next time Today can be seen.
+        var revealPending = false
     }
 
     private static let memory = Memory()
@@ -55,6 +63,8 @@ struct TodayView: View {
     private struct PinnedGreeting {
         var day: String
         var mode: TodayMode
+        /// `AppRouter.opens` when it was chosen.
+        var open: Int
         var greeting: Greeting
     }
 
@@ -83,6 +93,7 @@ struct TodayView: View {
         var live: UUID?
         var catalogReady: Bool
         var forecastGeneration: Int
+        var open: Int
     }
 
     private var dataKey: DataKey {
@@ -103,7 +114,8 @@ struct TodayView: View {
             data: dataKey,
             live: store.activeSession?.id,
             catalogReady: catalog.isLoaded,
-            forecastGeneration: forecast.generation
+            forecastGeneration: forecast.generation,
+            open: router.opens
         )
     }
 
@@ -117,10 +129,13 @@ struct TodayView: View {
                         nook(brief)
                             .background(alignment: .top) {
                                 // The hour's colour behind the masthead, reaching up under the clock.
-                                TodaySky(daypart: Daypart.of(store.now, calendar: store.calendar))
-                                    .frame(height: 620 + topInset)
-                                    .offset(y: -topInset)
-                                    .padding(.horizontal, -Space.margin)
+                                TodaySky(
+                                    daypart: Daypart.of(store.now, calendar: store.calendar),
+                                    isAwake: isOnScreen && !skyOutOfView && !router.showSession
+                                )
+                                .frame(height: 620 + topInset)
+                                .offset(y: -topInset)
+                                .padding(.horizontal, -Space.margin)
                             }
                         cards(brief)
                             .leafMargins()
@@ -143,6 +158,11 @@ struct TodayView: View {
                 geometry.contentOffset.y + geometry.contentInsets.top > 160
             } action: { _, scrolled in
                 withAnimation(.easeOut(duration: 0.2)) { cardsUnderClock = scrolled }
+            }
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentOffset.y + geometry.contentInsets.top > 640
+            } action: { _, away in
+                skyOutOfView = away
             }
             // Once the nook has scrolled away, a band of paper under the clock, so cards don't read through it.
             .overlay(alignment: .top) {
@@ -177,6 +197,7 @@ struct TodayView: View {
                 Self.memory.brief = brief
                 Self.memory.pinned = pinned
                 Self.memory.briefKey = key
+                revealGreetingIfDue()
             }
             .task(id: dataKey) {
                 let key = dataKey
@@ -193,10 +214,18 @@ struct TodayView: View {
             }
             .onAppear {
                 steep = TeaSteepState.load()
+                isOnScreen = true
+                revealGreetingIfDue()
+            }
+            .onDisappear {
+                isOnScreen = false
             }
             .onChange(of: router.showSession) { _, showing in
                 // A pot may have been poured, or the cup started, in the session screen.
-                if !showing { steep = TeaSteepState.load() }
+                if !showing {
+                    steep = TeaSteepState.load()
+                    revealGreetingIfDue()
+                }
             }
             .sheet(item: $quoteCardEntry) { entry in
                 QuoteCardSheet(initialEntryID: entry.id)
@@ -236,7 +265,8 @@ struct TodayView: View {
                 openBook: { router.open($0) },
                 readingTimes: { router.showReadingTimes = true }
             ),
-            topInset: topInset
+            topInset: topInset,
+            greetingRevealAt: greetingRevealAt
         )
     }
 
@@ -586,13 +616,17 @@ struct TodayView: View {
     // MARK: Brief
 
     private func refreshBrief() {
-        var fresh = store.todayBrief(catalog: catalog, forecast: forecast.result)
+        // A fresh greeting for every open of the app, steering clear of the last few (screenshot runs keep the day's
+        // own line, so they stay the same). It holds until the next open, a new day, or a new mode.
+        let seed: UInt64? = LaunchOptions.current.isScripted ? nil : UInt64.random(in: .min ... .max)
+        var fresh = store.todayBrief(catalog: catalog, forecast: forecast.result, greetingSeed: seed)
         let day = GreetingMemoryStore.dayKey(store.now, calendar: store.calendar)
-        if let pinned, pinned.day == day, pinned.mode == fresh.mode {
+        if let pinned, pinned.day == day, pinned.mode == fresh.mode, pinned.open == router.opens {
             fresh.greeting = pinned.greeting
         } else {
-            pinned = PinnedGreeting(day: day, mode: fresh.mode, greeting: fresh.greeting)
+            pinned = PinnedGreeting(day: day, mode: fresh.mode, open: router.opens, greeting: fresh.greeting)
             store.markGreetingShown(fresh)
+            Self.memory.revealPending = !LaunchOptions.current.isScripted
         }
         if brief == nil {
             brief = fresh
@@ -601,6 +635,13 @@ struct TodayView: View {
                 brief = fresh
             }
         }
+    }
+
+    /// Types a new greeting in once Today can be seen: straight away, or when the reader next comes back to the tab.
+    private func revealGreetingIfDue() {
+        guard Self.memory.revealPending, brief != nil, isOnScreen, !router.showSession else { return }
+        Self.memory.revealPending = false
+        greetingRevealAt = Date()
     }
 
     /// Screenshot runs can ask for a card (`-LeafScroll week`).

@@ -139,6 +139,15 @@ Rules:
 transition (`.canopyFocusIn` / `.transition(.canopyFocusIn)`) or a one-shot on a value change (`.canopyFocusIn(on:)`),
 never a resting modifier. Reduce Motion: a 0.2 s crossfade.
 
+**Today's sky** (`TodaySky`) drifts while you look at it: the band where the hour's colour meets the page rolls in a
+slow wave, a warm blush wanders along it, and the lamp sways (periods of 13 to 31 s, so it never visibly loops). It
+rests under Reduce Motion, off screen, under the session and in the background.
+
+**Type-in** (`.typeIn(from:)`, `TypeInRenderer`) is Focus In for words: each glyph resolves from soft to sharp (blur
+8 → 0, opacity 0 → 1, settling 3 pt) 34 ms after the one before. Today's greeting is fresh on every open of the app and
+types itself in each time; the second line follows as the first's last words land. Reduce Motion: no typing, a
+crossfade. Reduce Transparency: the glyphs fade in without blur.
+
 Navigation uses zoom transitions from the tapped card (cover into book, Hero into session).
 
 ## 9. Haptics

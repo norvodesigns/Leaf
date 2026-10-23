@@ -79,15 +79,18 @@ extension LibraryStore {
     /// Everything the Today screen draws, worked out in one place.
     ///
     /// Call it from the screen's body or a `.task`, and call `markGreetingShown(_:)` once when the greeting appears so
-    /// tomorrow's line differs and "first time today" lines don't repeat on every visit.
-    func todayBrief(catalog: BookCatalog, forecast: ForecastResult? = nil, weather: CozyWeather? = nil) -> TodayBrief {
+    /// tomorrow's line differs and "first time today" lines don't repeat on every visit. Pass a `greetingSeed` for a
+    /// fresh greeting (Today asks for one on every open), which also steers clear of the lines shown lately.
+    func todayBrief(catalog: BookCatalog, forecast: ForecastResult? = nil, weather: CozyWeather? = nil, greetingSeed: UInt64? = nil) -> TodayBrief {
         var memory = GreetingMemoryStore.load()
         let previous = memory.previousLineID(on: now, calendar: calendar)
+        let recent = greetingSeed == nil ? [] : memory.linesToAvoid(on: now, calendar: calendar)
         let isFirstToday = GreetingMemoryStore.lastShownDay() != GreetingMemoryStore.dayKey(now, calendar: calendar)
         let input = TodayBriefInput(
             data: data, plan: plan, now: now, calendar: calendar, weather: weather,
             isFirstLaunchOfDay: isFirstToday, previousGreetingID: previous,
-            candidates: catalog.books, stats: catalog.stats, teaPreferences: CozySettings.teaPreferences
+            candidates: catalog.books, stats: catalog.stats, teaPreferences: CozySettings.teaPreferences,
+            greetingSeed: greetingSeed, recentGreetingIDs: recent
         )
         var brief = TodayBriefBuilder.build(input)
         if let forecast, let bookID = brief.current?.item.id, let bookForecast = forecast.book(bookID) {

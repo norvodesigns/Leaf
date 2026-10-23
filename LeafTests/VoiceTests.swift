@@ -984,6 +984,49 @@ struct GreetingEngineTests {
         }
     }
 
+    @Test func everyOpenBringsAFreshLine() {
+        // Today asks for a new line every time the app is opened: never the one on screen a moment ago, and plenty of
+        // different ones over a day of opens.
+        var rng = SeededGenerator(seed: 777)
+        for hour in [8, 13, 17, 21, 23] {
+            var memory = GreetingMemory()
+            let now = VoiceTestKit.date(2026, 11, 3, hour)
+            let context = GreetingContext(date: now, calendar: calendar)
+            var shown: [String] = []
+            for _ in 0..<30 {
+                let avoid = memory.linesToAvoid(on: now, calendar: calendar)
+                let greeting = GreetingEngine.line(for: context, seed: rng.next(), avoiding: avoid)
+                #expect(greeting.lineID != shown.last, "repeated \(greeting.text) at \(hour):00")
+                memory.record(greeting, on: now, calendar: calendar)
+                shown.append(greeting.lineID)
+            }
+            #expect(Set(shown).count >= 8, "only \(Set(shown).count) different lines at \(hour):00")
+        }
+    }
+
+    @Test func aFreshLineKeepsTheMomentThatWins() {
+        // A small bucket that has run through all its lines still answers from that bucket, just never with the line
+        // that was on screen a moment ago.
+        var rng = SeededGenerator(seed: 99)
+        let context = GreetingContext(date: VoiceTestKit.date(2026, 11, 3, 10), calendar: calendar, isFirstEverLaunch: true)
+        var memory = GreetingMemory()
+        var previous: String?
+        for _ in 0..<20 {
+            let greeting = GreetingEngine.line(for: context, seed: rng.next(), avoiding: memory.linesToAvoid(on: context.date, calendar: calendar))
+            #expect(greeting.moment == .firstEver)
+            #expect(greeting.lineID != previous)
+            memory.record(greeting, on: context.date, calendar: calendar)
+            previous = greeting.lineID
+        }
+    }
+
+    @Test func greetingMemoriesFromBeforeFreshLinesStillDecode() throws {
+        let saved = #"{"dayKey":"2026-11-2","yesterdayLineID":"a","latestLineID":"b"}"#
+        var memory = try JSONDecoder().decode(GreetingMemory.self, from: Data(saved.utf8))
+        #expect(memory.linesToAvoid(on: VoiceTestKit.date(2026, 11, 2), calendar: calendar) == ["a"])
+        #expect(memory.linesToAvoid(on: VoiceTestKit.date(2026, 11, 3), calendar: calendar) == ["b"])
+    }
+
     // MARK: Robustness
 
     @Test func everyCombinationOfTheMainFactsReturnsAHeadline() {

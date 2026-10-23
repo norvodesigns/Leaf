@@ -78,13 +78,17 @@ struct TodayBriefInput: Sendable {
     /// True for the first time Today is shown this calendar day. Work it out once per launch.
     var isFirstLaunchOfDay: Bool = true
     var previousGreetingID: String?
+    /// Set for a fresh greeting (Today asks for one on every open): the seed to pick it with, in place of the day's.
+    var greetingSeed: UInt64?
+    /// Lines shown lately, newest first, for a fresh greeting to steer clear of (`GreetingMemory.linesToAvoid`).
+    var recentGreetingIDs: [String] = []
     /// Books to suggest from (the catalog's browse pool). Empty means no suggestions.
     var candidates: [Book] = []
     var stats: CatalogStats?
     /// What the reader likes in a tea; today's tea leans toward it.
     var teaPreferences: TeaPreferences = TeaPreferences()
 
-    init(data: LeafData, plan: ReadingPlan, now: Date, calendar: Calendar, weather: CozyWeather? = nil, isFirstLaunchOfDay: Bool = true, previousGreetingID: String? = nil, candidates: [Book] = [], stats: CatalogStats? = nil, teaPreferences: TeaPreferences = TeaPreferences()) {
+    init(data: LeafData, plan: ReadingPlan, now: Date, calendar: Calendar, weather: CozyWeather? = nil, isFirstLaunchOfDay: Bool = true, previousGreetingID: String? = nil, candidates: [Book] = [], stats: CatalogStats? = nil, teaPreferences: TeaPreferences = TeaPreferences(), greetingSeed: UInt64? = nil, recentGreetingIDs: [String] = []) {
         self.data = data
         self.plan = plan
         self.now = now
@@ -95,6 +99,8 @@ struct TodayBriefInput: Sendable {
         self.candidates = candidates
         self.stats = stats
         self.teaPreferences = teaPreferences
+        self.greetingSeed = greetingSeed
+        self.recentGreetingIDs = recentGreetingIDs
     }
 }
 
@@ -167,7 +173,9 @@ enum TodayBriefBuilder {
             isRestDay: !isReadingDay, isFirstLaunchOfDay: input.isFirstLaunchOfDay, isFirstEverLaunch: mode == .brandNew,
             teaName: tea.name, minutesToGoal: minutesToday > 0 && !goalMet ? minutesToGoal : nil
         )
-        let greeting = GreetingEngine.line(for: greetingContext, seed: GreetingEngine.dailySeed(for: greetingContext), previousLineID: input.previousGreetingID)
+        var avoid = input.recentGreetingIDs
+        if let previous = input.previousGreetingID, !avoid.contains(previous) { avoid.append(previous) }
+        let greeting = GreetingEngine.line(for: greetingContext, seed: input.greetingSeed ?? GreetingEngine.dailySeed(for: greetingContext), avoiding: avoid)
 
         // Reading times.
         let slots = today.map { SlotPlanner.plan(day: $0, slots: prefs.effectiveReadingSlots, calendar: calendar) } ?? []

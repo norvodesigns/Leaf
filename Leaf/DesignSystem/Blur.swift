@@ -172,12 +172,110 @@ struct PerDigitBlurText: View {
     }
 }
 
+// MARK: - Type-in
+
+/// Types a line in, glyph by glyph: each glyph comes into focus (blur 8 → 0, opacity 0 → 1, settling 3 pt) a beat
+/// after the one before, so the words resolve from soft to sharp as they arrive. `elapsed` is the time since the line
+/// began; nil is at rest, drawn like plain text. Use it through `.typeIn(from:)`.
+struct TypeInRenderer: TextRenderer {
+    var elapsed: TimeInterval?
+    /// Seconds between one glyph starting and the next.
+    var stagger: TimeInterval = TypeInRenderer.defaultStagger
+    var blur: CGFloat = 8
+    var rise: CGFloat = 3
+
+    static let defaultStagger: TimeInterval = 0.034
+    /// How long one glyph takes to come into focus.
+    static let settle: TimeInterval = 0.42
+
+    /// How long a line of `characters` takes to type in.
+    static func duration(characters: Int, stagger: TimeInterval = TypeInRenderer.defaultStagger) -> TimeInterval {
+        Double(max(0, characters - 1)) * stagger + settle
+    }
+
+    var displayPadding: EdgeInsets {
+        EdgeInsets(top: blur, leading: blur, bottom: blur + rise, trailing: blur)
+    }
+
+    func draw(layout: Text.Layout, in context: inout GraphicsContext) {
+        guard let elapsed else {
+            for line in layout { context.draw(line) }
+            return
+        }
+        var index = 0
+        for line in layout {
+            for run in line {
+                for glyph in run {
+                    let local = (elapsed - Double(index) * stagger) / Self.settle
+                    index += 1
+                    if local >= 1 {
+                        context.draw(glyph)
+                        continue
+                    }
+                    guard local > 0 else { continue }
+                    let eased = 1 - pow(1 - local, 3)
+                    var copy = context
+                    copy.opacity = eased
+                    let radius = blur * CGFloat(1 - eased)
+                    if radius > 0.05 { copy.addFilter(.blur(radius: radius)) }
+                    copy.translateBy(x: 0, y: rise * CGFloat(1 - eased))
+                    copy.draw(glyph)
+                }
+            }
+        }
+    }
+}
+
+/// Plays `TypeInRenderer` from `startedAt` (after `delay`) and comes to rest sharp. Only the moment it is typing costs
+/// anything. Reduce Motion skips the typing (the text simply crossfades with the change); Reduce Transparency types
+/// without the blur.
+private struct TypeInModifier: ViewModifier {
+    let startedAt: Date?
+    let delay: TimeInterval
+    let characters: Int
+    let stagger: TimeInterval
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    /// The run that has come to rest, so the timeline can stop.
+    @State private var restedRun: Date?
+
+    private var end: TimeInterval { delay + TypeInRenderer.duration(characters: characters, stagger: stagger) }
+
+    func body(content: Content) -> some View {
+        let typing = startedAt.map { !reduceMotion && restedRun != $0 && Date().timeIntervalSince($0) < end } ?? false
+        return TimelineView(.animation(paused: !typing)) { timeline in
+            content.textRenderer(TypeInRenderer(
+                elapsed: typing ? startedAt.map { timeline.date.timeIntervalSince($0) - delay } : nil,
+                stagger: stagger,
+                blur: reduceTransparency ? 0 : 8
+            ))
+        }
+        .task(id: startedAt) {
+            guard let startedAt, typing else { return }
+            try? await Task.sleep(for: .seconds(max(0, end - Date().timeIntervalSince(startedAt))))
+            guard !Task.isCancelled else { return }
+            restedRun = startedAt
+        }
+    }
+}
+
+extension View {
+    /// Types the text in glyph by glyph from `startedAt` (plus `delay`), each glyph resolving from soft to sharp
+    /// (`TypeInRenderer`). A start that is long past, or nil, shows the text at rest. `characters` is the text's length,
+    /// for knowing when it is done.
+    func typeIn(from startedAt: Date?, after delay: TimeInterval = 0, characters: Int, stagger: TimeInterval = TypeInRenderer.defaultStagger) -> some View {
+        modifier(TypeInModifier(startedAt: startedAt, delay: delay, characters: characters, stagger: stagger))
+    }
+}
+
 // MARK: - Previews
 
 private struct BlurPreview: View {
     @State private var showsFirst = true
     @State private var number = 142
     @State private var focused = true
+    @State private var typedAt: Date?
 
     var body: some View {
         VStack(spacing: Space.xl) {
@@ -197,10 +295,14 @@ private struct BlurPreview: View {
             Text("Out of focus behind a sheet")
                 .leafStyle(.title)
                 .focusPull(isFocused: focused)
+            Text("Kettle on, page open.")
+                .leafStyle(.display)
+                .typeIn(from: typedAt, characters: 21)
             Button("Change") {
                 withAnimation(.smooth(duration: 0.5)) { showsFirst.toggle() }
                 number += 7
                 focused.toggle()
+                typedAt = Date()
             }
         }
         .padding(Space.xl)

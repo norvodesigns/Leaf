@@ -45,27 +45,34 @@ enum GreetingEngine {
     /// The greeting for this moment. `previousLineID` is the id of the last line shown on the day before; keep passing
     /// the same value all day (see `GreetingMemory`) or the line will change under the reader's thumb.
     static func line(for context: GreetingContext, seed: UInt64, previousLineID: String? = nil) -> Greeting {
+        line(for: context, seed: seed, avoiding: previousLineID.map { [$0] } ?? [])
+    }
+
+    /// A greeting that steers clear of the lines in `recent` (newest first): Today asks for a fresh one, with a fresh
+    /// seed, every time the app is opened. The same buckets win as always; inside one, a line shown lately is never
+    /// picked while the bucket has another, and the newest (the line on screen a moment ago) is never picked at all.
+    static func line(for context: GreetingContext, seed: UInt64, avoiding recent: [String]) -> Greeting {
         let values = self.values(for: context)
 
         for moment in priorityMoments(for: context) {
-            let options = eligible(moment, context: context, values: values, previousLineID: previousLineID)
+            let options = eligible(moment, context: context, values: values, avoiding: recent)
             if let pick = VoiceText.choose(options, seed: seed, salt: "line|\(moment.rawValue)|\(context.daypart.rawValue)", weight: { $0.line.weight }) {
                 return greeting(from: pick)
             }
         }
 
-        if let pick = ambientPick(context: context, values: values, seed: seed, previousLineID: previousLineID) {
+        if let pick = ambientPick(context: context, values: values, seed: seed, avoiding: recent) {
             return greeting(from: pick)
         }
 
         let timeOfDay = GreetingMoment.daypart(context.daypart)
-        let options = eligible(timeOfDay, context: context, values: values, previousLineID: previousLineID)
+        let options = eligible(timeOfDay, context: context, values: values, avoiding: recent)
         if let pick = VoiceText.choose(options, seed: seed, salt: "line|\(timeOfDay.rawValue)|\(context.daypart.rawValue)", weight: { $0.line.weight }) {
             return greeting(from: pick)
         }
 
         // Unreachable with the shipped pool (every daypart has a dozen lines), but never return nothing.
-        let anyLine = eligible(timeOfDay, context: context, values: values, previousLineID: nil)
+        let anyLine = eligible(timeOfDay, context: context, values: values, avoiding: [])
         if let pick = anyLine.first { return greeting(from: pick) }
         return Greeting(headline: "Hello, reader.", subline: "Your book is ready when you are.", tag: .daypart, moment: nil, lineID: "fallback")
     }
@@ -128,12 +135,20 @@ enum GreetingEngine {
         Greeting(headline: pick.headline, subline: pick.subline, tag: pick.line.moment.tag, moment: pick.line.moment, lineID: pick.line.id)
     }
 
-    /// The lines in a bucket that suit this hour, can be filled from what we know, and were not shown yesterday.
-    private static func eligible(_ moment: GreetingMoment, context: GreetingContext, values: VoiceValues, previousLineID: String?) -> [Rendered] {
+    /// The lines in a bucket that suit this hour, can be filled from what we know, and were not shown lately: none of
+    /// `recent` while the bucket has anything else, and never the newest of them.
+    private static func eligible(_ moment: GreetingMoment, context: GreetingContext, values: VoiceValues, avoiding recent: [String]) -> [Rendered] {
+        let all = renderable(moment, context: context, values: values)
+        let fresh = all.filter { !recent.contains($0.line.id) }
+        guard fresh.isEmpty, recent.count > 1 else { return fresh }
+        return all.filter { $0.line.id != recent.first }
+    }
+
+    /// The lines in a bucket that suit this hour and can be filled from what we know.
+    private static func renderable(_ moment: GreetingMoment, context: GreetingContext, values: VoiceValues) -> [Rendered] {
         let available = values.available
         var result: [Rendered] = []
         for line in GreetingPool.lines(in: moment) {
-            if line.id == previousLineID { continue }
             if let dayparts = line.dayparts, !dayparts.contains(context.daypart) { continue }
             guard line.placeholders.isSubset(of: available), let headline = VoiceTemplate.fill(line.headline, with: values, available: available) else { continue }
             var subline: String?
@@ -150,7 +165,7 @@ enum GreetingEngine {
 
     /// With the ambient chance, one of the sources that apply right now takes the turn, weighted so a rainy Sunday is
     /// more likely to talk about rain than about the season.
-    private static func ambientPick(context: GreetingContext, values: VoiceValues, seed: UInt64, previousLineID: String?) -> Rendered? {
+    private static func ambientPick(context: GreetingContext, values: VoiceValues, seed: UInt64, avoiding recent: [String]) -> Rendered? {
         let daypart = context.daypart.rawValue
         guard VoiceText.chance(ambientChance(for: context.daypart), seed: seed, salt: "ambient|\(daypart)") else { return nil }
 
@@ -189,7 +204,7 @@ enum GreetingEngine {
         // Only sources that actually have something to say right now can take the turn.
         var live: [(moment: GreetingMoment, weight: Double, options: [Rendered])] = []
         for source in sources {
-            let options = eligible(source.moment, context: context, values: values, previousLineID: previousLineID)
+            let options = eligible(source.moment, context: context, values: values, avoiding: recent)
             if !options.isEmpty { live.append((source.moment, source.weight, options)) }
         }
         guard let chosen = VoiceText.choose(live, seed: seed, salt: "source|\(daypart)", weight: { $0.weight }) else { return nil }
@@ -208,6 +223,11 @@ struct GreetingMemory: Codable, Equatable, Sendable {
     private(set) var yesterdayLineID: String?
     /// The last line shown today.
     private(set) var latestLineID: String?
+    /// The last few lines shown, newest first, across days. Optional so memories saved before it still decode.
+    private var recentLineIDs: [String]?
+
+    /// How many recent lines a fresh greeting steers clear of.
+    static let recentLimit = 8
 
     init() {}
 
@@ -216,9 +236,21 @@ struct GreetingMemory: Codable, Equatable, Sendable {
         return yesterdayLineID
     }
 
+    /// What a fresh greeting (one per open) should not repeat, newest first: the lines shown lately, and yesterday's.
+    mutating func linesToAvoid(on date: Date, calendar: Calendar) -> [String] {
+        rollOver(to: Self.key(for: date, calendar: calendar))
+        var lines = recentLineIDs ?? []
+        if let yesterdayLineID, !lines.contains(yesterdayLineID) { lines.append(yesterdayLineID) }
+        return lines
+    }
+
     mutating func record(_ greeting: Greeting, on date: Date, calendar: Calendar) {
         rollOver(to: Self.key(for: date, calendar: calendar))
         latestLineID = greeting.lineID
+        var recent = recentLineIDs ?? []
+        recent.removeAll { $0 == greeting.lineID }
+        recent.insert(greeting.lineID, at: 0)
+        recentLineIDs = Array(recent.prefix(Self.recentLimit))
     }
 
     private mutating func rollOver(to key: String) {

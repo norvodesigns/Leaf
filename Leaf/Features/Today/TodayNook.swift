@@ -52,6 +52,8 @@ struct TodayNook: View {
     /// How far the scroll view's content starts below the top of the screen (the status bar and the bar with the
     /// gear). The nook's light reaches up behind them, so the top of Today is one scene, not a band of plain paper.
     var topInset: CGFloat = 0
+    /// When this greeting began typing in (a fresh one on every open of the app), or nil to show it at rest.
+    var greetingRevealAt: Date?
 
     @Environment(\.dynamicTypeSize) private var typeSize
 
@@ -94,15 +96,26 @@ struct TodayNook: View {
         }
     }
 
+    /// The greeting types itself in, glyph by glyph from soft to sharp; the second line starts as the first's last
+    /// words come into focus.
     private var greetingView: some View {
-        VStack(alignment: .leading, spacing: Space.s) {
-            Text(brief.greeting.headline)
+        let headline = brief.greeting.headline
+        let sublineStagger = 0.022
+        return VStack(alignment: .leading, spacing: Space.s) {
+            Text(headline)
                 .leafStyle(.display)
+                .typeIn(from: greetingRevealAt, characters: headline.count)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
             if let subline = brief.greeting.subline {
                 Text(subline)
                     .leafStyle(.pullQuote, color: .inkSecondary)
+                    .typeIn(
+                        from: greetingRevealAt,
+                        after: TypeInRenderer.duration(characters: headline.count) * 0.75,
+                        characters: subline.count,
+                        stagger: sublineStagger
+                    )
                     .fixedSize(horizontal: false, vertical: true)
             }
         }

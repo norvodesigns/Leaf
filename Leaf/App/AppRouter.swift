@@ -116,6 +116,10 @@ final class AppRouter {
     var searchPath = NavigationPath()
 
     var showSettings = false
+    /// Each time the app is opened: 0 for the launch, then one more for every return from the background. Today greets
+    /// every open with a fresh line.
+    private(set) var opens = 0
+    @ObservationIgnored private var isAway = false
     /// The full-screen reading session.
     var showSession = false
     /// Retaking the speed test from Settings.
@@ -186,6 +190,16 @@ final class AppRouter {
     var wrappedStage: String?
     /// What's new, after an update or from Settings.
     var whatsNew: WhatsNewRequest?
+
+    /// The app went to the background.
+    func noteAway() { isAway = true }
+
+    /// The app is in front again: after time in the background, that is a new open.
+    func noteActive() {
+        guard isAway else { return }
+        isAway = false
+        opens += 1
+    }
 
     /// Opens the full-screen session, zooming from `source`.
     func presentSession(from source: String) {
