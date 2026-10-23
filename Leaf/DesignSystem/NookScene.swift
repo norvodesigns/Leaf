@@ -6,9 +6,12 @@ import SwiftUI
 /// default. Light only: a scene never makes a sound; the ambience is its own opt-in choice.
 enum NookScene: String, CaseIterable, Identifiable {
     case plain
-    // Realistic: a filmed loop where the app has one (`NookVideo`; the fireplace and the sunrise), otherwise drawn by
-    // Metal shaders (`NookShaders.swift`). The raw values are stored, so "landscape" stays the sunrise's.
+    // Realistic: a filmed loop where the app has one (`NookVideo`; the fireplace and every landscape), otherwise drawn
+    // by Metal shaders (`NookShaders.swift`). The raw values are stored, so "landscape" stays the sunrise's.
     case rain, hearth, landscape
+    // Landscapes added 2026-10-23 (the owner: "more beautiful nature landscape scenes, like a cloudy forest overview,
+    // photorealistic"). Filmed only: without the file they show the plain backdrop.
+    case forest, clouds, stars
     // Soft and dreamy, drawn by SwiftUI (`AtmosphereScene`, a drifting mesh).
     case glow, mist, drizzle
 
@@ -16,7 +19,7 @@ enum NookScene: String, CaseIterable, Identifiable {
     /// build that no longer exists ("lamp", "library") falls back to plain.
     static let storageKey = "leaf.cozy.nookScene"
 
-    static let realistic: [NookScene] = [.rain, .hearth, .landscape]
+    static let realistic: [NookScene] = [.rain, .hearth, .landscape, .forest, .clouds, .stars]
     static let soft: [NookScene] = [.glow, .mist, .drizzle]
 
     var id: String { rawValue }
@@ -27,6 +30,9 @@ enum NookScene: String, CaseIterable, Identifiable {
         case .rain: "Rain"
         case .hearth: "Fireplace"
         case .landscape: "Sunrise"
+        case .forest: "Forest"
+        case .clouds: "Clouds"
+        case .stars: "Starlight"
         case .glow: "Glow"
         case .mist: "Mist"
         case .drizzle: "Drizzle"
@@ -39,6 +45,9 @@ enum NookScene: String, CaseIterable, Identifiable {
         case .rain: "Rain on the window, the city lit up behind it."
         case .hearth: "A log fire crackling in a brick hearth."
         case .landscape: "The sun coming up over the mountains, mist lying in the valley."
+        case .forest: "Morning mist drifting through a pine forest, seen from above."
+        case .clouds: "Above a sea of clouds at dusk, a mountain’s shadow on the horizon."
+        case .stars: "The Milky Way over a still lake, the far shore lit up."
         case .glow: "Soft lights drifting, out of focus."
         case .mist: "Slow colour, like light through fog."
         case .drizzle: "A soft rain, out of focus, on a blue evening."
@@ -51,6 +60,9 @@ enum NookScene: String, CaseIterable, Identifiable {
         case .rain: "cloud.rain"
         case .hearth: "flame"
         case .landscape: "mountain.2"
+        case .forest: "tree"
+        case .clouds: "cloud"
+        case .stars: "moon.stars"
         case .glow: "sparkles"
         case .mist: "cloud.fog"
         case .drizzle: "cloud.drizzle"

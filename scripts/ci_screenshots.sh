@@ -204,6 +204,9 @@ for appearance in light dark; do
     shot 45a-nook-rain 7 -LeafDemo YES -LeafScreen session -leaf.cozy.nookScene rain
     shot 45b-nook-hearth 7 -LeafDemo YES -LeafScreen session -leaf.cozy.nookScene hearth
     shot 45c-nook-landscape 7 -LeafDemo YES -LeafScreen session -leaf.cozy.nookScene landscape
+    shot 45c1-nook-forest 7 -LeafDemo YES -LeafScreen session -leaf.cozy.nookScene forest
+    shot 45c2-nook-clouds 7 -LeafDemo YES -LeafScreen session -leaf.cozy.nookScene clouds
+    shot 45c3-nook-stars 7 -LeafDemo YES -LeafScreen session -leaf.cozy.nookScene stars
     shot 45d-nook-glow 6 -LeafDemo YES -LeafScreen session -leaf.cozy.nookScene glow
     shot 45e-nook-mist 6 -LeafDemo YES -LeafScreen session -leaf.cozy.nookScene mist
     shot 45f-nook-drizzle 6 -LeafDemo YES -LeafScreen session -leaf.cozy.nookScene drizzle
