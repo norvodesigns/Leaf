@@ -89,9 +89,11 @@ struct SessionView: View {
         }
         .sheet(isPresented: $showsAmbience) {
             AmbienceSheet()
+                .onAppear { FirstUseTips.shared.finish(.sessionNook) }
         }
         .sheet(isPresented: $showsScene) {
             NookSceneSheet()
+                .onAppear { FirstUseTips.shared.finish(.sessionNook) }
         }
         .sheet(isPresented: $showsJournal) {
             if let session, let book = store.item(session.bookID)?.book {
@@ -122,6 +124,7 @@ struct SessionView: View {
     private func content(session: ActiveSession, book: Book) -> some View {
         VStack(spacing: 0) {
             topBar(session: session, book: book)
+                .firstUseTip(.sessionMinimize, edge: .bottom, pointer: 0.06, floating: true)
                 .opacity(isEnding ? 0 : (isDimmed ? 0.25 : 1))
                 .allowsHitTesting(!isEnding)
 
@@ -141,6 +144,7 @@ struct SessionView: View {
                     Spacer(minLength: Space.l)
                 }
                 extras
+                    .firstUseTip(.sessionNook, edge: .top, floating: true)
                     .opacity(isDimmed ? 0.25 : 1)
                     .padding(.bottom, Space.l)
             }

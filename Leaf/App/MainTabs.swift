@@ -125,6 +125,10 @@ struct MainTabs: View {
         .onChange(of: router.tab) { _, _ in
             Haptics.shared.selection()
         }
+        .onChange(of: router.showSession) { _, showing in
+            // Tucked away with the session still running: the reader knows the timer keeps going.
+            if !showing && store.activeSession != nil { FirstUseTips.shared.finish(.sessionMinimize) }
+        }
         .onAppear(perform: wireHooks)
     }
 

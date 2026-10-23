@@ -198,6 +198,7 @@ struct PlanTimesCard: View {
             }
         }
         .canopyCard()
+        .firstUseTip(.planTimes, pointer: 0.14, isAvailable: !plans.isEmpty)
     }
 
     private func bookID(for plan: SlotPlan) -> String? {

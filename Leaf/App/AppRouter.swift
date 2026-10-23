@@ -102,6 +102,7 @@ final class AppRouter {
             if tab == .search {
                 tab = .library
                 showSearch = true
+                FirstUseTips.shared.finish(.libraryAdd)
             }
         }
     }
@@ -130,11 +131,15 @@ final class AppRouter {
     /// The "Where are you?" sheet, for whichever book asked.
     var positionRequest: PositionRequest?
     /// The reading-times editor as a sheet (from Today).
-    var showReadingTimes = false
+    var showReadingTimes = false {
+        didSet { if showReadingTimes { FirstUseTips.shared.finish(.planTimes) } }
+    }
     /// A reading time to open straight into when the editor appears (screenshots).
     var readingSlotToEdit: UUID?
     /// A reading time's own small sheet from Plan: change its time, or swap its book.
-    var slotEdit: SlotEdit?
+    var slotEdit: SlotEdit? {
+        didSet { if slotEdit != nil { FirstUseTips.shared.finish(.planTimes) } }
+    }
     /// The swipe deck as a full sheet (from Search and Today).
     var showDeck = false
     /// "Ask the Librarian" as a full sheet (from Search).
@@ -183,6 +188,7 @@ final class AppRouter {
     func presentSession(from source: String) {
         sessionSource = source
         showSession = true
+        FirstUseTips.shared.finish(.todayStart)
     }
 
     /// Goes to Search ready to add a book.
@@ -194,6 +200,7 @@ final class AppRouter {
     /// Asks "Where are you?" for a book.
     func askPosition(for bookID: String, then: PositionRequest.Then = .save) {
         positionRequest = PositionRequest(bookID: bookID, then: then)
+        if then == .save { FirstUseTips.shared.finish(.bookPage) }
     }
 
     func open(_ book: Book) {

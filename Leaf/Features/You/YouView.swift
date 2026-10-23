@@ -19,6 +19,7 @@ struct YouView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Canopy.Space.section) {
                     summary
+                        .firstUseTip(.youCorner, edge: .top, pointer: nil)
                     VStack(alignment: .leading, spacing: Canopy.Space.l) {
                         switcher
                         switch section {

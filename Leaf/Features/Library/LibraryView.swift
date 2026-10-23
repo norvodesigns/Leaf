@@ -51,6 +51,7 @@ struct LibraryView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     ShelfSwitcher(selection: $router.libraryShelf)
+                        .firstUseTip(.libraryAdd, edge: .top, pointer: 0.94)
                         .padding(.top, Space.s)
                     if let caption {
                         Text(caption)

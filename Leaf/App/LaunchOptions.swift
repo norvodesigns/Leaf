@@ -7,6 +7,8 @@ import Foundation
 /// - `-LeafTime 07:40` makes "now" that time today, so Today can be staged at any hour.
 /// - `-LeafScroll week` scrolls Today to one of its cards after it appears.
 /// - `-LeafPublicDomain YES` swaps the demo books for public-domain ones (App Store screenshots).
+/// - `-LeafTips session.nook` shows those first-use tips (a list separated by commas, or `all`); scripted runs show
+///   none otherwise.
 struct LaunchOptions {
     var demo: Bool
     var screen: String?
@@ -15,6 +17,7 @@ struct LaunchOptions {
     var time: String?
     var scroll: String?
     var publicDomain = false
+    var tips: String?
 
     static let current: LaunchOptions = {
         #if DEBUG
@@ -26,7 +29,8 @@ struct LaunchOptions {
             scenario: defaults.string(forKey: "LeafScenario"),
             time: defaults.string(forKey: "LeafTime"),
             scroll: defaults.string(forKey: "LeafScroll"),
-            publicDomain: defaults.bool(forKey: "LeafPublicDomain")
+            publicDomain: defaults.bool(forKey: "LeafPublicDomain"),
+            tips: defaults.string(forKey: "LeafTips")
         )
         #else
         return LaunchOptions(demo: false, screen: nil, appearance: nil, scenario: nil, time: nil, scroll: nil)

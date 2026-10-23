@@ -301,6 +301,7 @@ struct SettingsView: View {
             settingsLink("What’s new") {
                 showsWhatsNew = true
             }
+            tipsRow
             SettingsValueRow(title: "Version", value: versionString)
                 .contentShape(.rect)
                 .onTapGesture {
@@ -338,6 +339,33 @@ struct SettingsView: View {
             header("About")
         }
         .settingsRows()
+    }
+
+    /// The first-use tips come back as the reader reaches each part of the app again. Says so once they're back.
+    private var tipsRow: some View {
+        let fresh = FirstUseTips.shared.isFresh
+        return Button {
+            CanopyFeel.play(.saved)
+            FirstUseTips.shared.reset()
+        } label: {
+            HStack {
+                Text(fresh ? "Tips will show as you go" : "Show tips again")
+                    .canopyText(.body, color: fresh ? Canopy.textSecondary : Canopy.text)
+                    .contentTransition(.opacity)
+                Spacer()
+                if fresh {
+                    Image(systemName: "checkmark")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(CanopyAccent.forest.color)
+                        .transition(.opacity)
+                }
+            }
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .disabled(fresh)
+        .animation(Canopy.Motion.snappy, value: fresh)
+        .accessibilityHint(fresh ? "" : "Short notes about each part of the app show again as you reach it")
     }
 
     /// A plain row that does something, with a chevron.
@@ -446,6 +474,7 @@ struct SettingsView: View {
             router.ritual = nil
             TeaSteepState.save(nil)
             CozySettings.reset()
+            FirstUseTips.shared.reset()
             LibraryTraces.erase()
             CircleStore.eraseLegacyFiles()
             CircleSharing.shared.eraseLinks()

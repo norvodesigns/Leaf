@@ -68,6 +68,7 @@ struct TodayNook: View {
                 .padding(.top, Space.xxl)
                 .inkIn(2)
             controls
+                .firstUseTip(.todayStart, isAvailable: action == .steep)
                 .padding(.top, Space.l)
                 .inkIn(3)
         }

@@ -16,7 +16,9 @@ toggles), never a big fill; black is the one hero button.
 - **Clean:** a clean cream page, crisp type, nothing sits blurred, no bokeh or amber glow.
 - **Cozy:** the live app's editorial voice, the teacup, soft haptics, warm ink instead of pure black text.
 
-If a screen needs explaining, it is redesigned, not annotated. No coach marks, no tours.
+If a screen needs explaining, it is redesigned, not annotated. No coach marks, no tours. The one exception, at the
+owner's request (2026-10-23), is a first-use tip (§12): a short glass note beside one thing worth knowing, the first
+few times a reader reaches that part of the app.
 
 ## 2. The one rule set
 
@@ -163,6 +165,7 @@ is in `docs/design/REDESIGN.md` §6; the enum lives in `Leaf/DesignSystem/Canopy
 | `CanopySlotRow` | A reading time: time chip (Dusk), cover, title, pages; swap and time actions |
 | `CanopyBookRow` | Cover, title (New York), author, progress |
 | `NookSceneBackdrop` | The session's scene. Plain (default) is the Dusk backdrop. The others sit outside the chrome and are exempt from Canopy's no-blur/no-glow rules (owner, 2026-10-22): realistic rain on a window, fireplace and mountains (Metal shaders compiled at run time, `NookShaders.swift`), and soft glow, mist and drizzle. They turn the session dark, hold still when paused, under Reduce Motion, Low Power and in the background. Picked in `NookSceneSheet` or Settings; pictures only, never a sound |
+| `CanopyTip` | A first-use note: accent-tinted glass with a pointer toward what it's about, a symbol, a title, a line and a close button (§12) |
 | `CanopyGallery` | Foundations, components, and Today and Plan mock-ups on the real tokens |
 
 ## 11. Accessibility
@@ -172,3 +175,31 @@ is in `docs/design/REDESIGN.md` §6; the enum lives in `Leaf/DesignSystem/Canopy
 - VoiceOver: timers read as sentences ("12 minutes left"), slot rows as "7:30 AM, Circe, pages 142 to 158".
 - Every gesture (swipe to swap, long-press) has a visible button too.
 - Reduce Motion, Reduce Transparency and Increase Contrast are each handled by the tokens, not by screens.
+
+## 12. First-use tips
+
+The owner asked (2026-10-23) for a walk-through that isn't intrusive: as the reader explores, each part of the app says
+the one thing worth knowing there, once. Code: `Shared/FirstUseTips.swift` (the words, the order and the rules, tested on
+Linux), `Leaf/Services/FirstUseTipStore.swift` (`FirstUseTips.shared`), `CanopyTip` and `.firstUseTip(_:)`.
+
+| Tip | Where | Points at | Goes for good when |
+|---|---|---|---|
+| Two ways to begin | Today, under the nook (only when Steep / Begin show) | Steep and read, Begin reading | a session opens |
+| Make it your nook | The reading timer, over the extras | Scene, with the sound beside it | the scene or sound sheet opens |
+| Your timer keeps going | The reading timer, next visit, under the top bar | The minimise arrow | the session is tucked away |
+| Your reading times | Plan, under today's times | The time chips | a time or a book is changed |
+| Add a book | Library, over the shelves | `plus` | Search opens |
+| Not on this page? | A book you're reading, over its card | The page chip | "Where are you?" opens |
+| Make Leaf yours | You, over the summary | (no pointer) | closed |
+
+Rules:
+- **Beside, never over.** A tip sits in the layout next to what it's about, its pointer facing it. Only the reading timer,
+  which can't grow, lays its tips over the screen. Nothing dims, nothing waits for a tap, the screen works as normal.
+- **One at a time, one per visit.** A place shows its tips in order. Once one is closed, the next waits for the next
+  visit rather than popping up in its place.
+- **Gone when it's learned.** The close button ends a tip, and so does doing what it says. One the reader ignores shows
+  on three launches at most, then stops asking.
+- **A beat late.** A tip arrives 0.6 s after its screen, with Focus In, so the screen comes first.
+- Dusk for the timer and reading times, Forest otherwise. Settings › About › Show tips again brings them all back;
+  Erase all data does too. Screenshot runs show none unless `-LeafTips` names them.
+

@@ -262,6 +262,14 @@ for appearance in light dark; do
     # Widgets: the Lock Screen accessories and StandBy, and the Home Screen at a large text size.
     shot wg-1-lock 6 -LeafDemo YES -LeafScreen widgets.lock
     shot wg-4-home-largetype 6 -LeafDemo YES -LeafScreen widgets.home -UIPreferredContentSizeCategoryName UICTContentSizeCategoryAccessibilityM
+    # First-use tips (DESIGN_SYSTEM.md §12): each note where it first appears. Other shots show none.
+    shot ft1-tip-today 7 -LeafDemo YES -LeafScreen today -LeafTime 07:40 -LeafTips today.start
+    shot ft3-tip-session-tuck 7 -LeafDemo YES -LeafScreen session -leaf.cozy.nookScene rain -LeafTips session.minimize
+    shot ft4-tip-plan 9 -LeafDemo YES -LeafScreen plan -LeafScenario sidebyside -LeafTips plan.times
+    shot ft5-tip-library 6 -LeafDemo YES -LeafScreen library -LeafTips library.add
+    shot ft6-tip-book 7 -LeafDemo YES -LeafScreen book:OL27482W -LeafTips book.page
+    shot ft7-tip-you 9 -LeafDemo YES -LeafScreen you -LeafTips you.corner
+    shot lt-ft2-tip-session 7 -LeafDemo YES -LeafScreen session -LeafTips session.nook -UIPreferredContentSizeCategoryName UICTContentSizeCategoryAccessibilityL
     # Polish pass: every main screen at an accessibility text size (lt-*), to catch truncation and clipped layouts.
     lt=(-UIPreferredContentSizeCategoryName UICTContentSizeCategoryAccessibilityL)
     shot lt-01-welcome 4 -LeafScreen onboarding.welcome "${lt[@]}"
@@ -300,6 +308,7 @@ for appearance in light dark; do
   shot "11-library$suffix" 5 -LeafDemo YES -LeafScreen library
   shot "15-book$suffix" 5 -LeafDemo YES -LeafScreen book:OL27482W
   shot "16-session$suffix" 5 -LeafDemo YES -LeafScreen session
+  shot "ft2-tip-session$suffix" 7 -LeafDemo YES -LeafScreen session -LeafTips session.nook
   # Canopy, the redesign (docs/design/DESIGN_SYSTEM.md): Today in each candidate palette, the palettes side by side, Plan.
   shot "C2-canopy-today-linen$suffix" 4 -LeafDemo YES -LeafScreen gallery.canopy.today -CanopyPalette linen
   shot "C2-canopy-today-oat$suffix" 4 -LeafDemo YES -LeafScreen gallery.canopy.today -CanopyPalette oat

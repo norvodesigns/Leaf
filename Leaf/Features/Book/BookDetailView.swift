@@ -59,6 +59,7 @@ struct BookDetailView: View {
                                 .id("edition")
                         }
                         statusAndActions
+                            .firstUseTip(.bookPage, edge: .top, pointer: 0.86, isAvailable: shelf == .reading || shelf == .paused)
                         if shelf != .finished {
                             TeaPairingSection(book: shown)
                                 .id("pairing")
