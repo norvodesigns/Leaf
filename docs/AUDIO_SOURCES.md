@@ -12,11 +12,12 @@ The filmed nook scenes have their own log: [SCENE_SOURCES.md](SCENE_SOURCES.md).
 
 ## The recordings
 
-All fetched 2026-10-22 by `scripts/media/build_media.sh`, author Joseph Sardin (BigSoundBank), licence CC0.
+All fetched 2026-10-22 (Fireplace #5 on 2026-10-23) by `scripts/media/build_media.sh`, author Joseph Sardin
+(BigSoundBank), licence CC0.
 
 | Ambience | File | Source | What was used |
 |---|---|---|---|
-| Fireplace | `ambience-fireplace.m4a` | [Fireplace #4](https://bigsoundbank.com/fireplace-4-s2856.html) (#2856) | 3 to 73 s: a log fire burning steadily, crackles and all. Rumble under 35 Hz removed. |
+| Fireplace | `ambience-fireplace.m4a` | [Fireplace #5](https://bigsoundbank.com/fireplace-5-s2857.html) (#2857), with [Fireplace #4](https://bigsoundbank.com/fireplace-4-s2856.html) (#2856) | Rebuilt 2026-10-23 to be a comforting crackle rather than a wash of noise. 1 to 44 s of #2857, a small log fire with lively crackles, its top softened 3 dB above 7 kHz and its steady hiss turned down (below); under it, the warmth of #2856 (3 to 46 s) kept only under 300 Hz, 6 dB down. |
 | Rain | `ambience-rain.m4a` | [Rain and storm in a tent](https://bigsoundbank.com/rain-and-storm-in-a-tent-s0820.html) (#0820) | 80 to 142 s: steady medium rain on canvas, a stretch with no thunder. Under 70 Hz removed, the top above 7 kHz softened 3 dB. |
 | Café | `ambience-cafe.m4a` | [Coffee Shop at the Capucins](https://bigsoundbank.com/coffee-shop-at-the-capucins-s2561.html) (#2561) | 160 to 222 s: the interior terrace of a café in Brest, a stretch without a loud clink or laugh. Under 60 Hz removed. |
 | Kettle | `ambience-kettle.m4a` | [Electric kettle](https://bigsoundbank.com/electric-kettle-s0660.html) (#0660), with [Sound Atmosphere in a House](https://bigsoundbank.com/sound-atmosphere-in-a-house-s2458.html) (#2458) | 84 to 116 s of the kettle at its rolling simmer, heard from the next room: band-limited to 80 Hz to 2.6 kHz, with a quarter of the house's own room tone (#2458, 10 to 42 s) around it. |
@@ -26,7 +27,7 @@ The page turns in between are [#2211](https://bigsoundbank.com/pages-that-turn-4
 [#2212](https://bigsoundbank.com/pages-that-turn-5-s2212.html), [#2213](https://bigsoundbank.com/pages-that-turn-6-s2213.html),
 [#2214](https://bigsoundbank.com/pages-that-turn-7-s2214.html) and [#2215](https://bigsoundbank.com/pages-that-turn-8-s2215.html).
 
-Size: 5.2 MB for the five, AAC at 128 kb/s, 44.1 kHz stereo; 32 to 92 seconds each.
+Size: 4.7 MB for the five, AAC at 128 kb/s, 44.1 kHz stereo; 32 to 92 seconds each.
 
 ### How they are made
 
@@ -38,7 +39,17 @@ Size: 5.2 MB for the five, AAC at 128 kb/s, 44.1 kHz stereo; 32 to 92 seconds ea
 3. **Level.** Loudness-normalised (EBU R128, gated) to -18 LUFS, the library to -26 (8 LU below, a hush, as before),
    with a lookahead peak limiter (1.5 ms attack, 60 ms release) holding peaks at -4.5 dBFS so the crackles and drops
    lose their spikes, not their bite. That keeps them just under the app's own limiter (`AudioLimiter`, knee at about
-   -7 dBFS in the mix), so at full volume it barely touches them.
+   -7 dBFS in the mix), so at full volume it barely touches them. The fireplace is the exception: a crackle has 30 dB
+   between its pops and the bed under them, and pushed to -18 LUFS the limiter flattened the pops into the bed and
+   ducked the bed after each one (the first recording's crackles stood only 14 dB over it). It is levelled to -21
+   LUFS (it lands at -22.4) with a 5 ms release, so only the loudest pops are trimmed and the bed never pumps.
+
+   **The fireplace's hiss** (`quiet_hiss`): spectral subtraction of the steady bed. Each frequency is turned down by
+   how close it sits to its own quiet level (its 20th percentile over the recording), to at most 16 dB above 1 kHz
+   and 4 dB under 250 Hz, so the hiss goes and the fire's warmth stays; crackles stand far above it and pass. The
+   gains are smoothed across neighbouring frequencies and released over 60 ms so nothing warbles. Measured in
+   `analyze.py`-style bands, the bed between crackles is 15 to 18 dB lower from 400 Hz up than the first recording's,
+   and the crackles stand 36 dB over it instead of 14.
 4. **Loop.** Each file runs 2 seconds longer than its loop. When the app loads it, `AmbienceRecording` trims 50 ms from
    each end (room for the encoder's priming and padding) and crossfades the 2-second tail into the start
    (`AudioLoop.seamless`, equal power), so the join never clicks and never sounds like a cut. Each start opens

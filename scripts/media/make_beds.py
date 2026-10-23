@@ -36,8 +36,9 @@ def lufs(x):
     raise RuntimeError("no loudness")
 
 
-def limit(x, ceiling_db):
-    """Lookahead peak limiter: 1.5 ms attack, 60 ms release, so crackles and drops lose their spikes, not their bite."""
+def limit(x, ceiling_db, release=0.060):
+    """Lookahead peak limiter: 1.5 ms attack, 60 ms release, so crackles and drops lose their spikes, not their bite.
+    A sparse crackle wants a release of a few milliseconds instead, or the bed under it ducks after every pop."""
     ceiling = 10 ** (ceiling_db / 20)
     mag = np.abs(x).max(axis=1)
     need = np.minimum(1.0, ceiling / np.maximum(mag, 1e-9))
@@ -45,7 +46,7 @@ def limit(x, ceiling_db):
     # The gain must already be down when the peak arrives: take the minimum over the lookahead window.
     pad = np.concatenate([need, np.ones(look)])
     win = np.lib.stride_tricks.sliding_window_view(pad, look + 1).min(axis=1)
-    rel = np.exp(-1 / (0.060 * SR))
+    rel = np.exp(-1 / (release * SR))
     gain = np.empty_like(win)
     g = 1.0
     for i, w in enumerate(win):
@@ -57,11 +58,50 @@ def limit(x, ceiling_db):
     return x * gain[:, None]
 
 
-def level(x, target, ceiling_db=-4.5):
+def level(x, target, ceiling_db=-4.5, release=0.060):
     for _ in range(3):
         x = x * 10 ** ((target - lufs(x)) / 20)
-        x = limit(x, ceiling_db)
+        x = limit(x, ceiling_db, release)
     return x
+
+
+def stft(x, n=2048, hop=512):
+    pad = np.concatenate([np.zeros(n), x, np.zeros(n)])
+    frames = np.lib.stride_tricks.sliding_window_view(pad, n)[::hop] * np.hanning(n)
+    return np.fft.rfft(frames, axis=1)
+
+
+def istft(X, length, n=2048, hop=512):
+    w = np.hanning(n)
+    frames = np.fft.irfft(X, n=n, axis=1) * w
+    out = np.zeros(hop * (len(frames) - 1) + n)
+    norm = np.zeros_like(out)
+    for i, frame in enumerate(frames):
+        out[i * hop:i * hop + n] += frame
+        norm[i * hop:i * hop + n] += w * w
+    return (out / np.maximum(norm, 1e-8))[n:n + length]
+
+
+def quiet_hiss(x, beta=2.0, floor_lo_db=-4.0, floor_hi_db=-16.0, n=2048, hop=512):
+    """Turns down a recording's steady bed (preamp hiss, the air of the room) and leaves what stands out of it.
+
+    Spectral subtraction: each bin is lowered by how close it sits to its own quiet level (its 20th percentile over
+    time), never below a floor that is gentle under 250 Hz (a fire's warmth) and 16 dB deep above 1 kHz (the hiss).
+    Crackles stand far above the floor and pass. The gains are smoothed across 5 bins and released over 60 ms so the
+    bed never warbles, and the same gains go to both channels so the image holds."""
+    M = stft(x.mean(axis=1), n, hop)
+    mag = np.abs(M)
+    quiet = np.percentile(mag, 20, axis=0)
+    f = np.fft.rfftfreq(n, 1 / SR)
+    t = np.clip(np.log2(np.maximum(f, 1) / 250) / 2, 0, 1)
+    gmin = 10 ** ((floor_lo_db + (floor_hi_db - floor_lo_db) * t) / 20)
+    g = np.maximum(1 - beta * (quiet[None, :] / np.maximum(mag, 1e-12)) ** 2, gmin[None, :])
+    g = np.apply_along_axis(lambda row: np.convolve(row, np.ones(5) / 5, mode="same"), 1, g)
+    rel = np.exp(-hop / (0.06 * SR))
+    for i in range(1, len(g)):
+        g[i] = np.maximum(g[i], g[i - 1] * rel + g[i] * (1 - rel))
+    g = np.maximum(g, gmin[None, :])
+    return np.stack([istft(stft(x[:, c], n, hop) * g, len(x), n, hop) for c in range(2)], axis=1).astype(np.float32)
 
 
 def encode(x, name):
@@ -75,8 +115,8 @@ def encode(x, name):
 report = {}
 
 
-def finish(name, x, target, notes):
-    x = level(x, target)
+def finish(name, x, target, notes, release=0.060):
+    x = level(x, target, release=release)
     peak = 20 * np.log10(np.abs(x).max())
     path = encode(x, name)
     report[name] = {"seconds": round(len(x) / SR, 2), "lufs": round(lufs(x), 2), "peak_dbfs": round(float(peak), 2),
@@ -86,9 +126,16 @@ def finish(name, x, target, notes):
 
 SHARED = -18.0
 
-# Fireplace: a log fire burning steadily, crackles and all (BigSoundBank #2856).
-fire = load("bsb-2856.flac", 3, 73, "highpass=f=35")
-finish("ambience-fireplace", fire, SHARED, "BigSoundBank #2856, 3-73 s")
+# Fireplace: a comforting crackle, not a wash of noise (the owner, 2026-10-23: "too much overwhelming background white
+# noise"). The crackles of a small log fire (#2857, its top softened), its steady hiss turned down 16 dB, over the low
+# warmth of a bigger one (#2856 under 300 Hz, 6 dB down, no hiss left in it). Crackles want headroom: levelled to
+# -21 LUFS (it lands near -22) with a 5 ms release, so only the loudest pops are trimmed and the bed never ducks.
+crackle = quiet_hiss(load("bsb-2857.flac", 1, 44, "highpass=f=35,treble=g=-3:f=7000"))
+warmth = load("bsb-2856.flac", 3, 46, "highpass=f=35,lowpass=f=300,lowpass=f=300")
+n = min(len(crackle), len(warmth))
+fire = crackle[:n] + warmth[:n] * 10 ** (-6 / 20)
+finish("ambience-fireplace", fire, SHARED - 3, "BigSoundBank #2857 1-44 s, hiss lowered, with #2856 under 300 Hz",
+       release=0.005)
 
 # Rain: steady medium rain on canvas, no thunder in this stretch (#0820), softened a little at the top.
 rain = load("bsb-0820.wav", 80, 142, "highpass=f=70,treble=g=-3:f=7000")

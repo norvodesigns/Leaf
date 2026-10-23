@@ -17,7 +17,7 @@ mkdir -p "$SRC" "$WORK/beds" "$WORK/proc"
 fetch() { [ -s "$SRC/$2" ] || curl -fsSL -A 'Mozilla/5.0' -o "$SRC/$2" "$1"; }
 
 # Sounds: BigSoundBank (CC0). Newer recordings are served as FLAC, older ones as broadcast WAV.
-for id in 2856 2561 2458 1411 2210 2211 2212 2213 2214 2215 2216; do
+for id in 2856 2857 2561 2458 1411 2210 2211 2212 2213 2214 2215 2216; do
   fetch "https://bigsoundbank.com/UPLOAD/flac/$id.flac" "bsb-$id.flac"
 done
 for id in 0820 0660 0362 0363 0164; do
