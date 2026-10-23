@@ -238,6 +238,8 @@ for appearance in light dark; do
     shot 112-tea-catalog 6 -LeafDemo YES -LeafScreen tea.catalog
     shot 113-tea-edit 6 -LeafDemo YES -LeafScreen tea.edit
     shot 114-tea-history 6 -LeafDemo YES -LeafScreen tea.history
+    shot 115-tea-ratings 6 -LeafDemo YES -LeafScreen tea.ratings
+    shot 116-tea-preferences 6 -LeafDemo YES -LeafScreen tea.preferences
     shot 115-book-pairing 7 -LeafDemo YES -LeafScreen book.pairing
     shot 116-session-tasting 5 -LeafDemo YES -LeafScreen session.tasting
     # Reading history: the log filtered, the numbers by dates, quote card styles, the library section in Settings.
@@ -290,6 +292,8 @@ for appearance in light dark; do
     shot lt-69-plan-reading 8 -LeafDemo YES -LeafScreen plan.reading "${lt[@]}"
     shot lt-82-challenges 8 -LeafDemo YES -LeafScreen plan.challenges -LeafScenario year "${lt[@]}"
     shot lt-110-tea-cabinet 6 -LeafDemo YES -LeafScreen tea.cabinet "${lt[@]}"
+    shot lt-115-tea-ratings 6 -LeafDemo YES -LeafScreen tea.ratings "${lt[@]}"
+    shot lt-c5-you 9 -LeafDemo YES -LeafScreen you -LeafScenario year "${lt[@]}"
     shot lt-121-log 6 -LeafDemo YES -LeafScreen log -LeafScenario year "${lt[@]}"
     shot lt-145-whatsnew 6 -LeafDemo YES -LeafScreen whatsnew "${lt[@]}"
     shot 88-insights-large-type 9 -LeafDemo YES -LeafScreen plan.insights -LeafScenario year -UIPreferredContentSizeCategoryName UICTContentSizeCategoryAccessibilityL
