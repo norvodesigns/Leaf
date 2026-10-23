@@ -158,8 +158,11 @@ final class AppRouter {
     var planSheet: PlanSheet?
     /// A what-if or scroll position to stage on the Plan tab (screenshots): "whatif", "care", "mix", "stamps"…
     var planStage: String?
-    /// Reading circle staging (screenshots): a sheet to open, "new", "member" or "schedule".
+    /// A sheet to open on the Circles page: "new" (from Today's suggestion too), and for screenshots "member",
+    /// "schedule" or "name".
     var circleStage: String?
+    /// The circle the Circles page should show, when something (Today's circle card) asked for one.
+    var circleFocus: UUID?
     /// Opens the Search tab ready to add a book (the Library's `plus`); Search consumes it.
     var addBookIntent: AddBookIntent?
     /// Search staging once its rows exist (screenshots): "series", "author", "time", "seasonal", "seeall", "undo",
@@ -189,6 +192,14 @@ final class AppRouter {
         sessionSource = source
         showSession = true
         FirstUseTips.shared.finish(.todayStart)
+    }
+
+    /// The Circles page under You, on one circle or opening a sheet ("new").
+    func openCircles(focus circleID: UUID? = nil, stage: String? = nil) {
+        circleFocus = circleID
+        circleStage = stage
+        tab = .you
+        planSection = .circles
     }
 
     /// Goes to Search ready to add a book.

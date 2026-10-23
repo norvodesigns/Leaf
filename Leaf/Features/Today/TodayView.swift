@@ -25,6 +25,8 @@ struct TodayView: View {
     @State private var cardsUnderClock = false
     /// The year whose Wrapped offer was put off with "Not now".
     @AppStorage("wrapped.putOffYear") private var wrappedPutOff = 0
+    /// The reading circles suggestion was put away.
+    @AppStorage(TodayCircleCard.tipDismissedKey) private var circleTipDismissed = false
     /// The deck stays on Today while the reader is swiping, even once a kept book means they're no longer between books.
     @State private var keepsDeckOpen = false
     @State private var didStageScroll = false
@@ -47,7 +49,7 @@ struct TodayView: View {
 
     /// Today's cards, in the order a mode wants them. The raw values are the `-LeafScroll` names.
     enum CardKind: String, Hashable, CaseIterable {
-        case nudges, deck, leftOff = "leftoff", desk, times, forecast, teaWeek = "teaweek", week, year, pick, challenges, quote, wrapped
+        case nudges, deck, leftOff = "leftoff", circles, desk, times, forecast, teaWeek = "teaweek", week, year, pick, challenges, quote, wrapped
     }
 
     private struct PinnedGreeting {
@@ -369,6 +371,12 @@ struct TodayView: View {
         case .brandNew:
             order = [.deck, .times]
         }
+        // Reading circles sit right under where you left off; between books, under the deck.
+        if let leftOff = order.firstIndex(of: .leftOff) {
+            order.insert(.circles, at: leftOff + 1)
+        } else if brief.mode == .betweenBooks {
+            order.insert(.circles, at: min(1, order.count))
+        }
         if keepsDeckOpen, !order.contains(.deck) { order.insert(.deck, at: 0) }
         return order.filter { hasContent($0, brief: brief) }
     }
@@ -378,6 +386,10 @@ struct TodayView: View {
         case .nudges: return !brief.nudges.isEmpty
         case .deck: return catalog.isLoaded
         case .leftOff: return brief.current != nil
+        case .circles:
+            // A circle under way always shows; the suggestion only beside a book being read, until it's put away.
+            return !TodayCircleCard.active(in: store).isEmpty
+                || (brief.mode != .betweenBooks && TodayCircleCard.suggests(in: store, dismissed: circleTipDismissed))
         case .desk: return !otherReading(brief).isEmpty
         case .times: return true
         case .forecast: return brief.forecastSentence != nil
@@ -439,6 +451,11 @@ struct TodayView: View {
                     onOpen: { router.open(current.item.book) }
                 )
             }
+        case .circles:
+            TodayCircleCard(
+                onOpen: { router.openCircles(focus: $0) },
+                onStart: { router.openCircles(stage: "new") }
+            )
         case .desk:
             DeskCard(
                 items: otherReading(brief),

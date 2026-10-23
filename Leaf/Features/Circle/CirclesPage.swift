@@ -1,14 +1,13 @@
 import CloudKit
 import SwiftUI
 
-/// The Circles page under You: reading circles (book clubs, buddy reads) kept on this phone. A shelf of circles across
-/// the top; below it the chosen circle: the next meeting and what it takes to get there, a ring for everyone in it,
-/// questions to bring, and the schedule.
+/// The Circles page under You: reading circles, run like Fitness competitions. A shelf of circles across the top;
+/// below it the chosen circle: the goal everyone is reading towards and the race to it, the standings, what people
+/// have read lately, questions to talk over, and the goals still to come.
 ///
-/// Canopy jobs: Bloom labels the page (it sits with challenges and memories), Forest is progress, Dusk is meeting
-/// times. Friends are added by name and moved along by hand while circles are local. Everything a shared version would
-/// change (who the members are, where their pages come from) sits behind `CircleStore` and `CirclePlanner`, so this
-/// screen stays as it is when that arrives.
+/// Canopy jobs: Bloom labels the page (it sits with challenges and memories), Forest is progress, Dusk is goals and
+/// days. Friends join from an iCloud invitation (`CircleSharing`) and their pages move as they read on their own
+/// phones; nobody moves anyone else along. The reader's own page and sittings come from the library.
 struct CirclesPage: View {
     @Environment(LibraryStore.self) private var store
     @Environment(AppRouter.self) private var router
@@ -24,6 +23,9 @@ struct CirclesPage: View {
     @State private var invite: CircleInvite?
     @State private var preparingInvite = false
     @State private var inviteError: String?
+    @State private var inviteProblem: InviteProblem?
+    /// A circle to invite people to once the sheet in front (starting it, or the reader's name) has gone.
+    @State private var invitesAfterSheet: UUID?
 
     var body: some View {
         let shelf = circles.shelf(now: store.now)
@@ -48,11 +50,24 @@ struct CirclesPage: View {
                 }
             }
         }
-        .onAppear { circles.loadIfDeferred() }
+        .onAppear {
+            circles.loadIfDeferred()
+            takeFocus()
+            // Friends' pages: fetch the shared circles again whenever the page opens, not only when the app does.
+            if !LaunchOptions.current.isScripted { CircleSharing.shared.connect(store) }
+        }
         .task { stage(shelf) }
-        .sheet(item: $sheet) { item in
+        .onChange(of: router.circleFocus) { _, _ in takeFocus() }
+        .onChange(of: router.circleStage) { _, new in
+            if new != nil { stage(circles.shelf(now: store.now)) }
+        }
+        .sheet(item: $sheet, onDismiss: inviteAfterSheet) { item in
             CircleSheetHost(sheet: item) { created in
                 selectedID = created
+                // Straight on to inviting people, when this phone can.
+                if CircleSharing.shared.isOn(for: store) { invitesAfterSheet = created }
+            } onNamed: { circleID in
+                invitesAfterSheet = circleID
             }
         }
         .confirmationDialog(
@@ -69,16 +84,27 @@ struct CirclesPage: View {
                 }
             }
         } message: {
-            Text("The schedule and everyone’s pages go with it. Your own reading stays in your library.")
+            Text(deleteMessage(current(in: shelf)))
         }
         .sheet(item: $invite) { invite in
             CircleShareSheet(share: invite.share, circleID: invite.circleID, title: invite.title)
                 .ignoresSafeArea()
         }
-        .alert("Couldn’t share the circle", isPresented: Binding(get: { inviteError != nil }, set: { if !$0 { inviteError = nil } })) {
+        .alert("Couldn’t send the invitation", isPresented: Binding(get: { inviteError != nil }, set: { if !$0 { inviteError = nil } })) {
             Button("OK", role: .cancel) {}
         } message: {
             Text(inviteError ?? "")
+        }
+        .alert(inviteProblem?.title ?? "", isPresented: Binding(get: { inviteProblem != nil }, set: { if !$0 { inviteProblem = nil } })) {
+            if inviteProblem == .iCloudOff {
+                Button("Open Settings") {
+                    router.settingsStage = "cloud"
+                    router.showSettings = true
+                }
+            }
+            Button(inviteProblem == .iCloudOff ? "Not now" : "OK", role: .cancel) {}
+        } message: {
+            Text(inviteProblem?.message ?? "")
         }
     }
 
@@ -91,11 +117,13 @@ struct CirclesPage: View {
     @ViewBuilder
     private func detail(_ circle: ReadingCircle) -> some View {
         let item = store.item(circle.book.id)
+        let myLog = CircleCheckIn.log(from: store.data.sessions, bookID: circle.book.id)
         let snapshot = CirclePlanner.snapshot(
-            for: circle, myPage: item?.currentPage, wpm: store.wpm, now: store.now, calendar: .current
+            for: circle, myPage: item?.currentPage, myLog: myLog, wpm: store.wpm, now: store.now, calendar: .current
         )
+        let activity = CirclePlanner.activity(for: circle, myLog: myLog, now: store.now, calendar: .current, limit: 5)
         VStack(alignment: .leading, spacing: Canopy.Space.section) {
-            CircleMeetingCard(circle: circle, snapshot: snapshot, item: item, now: store.now) {
+            CircleGoalCard(circle: circle, snapshot: snapshot, item: item, now: store.now) {
                 _ = ReadingSessionLauncher.start(
                     bookID: circle.book.id, store: store, router: router, from: ReadingSessionLauncher.accessorySource
                 )
@@ -103,15 +131,28 @@ struct CirclesPage: View {
                 store.add(circle.book, to: .reading)
             }
 
-            VStack(alignment: .leading, spacing: Canopy.Space.m) {
-                CanopyLabel("The circle", accent: .bloom, linkTitle: "Add someone") {
-                    sheet = .addFriend(circleID: circle.id)
+            if circle.friends.isEmpty, !circle.isArchived {
+                CircleInviteCard(circle: circle, isPreparing: preparingInvite) { inviteFriends(to: circle) }
+                    .id("members")
+            } else {
+                VStack(alignment: .leading, spacing: Canopy.Space.m) {
+                    CanopyLabel("Standings", accent: .bloom, linkTitle: circle.isArchived ? nil : "Invite") {
+                        inviteFriends(to: circle)
+                    }
+                    CircleStandings(snapshot: snapshot, pages: circle.book.pages, now: store.now) { member in
+                        sheet = .member(circleID: circle.id, memberID: member.id)
+                    }
                 }
-                CircleMemberGrid(snapshot: snapshot, pages: circle.book.pages) { member in
-                    sheet = .member(circleID: circle.id, memberID: member.id)
-                }
+                .id("members")
             }
-            .id("members")
+
+            if !activity.isEmpty {
+                VStack(alignment: .leading, spacing: Canopy.Space.m) {
+                    CanopyLabel("Lately", accent: .bloom)
+                    CircleActivityList(circle: circle, activity: activity, now: store.now)
+                }
+                .id("lately")
+            }
 
             if !snapshot.isComplete {
                 CirclePromptDeck(circle: circle, snapshot: snapshot, shuffle: $shuffle, now: store.now)
@@ -119,10 +160,10 @@ struct CirclesPage: View {
             }
 
             VStack(alignment: .leading, spacing: Canopy.Space.m) {
-                CanopyLabel("Schedule", accent: .bloom, linkTitle: "Edit") {
+                CanopyLabel("Goals", accent: .bloom, linkTitle: "Edit") {
                     sheet = .schedule(circleID: circle.id)
                 }
-                CircleScheduleList(circle: circle, snapshot: snapshot, now: store.now)
+                CircleGoalList(circle: circle, snapshot: snapshot, log: { $0.kind == .me ? myLog : $0.log }, now: store.now)
             }
             .id("schedule")
 
@@ -132,41 +173,26 @@ struct CirclesPage: View {
 
     private func footer(_ circle: ReadingCircle) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Only in builds with iCloud, with iCloud on: friends join and move their own pages.
-            if CircleSharing.shared.isOn(for: store) {
-                footerButton(
-                    preparingInvite ? "Getting the invitation ready…" : (CircleSharing.shared.isShared(circle.id) ? "Shared with iCloud: invite more" : "Invite friends with iCloud"),
-                    color: Canopy.textSecondary
-                ) {
-                    shareCircle(circle)
-                }
-                .disabled(preparingInvite)
-            }
             footerButton(circle.isArchived ? "Bring this circle back" : "Put this circle away", color: Canopy.textSecondary) {
                 CanopyFeel.play(.planChanged)
                 withAnimation(Canopy.Motion.resolved(Canopy.Motion.smooth, reduceMotion: reduceMotion)) {
                     circles.setArchived(!circle.isArchived, circle.id, now: store.now)
                 }
             }
-            footerButton("Delete circle", color: Canopy.textTertiary) {
+            footerButton(CircleSharing.shared.links[circle.id]?.isOwner == false ? "Leave circle" : "Delete circle", color: Canopy.textTertiary) {
                 CanopyFeel.play(.tap)
                 confirmsDelete = true
             }
         }
     }
 
-    private func shareCircle(_ circle: ReadingCircle) {
-        CanopyFeel.play(.tap)
-        preparingInvite = true
-        Task {
-            defer { preparingInvite = false }
-            do {
-                let share = try await CircleSharing.shared.share(for: circle.id)
-                invite = CircleInvite(circleID: circle.id, title: circle.name, share: share)
-            } catch {
-                inviteError = error.localizedDescription
-            }
+    private func deleteMessage(_ circle: ReadingCircle?) -> String {
+        guard let circle, let link = CircleSharing.shared.links[circle.id] else {
+            return "The goals and everyone’s pages go with it. Your own reading stays in your library."
         }
+        return link.isOwner
+            ? "It ends the circle for everyone you invited. Your own reading stays in your library."
+            : "You leave the circle, and the others stop seeing your page. Your own reading stays in your library."
     }
 
     private func footerButton(_ title: String, color: Color, action: @escaping () -> Void) -> some View {
@@ -179,9 +205,82 @@ struct CirclesPage: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: Staging
+    // MARK: Inviting
 
-    /// Screenshots: `router.circleStage` opens a sheet ("new", "member", "schedule"); scrolling is the You tab's.
+    private enum InviteProblem: Hashable {
+        /// The reader has iCloud off in Settings.
+        case iCloudOff
+        /// A build without iCloud (Debug, screenshots).
+        case noICloud
+
+        var title: String {
+            switch self {
+            case .iCloudOff: "Invitations use iCloud"
+            case .noICloud: "No invitations in this build"
+            }
+        }
+
+        var message: String {
+            switch self {
+            case .iCloudOff: "Turn on iCloud in Settings, then invite friends from here. Their pages move as they read."
+            case .noICloud: "This build of Leaf doesn’t have iCloud. Invitations work in the App Store and TestFlight versions."
+            }
+        }
+    }
+
+    /// Asks for the reader's name first if friends would see "You", then shows the system's invitation sheet.
+    private func inviteFriends(to circle: ReadingCircle) {
+        CanopyFeel.play(.tap)
+        guard CircleSharing.isAvailable else {
+            inviteProblem = .noICloud
+            return
+        }
+        guard CircleSharing.shared.isOn(for: store) else {
+            inviteProblem = .iCloudOff
+            return
+        }
+        if CircleNameSheet.needsName(circle) {
+            sheet = .name(circleID: circle.id)
+            return
+        }
+        share(circle)
+    }
+
+    private func inviteAfterSheet() {
+        guard let id = invitesAfterSheet else { return }
+        invitesAfterSheet = nil
+        guard let circle = circles.circle(id) else { return }
+        // The sheet's own dismissal has to finish before the next one can come up.
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(350))
+            inviteFriends(to: circle)
+        }
+    }
+
+    private func share(_ circle: ReadingCircle) {
+        preparingInvite = true
+        Task {
+            defer { preparingInvite = false }
+            do {
+                let share = try await CircleSharing.shared.share(for: circle.id)
+                invite = CircleInvite(circleID: circle.id, title: circle.name, share: share)
+            } catch {
+                inviteError = error.localizedDescription
+            }
+        }
+    }
+
+    // MARK: Focus and staging
+
+    /// Today's circle card asked for a circle.
+    private func takeFocus() {
+        guard let id = router.circleFocus else { return }
+        router.circleFocus = nil
+        withAnimation(Canopy.Motion.resolved(Canopy.Motion.smooth, reduceMotion: reduceMotion)) { selectedID = id }
+    }
+
+    /// `router.circleStage` opens a sheet: "new" (Today's suggestion too), and for screenshots "member", "schedule"
+    /// and "name". Scrolling is the You tab's.
     private func stage(_ shelf: [ReadingCircle]) {
         guard let stage = router.circleStage else { return }
         switch stage {
@@ -193,6 +292,8 @@ struct CirclesPage: View {
             }
         case "schedule":
             if let circle = shelf.first { sheet = .schedule(circleID: circle.id) }
+        case "name":
+            if let circle = shelf.first { sheet = .name(circleID: circle.id) }
         default:
             return
         }
@@ -208,26 +309,56 @@ private struct CircleInvite: Identifiable {
     let share: CKShare
 }
 
-/// No circles yet: what a circle is, and one way to start.
+/// No circles yet: what a circle is, how it works, and one way to start.
 private struct CircleEmptyCard: View {
     let onStart: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Canopy.Space.m) {
+        VStack(alignment: .leading, spacing: Canopy.Space.l) {
             Image(systemName: "person.2")
                 .font(.system(.title2, weight: .medium))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(CanopyAccent.bloom.color)
                 .accessibilityHidden(true)
-            Text("Read with friends")
-                .canopyText(.headline)
-            Text("Start a circle for a book club, a buddy read or a long-distance read with someone you love. Everyone gets a page to aim for, and a few good questions for when you meet.")
-                .canopyText(.callout, color: Canopy.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: Canopy.Space.s) {
+                Text("Read with friends")
+                    .canopyText(.headline)
+                Text("A circle is a book you read together: a book club, a buddy read, a long-distance read with someone you love.")
+                    .canopyText(.callout, color: Canopy.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            CircleHowItWorks()
             CanopyGlassButton("Start a circle", systemImage: "plus", accent: .bloom, compact: true, action: onStart)
-                .padding(.top, Canopy.Space.xs)
         }
         .canopyCard()
+    }
+}
+
+/// The three steps of a circle, numbered in Bloom: for the empty page and Today's suggestion.
+struct CircleHowItWorks: View {
+    static let steps = [
+        "Pick a book and when you’ll finish it. Leaf sets goals along the way.",
+        "Send an invitation to the people reading it with you.",
+        "Read as usual. Everyone’s page moves on its own, and you all see who’s where.",
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Canopy.Space.m) {
+            ForEach(Array(Self.steps.enumerated()), id: \.offset) { index, step in
+                HStack(alignment: .top, spacing: Canopy.Space.m) {
+                    Text("\(index + 1)")
+                        .font(.system(.footnote, design: .rounded, weight: .bold).monospacedDigit())
+                        .foregroundStyle(CanopyAccent.bloom.color)
+                        .frame(width: 24, height: 24)
+                        .background(Circle().fill(CanopyAccent.bloom.soft))
+                    Text(step)
+                        .canopyText(.callout)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Step \(index + 1). \(step)")
+            }
+        }
     }
 }
 
@@ -236,15 +367,16 @@ private struct CircleEmptyCard: View {
 enum CircleSheet: Identifiable, Hashable {
     case new
     case member(circleID: UUID, memberID: UUID)
-    case addFriend(circleID: UUID)
     case schedule(circleID: UUID)
+    /// The reader's name, before friends are invited.
+    case name(circleID: UUID)
 
     var id: String {
         switch self {
         case .new: "new"
         case .member(let circle, let member): "member-\(circle)-\(member)"
-        case .addFriend(let circle): "friend-\(circle)"
         case .schedule(let circle): "schedule-\(circle)"
+        case .name(let circle): "name-\(circle)"
         }
     }
 }
@@ -253,6 +385,7 @@ enum CircleSheet: Identifiable, Hashable {
 private struct CircleSheetHost: View {
     let sheet: CircleSheet
     let onCreated: (UUID) -> Void
+    let onNamed: (UUID) -> Void
 
     var body: some View {
         NavigationStack {
@@ -261,10 +394,10 @@ private struct CircleSheetHost: View {
                 NewCircleSheet(onCreated: onCreated)
             case .member(let circleID, let memberID):
                 CircleMemberSheet(circleID: circleID, memberID: memberID)
-            case .addFriend(let circleID):
-                CircleAddFriendSheet(circleID: circleID)
             case .schedule(let circleID):
                 CircleScheduleSheet(circleID: circleID)
+            case .name(let circleID):
+                CircleNameSheet(circleID: circleID) { onNamed(circleID) }
             }
         }
         .presentationDetents(detents)
@@ -272,7 +405,7 @@ private struct CircleSheetHost: View {
 
     private var detents: Set<PresentationDetent> {
         switch sheet {
-        case .addFriend: [.medium]
+        case .name: [.medium]
         case .member: [.medium, .large]
         default: [.large]
         }

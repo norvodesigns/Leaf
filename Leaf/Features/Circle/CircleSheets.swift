@@ -2,28 +2,27 @@ import SwiftUI
 
 // MARK: - New circle
 
-/// Starting a circle: a book from the shelves, a name, when to meet and how often, and who's in it. The schedule
-/// below updates as the dates change, so the pages for each meeting are never a surprise.
+/// Starting a circle: a book from the shelves, a name, when everyone means to finish and how often there's a goal on
+/// the way, and the reader's name as friends will see it. The goals below update as the dates change, so the page
+/// for each is never a surprise. Friends come next, by invitation.
 struct NewCircleSheet: View {
     let onCreated: (UUID) -> Void
 
     @Environment(LibraryStore.self) private var store
     @Environment(AppRouter.self) private var router
     @Environment(\.dismiss) private var dismiss
+    @AppStorage(CircleNameSheet.storageKey) private var myName = ""
 
     @State private var bookID: String?
     @State private var name = ""
     @State private var startsOn = Date()
-    @State private var firstMeeting = Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date()
+    @State private var finishBy = Calendar.current.date(byAdding: .day, value: 28, to: Date()) ?? Date()
     @State private var everyDays = 7
-    @State private var count = 4
-    @State private var friends: [String] = [""]
     @State private var place = ""
     @State private var didPickDefaults = false
 
-    private static let intervals: [(days: Int, title: String)] = [
-        (7, "Every week"), (14, "Every two weeks"), (21, "Every three weeks"), (28, "Every four weeks"),
-    ]
+    private static let lengths: [(weeks: Int, title: String)] = [(2, "2 weeks"), (4, "4 weeks"), (6, "6 weeks"), (8, "8 weeks")]
+    private static let cadences: [(days: Int, title: String)] = [(7, "A goal every week"), (14, "Every two weeks"), (0, "Just the finish")]
     private static let nameSuggestions = ["Book club", "Buddy read", "Tea and chapters", "Long distance"]
 
     /// Books to read together: what's on the go, then what's waiting, then what's paused.
@@ -31,12 +30,13 @@ struct NewCircleSheet: View {
         store.reading + store.toRead + store.data.items(on: .paused)
     }
 
-    private var book: Book? { choices.first { $0.id == bookID }?.book }
+    private var chosen: LibraryItem? { choices.first { $0.id == bookID } }
+    private var book: Book? { chosen?.book }
 
-    private var meetings: [CircleMeeting] {
+    private var goals: [CircleMeeting] {
         guard let book else { return [] }
-        return CirclePlanner.schedule(
-            pages: book.pages, firstMeeting: firstMeeting, everyDays: everyDays, count: count, calendar: .current, now: store.now
+        return CirclePlanner.goals(
+            pages: book.pages, startsOn: startsOn, finishBy: finishBy, everyDays: everyDays, calendar: .current, now: store.now
         )
     }
 
@@ -95,93 +95,89 @@ struct NewCircleSheet: View {
                 TextField("Name", text: $name, prompt: Text(book.map { "\($0.title) circle" } ?? "Book club"))
                     .canopyText(.body)
                     .submitLabel(.done)
-                ScrollView(.horizontal) {
-                    HStack(spacing: Canopy.Space.s) {
-                        ForEach(Self.nameSuggestions, id: \.self) { suggestion in
-                            CanopyChip(suggestion, accent: .bloom, isSelected: name == suggestion) {
-                                name = suggestion
-                            }
-                            .frame(minHeight: Canopy.Space.hitTarget)
-                        }
-                    }
-                    .padding(.vertical, Canopy.Space.xxs)
-                }
-                .scrollIndicators(.hidden)
+                chips(Self.nameSuggestions, isSelected: { name == $0 }) { name = $0 }
             } header: {
                 header("Name")
             }
             .listRowBackground(Canopy.surface.opacity(0.7))
 
             Section {
+                chips(Self.lengths.map(\.title), isSelected: { title in
+                    Self.lengths.first { $0.title == title }.map { finishDate(weeks: $0.weeks) == Calendar.current.startOfDay(for: finishBy) } ?? false
+                }) { title in
+                    guard let weeks = Self.lengths.first(where: { $0.title == title })?.weeks else { return }
+                    finishBy = finishTime(on: finishDate(weeks: weeks))
+                }
                 DatePicker("Start reading", selection: $startsOn, displayedComponents: .date)
                     .canopyText(.body)
-                DatePicker("First meeting", selection: $firstMeeting, in: startsOn..., displayedComponents: [.date, .hourAndMinute])
+                DatePicker("Finish by", selection: $finishBy, in: (Calendar.current.date(byAdding: .day, value: 1, to: startsOn) ?? startsOn)..., displayedComponents: .date)
                     .canopyText(.body)
-                Stepper(value: $count, in: 1...12) {
-                    Text(count == 1 ? "One meeting, at the end" : "\(count) meetings")
-                        .canopyText(.body)
-                }
-                if count > 1 {
-                    Picker("How often", selection: $everyDays) {
-                        ForEach(Self.intervals, id: \.days) { interval in
-                            Text(interval.title).tag(interval.days)
-                        }
+                Picker("Goals", selection: $everyDays) {
+                    ForEach(Self.cadences, id: \.days) { cadence in
+                        Text(cadence.title).tag(cadence.days)
                     }
-                    .canopyText(.body)
                 }
-                TextField("Where (optional)", text: $place, prompt: Text("Where (optional)"))
+                .canopyText(.body)
+                TextField("Where you’ll talk it over (optional)", text: $place, prompt: Text("Where you’ll talk it over (optional)"))
                     .canopyText(.body)
                     .submitLabel(.done)
             } header: {
-                header("Meetings")
+                header("Goals")
             } footer: {
-                schedulePreview
+                goalsPreview
             }
             .listRowBackground(Canopy.surface.opacity(0.7))
 
             Section {
-                ForEach(friends.indices, id: \.self) { index in
-                    TextField("Name", text: friendBinding(index), prompt: Text(index == 0 ? "A friend’s name" : "Another name"))
-                        .canopyText(.body)
-                        .textContentType(.name)
-                        .submitLabel(.next)
-                        .onSubmit(addRowIfFull)
-                }
-                Button {
-                    CanopyFeel.play(.tap)
-                    friends.append("")
-                } label: {
-                    Label("Add someone", systemImage: "plus")
-                        .canopyText(.body, color: CanopyAccent.forest.color)
-                }
+                TextField("Your name", text: $myName, prompt: Text("Your name"))
+                    .canopyText(.body)
+                    .textContentType(.givenName)
+                    .submitLabel(.done)
             } header: {
-                header("Who’s reading")
+                header("You")
             } footer: {
-                Text("Friends are kept on this iPhone by name. You move their pages along when they tell you.")
+                Text("What friends see beside your page. Next, you’ll send them an invitation; once they join, their pages move as they read.")
                     .canopyText(.caption)
             }
             .listRowBackground(Canopy.surface.opacity(0.7))
         }
         .scrollContentBackground(.hidden)
         .tint(CanopyAccent.forest.color)
-        .onChange(of: bookID) { _, _ in suggestCount() }
+        .onChange(of: startsOn) { _, start in
+            if finishBy <= start { finishBy = finishTime(on: Calendar.current.date(byAdding: .day, value: 7, to: start) ?? start) }
+        }
     }
 
-    private var schedulePreview: some View {
+    private func chips(_ titles: [String], isSelected: @escaping (String) -> Bool, pick: @escaping (String) -> Void) -> some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: Canopy.Space.s) {
+                ForEach(titles, id: \.self) { title in
+                    CanopyChip(title, accent: .bloom, isSelected: isSelected(title)) {
+                        pick(title)
+                    }
+                    .frame(minHeight: Canopy.Space.hitTarget)
+                }
+            }
+            .padding(.vertical, Canopy.Space.xxs)
+        }
+        .scrollIndicators(.hidden)
+    }
+
+    private var goalsPreview: some View {
         VStack(alignment: .leading, spacing: Canopy.Space.xs) {
-            ForEach(Array(meetings.prefix(6).enumerated()), id: \.element.id) { index, meeting in
+            ForEach(Array(goals.prefix(6).enumerated()), id: \.element.id) { _, goal in
                 HStack(alignment: .firstTextBaseline, spacing: Canopy.Space.s) {
-                    Text(LeafFormat.relativeDay(meeting.date, today: store.now))
-                        .canopyText(.caption, color: CanopyAccent.dusk.color)
-                    Spacer(minLength: Canopy.Space.s)
-                    Text("to p. \(meeting.throughPage)")
+                    Text("Page \(goal.throughPage)")
                         .font(.system(.footnote, design: .rounded, weight: .medium).monospacedDigit())
                         .foregroundStyle(Canopy.textSecondary)
+                    Spacer(minLength: Canopy.Space.s)
+                    Text("by \(LeafFormat.relativeDay(goal.date, today: store.now))")
+                        .canopyText(.caption, color: CanopyAccent.dusk.color)
                 }
                 .accessibilityElement(children: .combine)
             }
-            if meetings.count > 6 {
-                Text("and \(meetings.count - 6) more")
+            if goals.count > 6 {
+                Text("and \(goals.count - 6) more")
                     .canopyText(.caption)
             }
             if let minutes = minutesPerDay {
@@ -193,12 +189,12 @@ struct NewCircleSheet: View {
         .padding(.top, Canopy.Space.xs)
     }
 
-    /// What the first stretch asks of the reader, at their pace.
+    /// What finishing on time asks of the reader each day, at their pace, from where they are now.
     private var minutesPerDay: Int? {
-        guard let book, let first = meetings.first else { return nil }
-        let days = max(1, (Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: startsOn), to: Calendar.current.startOfDay(for: first.date)).day ?? 0))
-        let current = choices.first { $0.id == bookID }?.currentPage ?? 0
-        let pages = max(0, first.throughPage - current)
+        guard let book, let chosen else { return nil }
+        let calendar = Calendar.current
+        let days = max(1, calendar.dateComponents([.day], from: calendar.startOfDay(for: max(startsOn, store.now)), to: calendar.startOfDay(for: finishBy)).day ?? 1)
+        let pages = max(0, book.pages - chosen.currentPage)
         guard pages > 0 else { return nil }
         let minutes = Double(pages) * book.wordsPerPage / max(store.wpm, 1) / Double(days)
         return max(1, Int(minutes.rounded(.up)))
@@ -208,42 +204,34 @@ struct NewCircleSheet: View {
         Text(title).canopyText(.label, color: CanopyAccent.bloom.color).textCase(nil)
     }
 
-    private func friendBinding(_ index: Int) -> Binding<String> {
-        Binding(
-            get: { friends.indices.contains(index) ? friends[index] : "" },
-            set: { if friends.indices.contains(index) { friends[index] = $0 } }
-        )
+    private func finishDate(weeks: Int) -> Date {
+        let calendar = Calendar.current
+        return calendar.startOfDay(for: calendar.date(byAdding: .day, value: weeks * 7, to: startsOn) ?? startsOn)
     }
 
-    private func addRowIfFull() {
-        if friends.allSatisfy({ !$0.trimmingCharacters(in: .whitespaces).isEmpty }) { friends.append("") }
+    /// Goals fall in the evening, when people read.
+    private func finishTime(on day: Date) -> Date {
+        Calendar.current.date(bySettingHour: 20, minute: 0, second: 0, of: day) ?? day
     }
 
     private func pickDefaults() {
         guard !didPickDefaults else { return }
         didPickDefaults = true
         startsOn = store.now
-        let evening = Calendar.current.date(bySettingHour: 19, minute: 30, second: 0, of: store.now) ?? store.now
-        firstMeeting = Calendar.current.date(byAdding: .day, value: 7, to: evening) ?? evening
         bookID = choices.first?.id
-        suggestCount()
-    }
-
-    /// About a hundred pages a meeting, between two and six meetings.
-    private func suggestCount() {
-        guard let book else { return }
-        count = min(6, max(2, Int((Double(book.pages) / 100).rounded())))
+        finishBy = finishTime(on: finishDate(weeks: 4))
     }
 
     private func create() {
         guard let book else { return }
-        var planned = meetings
+        var planned = goals
         let trimmedPlace = place.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmedPlace.isEmpty {
             for index in planned.indices { planned[index].place = trimmedPlace }
         }
+        let me = myName.trimmingCharacters(in: .whitespacesAndNewlines)
         let circle = store.circleStore.create(
-            name: name, book: book, startsOn: startsOn, meetings: planned, friends: friends, now: store.now
+            name: name, book: book, startsOn: startsOn, meetings: planned, myName: me.isEmpty ? "You" : me, now: store.now
         )
         CanopyFeel.play(.planChanged)
         onCreated(circle.id)
@@ -251,10 +239,80 @@ struct NewCircleSheet: View {
     }
 }
 
-// MARK: - A member's page
+// MARK: - The reader's name
 
-/// Moving someone along: the page as a big numeral over the page ruler, with shortcuts for the meeting's page and
-/// the end. The reader's own page belongs to the library, so for them this points to "Where are you?" instead.
+/// What friends see the reader as, asked before the first invitation and remembered for the next circle.
+struct CircleNameSheet: View {
+    let circleID: UUID
+    let onDone: () -> Void
+
+    @Environment(LibraryStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    @AppStorage(CircleNameSheet.storageKey) private var savedName = ""
+    @State private var name = ""
+    @FocusState private var focused: Bool
+
+    static let storageKey = "circles.myName"
+
+    /// The reader's member still says "You", which is what everyone else would see too.
+    static func needsName(_ circle: ReadingCircle) -> Bool {
+        let name = circle.me?.name.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return name.isEmpty || name == "You"
+    }
+
+    private var trimmed: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Canopy.Space.m) {
+            Text("What should friends call you?")
+                .canopyText(.headline)
+            TextField("Your name", text: $name, prompt: Text("Your name"))
+                .canopyText(.body)
+                .textContentType(.givenName)
+                .submitLabel(.done)
+                .focused($focused)
+                .onSubmit(save)
+                .padding(.horizontal, Canopy.Space.l)
+                .frame(minHeight: Canopy.Space.hitTarget)
+                .canopyGlass(interactive: false, in: RoundedRectangle(cornerRadius: Canopy.Radius.control, style: .continuous))
+            Text("It sits beside your page in the circle. You’ll see yourself as “You”.")
+                .canopyText(.caption)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(Canopy.Space.margin)
+        .navigationTitle("Your name")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Cancel") { dismiss() }
+            }
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Invite", action: save)
+                    .disabled(trimmed.isEmpty)
+            }
+        }
+        .onAppear {
+            name = savedName
+            focused = true
+        }
+    }
+
+    private func save() {
+        guard !trimmed.isEmpty, let me = store.circleStore.circle(circleID)?.me else { return }
+        savedName = trimmed
+        store.circleStore.renameMember(me.id, to: trimmed, in: circleID, now: store.now)
+        CanopyFeel.play(.saved)
+        onDone()
+        dismiss()
+    }
+}
+
+// MARK: - Someone in the circle
+
+/// One person: where they are, what they've read lately and the goals they've met. Friends who joined from an
+/// invitation move their own pages, so there is nothing to change here; the reader's own page belongs to the
+/// library. Only friends added by name, from before invitations, can still be moved by hand.
 struct CircleMemberSheet: View {
     let circleID: UUID
     let memberID: UUID
@@ -262,6 +320,7 @@ struct CircleMemberSheet: View {
     @Environment(LibraryStore.self) private var store
     @Environment(AppRouter.self) private var router
     @Environment(\.dismiss) private var dismiss
+    @AppStorage(CircleNameSheet.storageKey) private var savedName = ""
 
     @State private var page = 0
     @State private var name = ""
@@ -270,7 +329,9 @@ struct CircleMemberSheet: View {
 
     private var circle: ReadingCircle? { store.circleStore.circle(circleID) }
     private var member: CircleMember? { circle?.members.first { $0.id == memberID } }
-    private var followsLibrary: Bool { member?.kind == .me && store.item(circle?.book.id ?? "") != nil }
+    /// A friend from before invitations: a name, moved along by hand.
+    private var isByName: Bool { member.map { $0.kind == .friend && $0.remoteID == nil } ?? false }
+    private var isMe: Bool { member?.kind == .me }
 
     var body: some View {
         Group {
@@ -280,13 +341,13 @@ struct CircleMemberSheet: View {
                 Color.clear.onAppear { dismiss() }
             }
         }
-        .navigationTitle(member?.kind == .me ? "You" : (member?.name ?? ""))
+        .navigationTitle(member?.displayName ?? "")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel") { dismiss() }
+                Button(isByName || isMe ? "Cancel" : "Done") { dismiss() }
             }
-            if !followsLibrary {
+            if isByName || isMe {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { save() }
                 }
@@ -304,52 +365,34 @@ struct CircleMemberSheet: View {
 
     @ViewBuilder
     private func content(_ circle: ReadingCircle, _ member: CircleMember) -> some View {
-        let pages = max(1, circle.book.pages)
+        let item = store.item(circle.book.id)
+        let myLog = CircleCheckIn.log(from: store.data.sessions, bookID: circle.book.id)
         let snapshot = CirclePlanner.snapshot(
-            for: circle, myPage: store.item(circle.book.id)?.currentPage, wpm: store.wpm, now: store.now, calendar: .current
+            for: circle, myPage: item?.currentPage, myLog: myLog, wpm: store.wpm, now: store.now, calendar: .current
         )
+        let progress = snapshot.members.first { $0.id == member.id }
         ScrollView {
             VStack(spacing: Canopy.Space.l) {
-                if followsLibrary {
-                    libraryNote(circle)
-                } else {
-                    Text("\(page)")
-                        .font(.custom(LeafFontName.regular, size: 96, relativeTo: .largeTitle))
-                        .foregroundStyle(Canopy.text)
-                        .contentTransition(.numericText(value: Double(page)))
-                        .animation(Canopy.Motion.snappy, value: page)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                        .accessibilityHidden(true)
-                    Text("of \(pages) pages")
+                CircleFace(member: member, diameter: 72)
+                if isByName {
+                    pageEditor(circle, snapshot: snapshot)
+                } else if let progress {
+                    standing(progress, circle: circle, snapshot: snapshot)
+                }
+
+                if isMe {
+                    if item != nil { libraryNote(circle) }
+                    nameField("Your name in the circle", prompt: "Your name")
+                } else if isByName {
+                    nameField("Name", prompt: "Their name")
+                }
+
+                if isByName {
+                    Text("Added by name, before invitations. Invite them from the circle and their page moves as they read.")
                         .canopyText(.caption)
-                    PageScrubber(page: $page, range: 0...pages, estimate: nil)
-                    HStack(spacing: Canopy.Space.s) {
-                        if let next = snapshot.nextMeeting {
-                            shortcut("Up to p. \(next.throughPage)", page: next.throughPage)
-                        }
-                        shortcut("Finished", page: pages)
-                    }
-                    Stepper("Page \(page)", value: $page, in: 0...pages)
-                        .canopyText(.body)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
                         .padding(.horizontal, Canopy.Space.margin)
-                }
-
-                if member.kind != .me || !followsLibrary {
-                    VStack(alignment: .leading, spacing: Canopy.Space.xs) {
-                        Text("Name")
-                            .canopyText(.label, color: CanopyAccent.bloom.color)
-                        TextField("Name", text: $name)
-                            .canopyText(.body)
-                            .submitLabel(.done)
-                            .padding(.horizontal, Canopy.Space.l)
-                            .frame(minHeight: Canopy.Space.hitTarget)
-                            .canopyGlass(interactive: false, in: RoundedRectangle(cornerRadius: Canopy.Radius.control, style: .continuous))
-                    }
-                    .padding(.horizontal, Canopy.Space.margin)
-                }
-
-                if member.kind != .me {
                     Button {
                         CanopyFeel.play(.tap)
                         confirmsRemove = true
@@ -359,6 +402,12 @@ struct CircleMemberSheet: View {
                             .frame(minHeight: Canopy.Space.hitTarget)
                     }
                     .buttonStyle(.plain)
+                } else if !isMe {
+                    Text("\(member.shortName)’s page moves as they read, on their own phone.")
+                        .canopyText(.caption)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, Canopy.Space.margin)
                 }
             }
             .padding(.vertical, Canopy.Space.l)
@@ -366,12 +415,89 @@ struct CircleMemberSheet: View {
         .scrollBounceBehavior(.basedOnSize)
     }
 
-    private func libraryNote(_ circle: ReadingCircle) -> some View {
-        let page = store.item(circle.book.id)?.currentPage ?? 0
-        return VStack(spacing: Canopy.Space.m) {
-            Text("p. \(page)")
-                .font(.custom(LeafFontName.regular, size: 72, relativeTo: .largeTitle))
+    /// The big page, and three numbers: today, this week, goals met.
+    private func standing(_ progress: CircleMemberProgress, circle: ReadingCircle, snapshot: CircleSnapshot) -> some View {
+        VStack(spacing: Canopy.Space.l) {
+            VStack(spacing: Canopy.Space.xxs) {
+                Text("p. \(progress.page)")
+                    .font(.custom(LeafFontName.regular, size: 72, relativeTo: .largeTitle))
+                    .foregroundStyle(Canopy.text)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                Text(placeLine(progress, snapshot: snapshot, pages: circle.book.pages))
+                    .canopyText(.caption)
+            }
+            .accessibilityElement(children: .combine)
+            HStack(alignment: .top, spacing: Canopy.Space.cardGap) {
+                CanopyStat(value: "\(progress.pagesToday)", unit: "pp.", caption: "Today", accent: .forest)
+                CanopyStat(value: "\(progress.pagesThisWeek)", unit: "pp.", caption: "This week")
+                CanopyStat(value: "\(progress.goalsMet)", caption: progress.goalsMet == 1 ? "Goal met" : "Goals met", accent: .forest)
+            }
+            .frame(maxWidth: .infinity)
+            .canopyCard()
+            .padding(.horizontal, Canopy.Space.margin)
+            if let last = progress.lastRead {
+                Text("Last read \(LeafFormat.relativeDay(last, today: store.now).lowercased()) at \(LeafFormat.format(last, template: "jmm"))")
+                    .canopyText(.caption)
+            }
+        }
+    }
+
+    private func placeLine(_ progress: CircleMemberProgress, snapshot: CircleSnapshot, pages: Int) -> String {
+        var parts = ["of \(pages) pages"]
+        if snapshot.members.count > 1 {
+            let ordinal = NumberFormatter.localizedString(from: NSNumber(value: progress.rank), number: .ordinal)
+            parts.append("\(ordinal) in the circle")
+        }
+        if let goal = snapshot.nextMeeting {
+            parts.append(progress.pagesToGoal == 0 ? "at the goal" : "\(progress.pagesToGoal) to page \(goal.throughPage)")
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    private func pageEditor(_ circle: ReadingCircle, snapshot: CircleSnapshot) -> some View {
+        let pages = max(1, circle.book.pages)
+        return VStack(spacing: Canopy.Space.l) {
+            Text("\(page)")
+                .font(.custom(LeafFontName.regular, size: 96, relativeTo: .largeTitle))
                 .foregroundStyle(Canopy.text)
+                .contentTransition(.numericText(value: Double(page)))
+                .animation(Canopy.Motion.snappy, value: page)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .accessibilityHidden(true)
+            Text("of \(pages) pages")
+                .canopyText(.caption)
+            PageScrubber(page: $page, range: 0...pages, estimate: nil)
+            HStack(spacing: Canopy.Space.s) {
+                if let next = snapshot.nextMeeting {
+                    shortcut("Up to p. \(next.throughPage)", page: next.throughPage)
+                }
+                shortcut("Finished", page: pages)
+            }
+            Stepper("Page \(page)", value: $page, in: 0...pages)
+                .canopyText(.body)
+                .padding(.horizontal, Canopy.Space.margin)
+        }
+    }
+
+    private func nameField(_ title: String, prompt: String) -> some View {
+        VStack(alignment: .leading, spacing: Canopy.Space.xs) {
+            Text(title)
+                .canopyText(.label, color: CanopyAccent.bloom.color)
+            TextField(title, text: $name, prompt: Text(prompt))
+                .canopyText(.body)
+                .submitLabel(.done)
+                .padding(.horizontal, Canopy.Space.l)
+                .frame(minHeight: Canopy.Space.hitTarget)
+                .canopyGlass(interactive: false, in: RoundedRectangle(cornerRadius: Canopy.Radius.control, style: .continuous))
+        }
+        .padding(.horizontal, Canopy.Space.margin)
+    }
+
+    private func libraryNote(_ circle: ReadingCircle) -> some View {
+        VStack(spacing: Canopy.Space.m) {
             Text("Your page in the circle follows \(Text(circle.book.title).italic()) in your library, so it moves as you read.")
                 .canopyText(.body, color: Canopy.textSecondary)
                 .multilineTextAlignment(.center)
@@ -401,78 +527,28 @@ struct CircleMemberSheet: View {
         guard !didLoad, let member else { return }
         didLoad = true
         page = member.page
-        name = member.name
+        // The reader's member says "You" until they give a name; offer the one they gave another circle.
+        name = member.kind == .me && member.name == "You" ? savedName : member.name
     }
 
     private func save() {
         guard let member else { return }
-        if page != member.page {
+        if isByName, page != member.page {
             CanopyFeel.play(.pageLogged)
             store.circleStore.setPage(page, member: memberID, in: circleID, now: store.now)
         }
-        if name != member.name {
-            store.circleStore.renameMember(memberID, to: name, in: circleID, now: store.now)
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty, trimmed != member.name {
+            store.circleStore.renameMember(memberID, to: trimmed, in: circleID, now: store.now)
+            if isMe { savedName = trimmed }
         }
         dismiss()
     }
 }
 
-// MARK: - Adding someone
+// MARK: - Goals
 
-struct CircleAddFriendSheet: View {
-    let circleID: UUID
-
-    @Environment(LibraryStore.self) private var store
-    @Environment(\.dismiss) private var dismiss
-    @State private var name = ""
-    @FocusState private var focused: Bool
-
-    private var trimmed: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Canopy.Space.m) {
-            Text("Who else is reading?")
-                .canopyText(.headline)
-            TextField("Name", text: $name, prompt: Text("Their name"))
-                .canopyText(.body)
-                .textContentType(.name)
-                .submitLabel(.done)
-                .focused($focused)
-                .onSubmit(add)
-                .padding(.horizontal, Canopy.Space.l)
-                .frame(minHeight: Canopy.Space.hitTarget)
-                .canopyGlass(interactive: false, in: RoundedRectangle(cornerRadius: Canopy.Radius.control, style: .continuous))
-            Text("They start at the beginning. Tap their ring to move them along.")
-                .canopyText(.caption)
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
-        }
-        .padding(Canopy.Space.margin)
-        .navigationTitle("Add someone")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel") { dismiss() }
-            }
-            ToolbarItem(placement: .confirmationAction) {
-                Button("Add", action: add)
-                    .disabled(trimmed.isEmpty)
-            }
-        }
-        .onAppear { focused = true }
-    }
-
-    private func add() {
-        guard !trimmed.isEmpty else { return }
-        CanopyFeel.play(.planChanged)
-        store.circleStore.addFriend(trimmed, to: circleID, now: store.now)
-        dismiss()
-    }
-}
-
-// MARK: - Schedule
-
-/// Every meeting's date, page and place, editable, plus adding and removing meetings.
+/// Every goal's page, date and place, editable, plus adding and removing goals.
 struct CircleScheduleSheet: View {
     let circleID: UUID
 
@@ -489,16 +565,16 @@ struct CircleScheduleSheet: View {
             ForEach(meetings) { meeting in
                 let binding = self.binding(for: meeting.id, fallback: meeting)
                 Section {
-                    DatePicker("Date", selection: binding.date, displayedComponents: [.date, .hourAndMinute])
-                        .canopyText(.body)
                     Stepper(value: binding.throughPage, in: 1...pages, step: 5) {
                         Text("Up to page \(meeting.throughPage)")
                             .canopyText(.body)
                             .monospacedDigit()
                     }
-                    TextField("Where", text: placeBinding(binding), prompt: Text("Where (optional)"))
+                    DatePicker("By", selection: binding.date, displayedComponents: [.date, .hourAndMinute])
                         .canopyText(.body)
-                    Button("Remove this meeting", role: .destructive) {
+                    TextField("Where", text: placeBinding(binding), prompt: Text("Where you’ll talk it over (optional)"))
+                        .canopyText(.body)
+                    Button("Remove this goal", role: .destructive) {
                         CanopyFeel.play(.tap)
                         meetings.removeAll { $0.id == meeting.id }
                     }
@@ -510,20 +586,20 @@ struct CircleScheduleSheet: View {
             Section {
                 Button {
                     CanopyFeel.play(.tap)
-                    addMeeting(pages: pages)
+                    addGoal(pages: pages)
                 } label: {
-                    Label("Add a meeting", systemImage: "plus")
+                    Label("Add a goal", systemImage: "plus")
                         .canopyText(.body, color: CanopyAccent.forest.color)
                 }
             } footer: {
-                Text("Pages only go forward: a meeting can’t read to an earlier page than the one before it.")
+                Text("Pages only go forward: a goal can’t be an earlier page than the one before it. Everyone in the circle sees the change.")
                     .canopyText(.caption)
             }
             .listRowBackground(Canopy.surface.opacity(0.7))
         }
         .scrollContentBackground(.hidden)
         .tint(CanopyAccent.forest.color)
-        .navigationTitle("Schedule")
+        .navigationTitle("Goals")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
@@ -540,7 +616,7 @@ struct CircleScheduleSheet: View {
         }
     }
 
-    /// A binding that survives the meeting being removed while the row is still on screen.
+    /// A binding that survives the goal being removed while the row is still on screen.
     private func binding(for id: UUID, fallback: CircleMeeting) -> Binding<CircleMeeting> {
         Binding(
             get: { meetings.first { $0.id == id } ?? fallback },
@@ -558,8 +634,8 @@ struct CircleScheduleSheet: View {
         )
     }
 
-    /// A week after the last meeting, reading on by the same stretch (or to the end of the book).
-    private func addMeeting(pages: Int) {
+    /// A week after the last goal, reading on by the same stretch (or to the end of the book).
+    private func addGoal(pages: Int) {
         let last = meetings.last
         let date = last.flatMap { Calendar.current.date(byAdding: .day, value: 7, to: $0.date) }
             ?? Calendar.current.date(byAdding: .day, value: 7, to: store.now) ?? store.now

@@ -40,6 +40,8 @@ enum DemoData {
         case sideBySide = "sidebyside"
         /// The standard library with a whole year of reading behind it, for the Plan tab's insights and stamps.
         case year
+        /// The standard library without reading circles: Today suggests starting one.
+        case noCircles = "nocircles"
     }
 
     static func make(now: Date = Date(), calendar: Calendar = .current, scenario: Scenario) -> LeafData {
@@ -94,6 +96,8 @@ enum DemoData {
             if !data.preferences.readingSlots.isEmpty { data.preferences.readingSlots[0].bookID = circe.id }
         case .year:
             addYearOfReading(to: &data, now: now, calendar: calendar)
+        case .noCircles:
+            data.circles = []
         }
         return data
     }

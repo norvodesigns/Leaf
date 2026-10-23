@@ -28,7 +28,7 @@ struct CircleStore {
 
     func circle(_ id: UUID) -> ReadingCircle? { circles.first { $0.id == id } }
 
-    /// The club shelf: circles under way, soonest meeting first, then the ones put away, most recent first.
+    /// The club shelf: circles under way, soonest goal first, then the ones put away, most recent first.
     func shelf(now: Date) -> [ReadingCircle] {
         let open = circles.filter { !$0.isArchived }.sorted { lhs, rhs in
             let a = lhs.meetings.map(\.date).filter { $0 >= Calendar.current.startOfDay(for: now) }.min() ?? .distantFuture
@@ -42,7 +42,9 @@ struct CircleStore {
     // MARK: Changes
 
     @discardableResult
-    func create(name: String, book: Book, startsOn: Date, meetings: [CircleMeeting], friends: [String], myName: String = "You", now: Date = Date()) -> ReadingCircle {
+    /// A new circle with the reader in it. Friends join by invitation; `friends` (names, moved by hand) is how circles
+    /// started before invitations, and what tests use.
+    func create(name: String, book: Book, startsOn: Date, meetings: [CircleMeeting], friends: [String] = [], myName: String = "You", now: Date = Date()) -> ReadingCircle {
         let me = CircleMember(name: myName, kind: .me, paletteToken: CozyPalette.matcha, updatedAt: now)
         let tokens = Self.friendTokens
         let others = friends
@@ -86,15 +88,6 @@ struct CircleStore {
             guard let index = circle.members.firstIndex(where: { $0.id == memberID }) else { return }
             circle.members[index].name = trimmed
             circle.members[index].updatedAt = now
-        }
-    }
-
-    func addFriend(_ name: String, to circleID: UUID, now: Date = Date()) {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        edit(circleID, now: now) { circle in
-            let token = Self.friendTokens[circle.friends.count % Self.friendTokens.count]
-            circle.members.append(CircleMember(name: trimmed, paletteToken: token, updatedAt: now))
         }
     }
 

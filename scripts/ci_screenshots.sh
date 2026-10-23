@@ -221,11 +221,17 @@ for appearance in light dark; do
     shot a02-add-added 16 -LeafDemo YES -LeafScreen search.added
     shot a04-add-manual 11 -LeafDemo YES -LeafScreen search.manual
     shot a05-add-isbn 9 -LeafDemo YES -LeafScreen search.isbn
-    # Reading circles: starting one, moving a friend along, the schedule, the empty page, and large text.
+    # Reading circles: starting one, a friend's standing, the goals, the empty page, the standings and lately,
+    # the name asked before inviting, Today's circle card and its suggestion, and large text.
     shot e02-circles-new 7 -LeafDemo YES -LeafScreen plan.circles.new
     shot e03-circles-member 7 -LeafDemo YES -LeafScreen plan.circles.member
     shot e04-circles-schedule 7 -LeafDemo YES -LeafScreen plan.circles.schedule
     shot e05-circles-empty 6 -LeafDemo YES -LeafScreen plan.circles -LeafScenario new
+    shot e07-circles-standings 7 -LeafDemo YES -LeafScreen plan.circles.standings
+    shot e08-circles-goals 7 -LeafDemo YES -LeafScreen plan.circles.goals
+    shot e09-circles-name 7 -LeafDemo YES -LeafScreen plan.circles.name
+    shot e10-today-circle 7 -LeafDemo YES -LeafScreen today -LeafTime 20:30 -LeafScroll circles
+    shot e11-today-circle-tip 7 -LeafDemo YES -LeafScreen today -LeafTime 20:30 -LeafScroll circles -LeafScenario nocircles
     shot lt-e01-circles 7 -LeafDemo YES -LeafScreen plan.circles -UIPreferredContentSizeCategoryName UICTContentSizeCategoryAccessibilityL
     shot 101-book-journal 7 -LeafDemo YES -LeafScreen book.journal
     shot 102-book-more 9 -LeafDemo YES -LeafScreen book.more
@@ -334,6 +340,7 @@ for appearance in light dark; do
   shot "a03-add-scan$suffix" 11 -LeafDemo YES -LeafScreen search.scan
   shot "e01-circles$suffix" 6 -LeafDemo YES -LeafScreen plan.circles
   shot "e06-circles-prompts$suffix" 7 -LeafDemo YES -LeafScreen plan.circles.prompts
+  shot "e12-today-circle$suffix" 7 -LeafDemo YES -LeafScreen today -LeafTime 20:30 -LeafScroll circles
   shot "100-library-paused$suffix" 5 -LeafDemo YES -LeafScreen library.paused
   shot "107-library-toread$suffix" 5 -LeafDemo YES -LeafScreen library.toread
   shot "110-tea-cabinet$suffix" 6 -LeafDemo YES -LeafScreen tea.cabinet
