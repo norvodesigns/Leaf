@@ -19,8 +19,9 @@ concurrency:
 jobs:
   build:
     runs-on: macos-26
-    # Build and tests take about 35 minutes; the App Store set, the watch and the design screenshots up to 120 more.
-    timeout-minutes: 180
+    # Build, tests, the App Store set and the watch take about 40 minutes; the design screenshots, in two steps of up
+    # to 80 minutes each, the rest.
+    timeout-minutes: 240
     permissions:
       contents: write
     steps:
@@ -161,10 +162,18 @@ jobs:
         timeout-minutes: 15
         run: bash scripts/ci_screenshots.sh screenshots watch
 
-      - name: Screenshots
+      # The design set in two halves (every other shot each), each with its own limit, so one slow half can't cut off
+      # the other. The second half runs even when the first ran out of time.
+      - name: Screenshots (design, 1 of 2)
+        id: design1
         if: success()
-        timeout-minutes: 85
-        run: bash scripts/ci_screenshots.sh screenshots design
+        timeout-minutes: 80
+        run: bash scripts/ci_screenshots.sh screenshots design 1/2
+
+      - name: Screenshots (design, 2 of 2)
+        if: success() || steps.design1.outcome == 'failure'
+        timeout-minutes: 80
+        run: bash scripts/ci_screenshots.sh screenshots design 2/2
 
       # Some machines that review the design can reach github.com but not the storage that serves logs and artifacts.
       # The JPEG copies also go to a hidden ref (not a branch or a tag), replaced on every run:

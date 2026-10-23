@@ -2,12 +2,15 @@
 # Stages screens with debug launch arguments and captures them on the simulators.
 #
 #   ci_screenshots.sh OUT design   every iPhone screen, light and dark, for design review (IOS_SIM)
+#   ci_screenshots.sh OUT design 1/2   every 2nd design shot from the 1st (CI runs the set as two steps, 1/2 and 2/2,
+#                                      each with its own time limit, so a slow run can't cut off the rest)
 #   ci_screenshots.sh OUT watch    every watch screen (WATCH_SIM)
 #   ci_screenshots.sh OUT store    the App Store set: 6.9-inch iPhone (STORE_SIM, 1320x2868) and the watch, with the
 #                                  public-domain demo library (-LeafPublicDomain YES)
 set -uo pipefail
 OUT="${1:-screenshots}"
 MODE="${2:-design}"
+SLICE="${3:-}"
 mkdir -p "$OUT"
 APP="build/Build/Products/Debug-iphonesimulator/Leaf.app"
 WATCH_APP="build/Build/Products/Debug-watchsimulator/LeafWatch.app"
@@ -15,8 +18,22 @@ BUNDLE=com.norvodesigns.leaf
 WATCH_BUNDLE=com.norvodesigns.leaf.watchkitapp
 
 boot() {
+  echo "booting $1"
   xcrun simctl boot "$1" 2>/dev/null || true
   xcrun simctl bootstatus "$1" -b >/dev/null
+  echo "booted $1"
+}
+
+# Shuts down every booted simulator but the ones given. The runner has 7 GB: with the test iPhone, the App Store
+# iPhone and the watch all booted, the design run took 20 minutes to take its first shot and each shot twice as long.
+only_booted() { # udid...
+  local udid
+  for udid in $(xcrun simctl list devices booted | grep -oE '[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}'); do
+    case " $* " in
+      *" $udid "*) ;;
+      *) echo "shutting down $udid"; xcrun simctl shutdown "$udid" || true ;;
+    esac
+  done
 }
 
 PHONE=""
@@ -25,6 +42,7 @@ prepare_phone() { # udid
   boot "$PHONE"
   xcrun simctl status_bar "$PHONE" override --time "9:41" --batteryState charged --batteryLevel 100 --wifiBars 3 --cellularBars 4 --cellularMode active || true
   xcrun simctl install "$PHONE" "$APP"
+  echo "installed Leaf on $PHONE"
 }
 
 # A smaller JPEG copy of one shot, printed as base64 right away so it can be read from the job log even if the step
@@ -38,8 +56,14 @@ emit() { # name
   echo "=====END $n====="
 }
 
+COUNT=0
 shot() { # name wait args...
   local name=$1 wait=$2; shift 2
+  # With a slice ("k/n"), only every n-th shot from the k-th; the warm-up runs in every slice.
+  if [ -n "$SLICE" ] && [ "$name" != 00-warmup ]; then
+    COUNT=$((COUNT + 1))
+    [ $(( (COUNT - 1) % ${SLICE#*/} + 1 )) = "${SLICE%/*}" ] || return 0
+  fi
   xcrun simctl terminate "$PHONE" "$BUNDLE" >/dev/null 2>&1 || true
   xcrun simctl launch "$PHONE" "$BUNDLE" "$@" >/dev/null
   sleep "$wait"
@@ -73,6 +97,7 @@ wshot() { # name args...
 if [ "$MODE" = store ]; then
   # App Store Connect takes 1320x2868 for the 6.9-inch set; any one accepted watch size covers the watch.
   [ -n "${STORE_SIM:-}" ] || { echo "::error::no iPhone 17 Pro Max simulator (STORE_SIM) for the App Store set"; exit 1; }
+  only_booted "$STORE_SIM" "${WATCH_SIM:-}"
   prepare_phone "$STORE_SIM"
   xcrun simctl ui "$PHONE" appearance light
   pd=(-LeafDemo YES -LeafPublicDomain YES)
@@ -101,6 +126,7 @@ if [ "$MODE" = store ]; then
 fi
 
 if [ "$MODE" = watch ]; then
+  only_booted "${WATCH_SIM:-}"
   prepare_watch || exit 0
   wshot w1-today -LeafDemo YES -LeafScreen today
   wshot w2-session -LeafDemo YES -LeafScreen session
@@ -126,6 +152,7 @@ if [ "$MODE" = watch ]; then
   exit 0
 fi
 
+only_booted "$IOS_SIM"
 prepare_phone "$IOS_SIM"
 
 # Warm-up launch so Open Library covers are cached for the real shots.
