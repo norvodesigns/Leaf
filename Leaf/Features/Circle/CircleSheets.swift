@@ -365,8 +365,8 @@ struct CircleMemberSheet: View {
 
     @ViewBuilder
     private func content(_ circle: ReadingCircle, _ member: CircleMember) -> some View {
-        let item = store.item(circle.book.id)
-        let myLog = CircleCheckIn.log(from: store.data.sessions, bookID: circle.book.id)
+        let item = store.circleItem(for: circle)
+        let myLog = CircleCheckIn.log(from: store.data.sessions, bookID: item?.id ?? circle.book.id)
         let snapshot = CirclePlanner.snapshot(
             for: circle, myPage: item?.currentPage, myLog: myLog, wpm: store.wpm, now: store.now, calendar: .current
         )
@@ -504,7 +504,7 @@ struct CircleMemberSheet: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, Canopy.Space.margin)
             CanopyGlassButton("Change where you are", systemImage: "book.pages", accent: .forest, compact: true) {
-                let bookID = circle.book.id
+                let bookID = store.circleItem(for: circle)?.id ?? circle.book.id
                 dismiss()
                 // The position sheet opens over the tabs once this one has gone.
                 Task { @MainActor in

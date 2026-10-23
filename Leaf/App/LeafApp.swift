@@ -101,12 +101,16 @@ struct LeafApp: App {
                     case .active:
                         loadDeferredLibrary()
                         store.sync?.retryPendingErase()
-                        if !LaunchOptions.current.isScripted { CircleSharing.shared.connect(store) }
+                        if !LaunchOptions.current.isScripted {
+                            CircleSharing.shared.connect(store)
+                            CircleSharing.shared.startPolling()
+                        }
                         store.refreshDay(LaunchOptions.current.now())
                         Haptics.shared.prepare()
                         LiveActivityController.shared.sync()
                         WidgetFeed.shared.schedule()
                     case .background:
+                        CircleSharing.shared.stopPolling()
                         store.flush()
                         WidgetFeed.shared.publish()
                     default:

@@ -116,8 +116,8 @@ struct CirclesPage: View {
 
     @ViewBuilder
     private func detail(_ circle: ReadingCircle) -> some View {
-        let item = store.item(circle.book.id)
-        let myLog = CircleCheckIn.log(from: store.data.sessions, bookID: circle.book.id)
+        let item = store.circleItem(for: circle)
+        let myLog = CircleCheckIn.log(from: store.data.sessions, bookID: item?.id ?? circle.book.id)
         let snapshot = CirclePlanner.snapshot(
             for: circle, myPage: item?.currentPage, myLog: myLog, wpm: store.wpm, now: store.now, calendar: .current
         )
@@ -125,10 +125,10 @@ struct CirclesPage: View {
         VStack(alignment: .leading, spacing: Canopy.Space.section) {
             CircleGoalCard(circle: circle, snapshot: snapshot, item: item, now: store.now) {
                 _ = ReadingSessionLauncher.start(
-                    bookID: circle.book.id, store: store, router: router, from: ReadingSessionLauncher.accessorySource
+                    bookID: item?.id ?? circle.book.id, store: store, router: router, from: ReadingSessionLauncher.accessorySource
                 )
             } onAdd: {
-                store.add(circle.book, to: .reading)
+                store.addCircleBook(circle.book)
             }
 
             if circle.friends.isEmpty, !circle.isArchived {

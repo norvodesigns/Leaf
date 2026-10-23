@@ -389,20 +389,23 @@ final class CloudSync {
     private func handleDatabaseChanges(_ changes: CKSyncEngine.Event.FetchedDatabaseChanges) {
         // Our zone was deleted: the reader cleared the iCloud copy, another device was reset, or the system purged it.
         // The data on this device is the master, so keep it and put it back.
-        guard changes.deletions.contains(where: { $0.zoneID == zoneID }) else { return }
+        guard changes.deletions.contains(where: { $0.zoneID.zoneName == CloudSync.zoneName }) else { return }
         systemFields = [:]
         seedEverything()
     }
 
     private func handleFetched(_ changes: CKSyncEngine.Event.FetchedRecordZoneChanges) {
+        // Only Leaf's own zone. The private database also holds a zone for each circle this reader shares
+        // (`CircleSharing`), whose record has the same name as the circle's record here: it is CircleSharing's to
+        // fetch, and its change tag must never stand in for this zone's.
         var records: [SyncRecord] = []
-        for modification in changes.modifications {
+        for modification in changes.modifications where modification.record.recordID.zoneID.zoneName == CloudSync.zoneName {
             let record = modification.record
             systemFields[record.recordID.recordName] = archive(record)
             if let plain = syncRecord(from: record) { records.append(plain) }
         }
         var removed: [String] = []
-        for deletion in changes.deletions {
+        for deletion in changes.deletions where deletion.recordID.zoneID.zoneName == CloudSync.zoneName {
             let name = deletion.recordID.recordName
             systemFields[name] = nil
             removed.append(name)
@@ -501,7 +504,8 @@ final class CloudSync {
     /// journal are end-to-end encrypted even without Advanced Data Protection.
     private func ckRecord(from plain: SyncRecord, id: CKRecord.ID) -> CKRecord {
         let record: CKRecord
-        if let archived = systemFields[plain.name], let restored = unarchive(archived) {
+        // Kept bookkeeping from another zone (an older build kept a shared circle's) would send the record there.
+        if let archived = systemFields[plain.name], let restored = unarchive(archived), restored.recordID.zoneID.zoneName == id.zoneID.zoneName {
             record = restored
         } else {
             record = CKRecord(recordType: plain.type.rawValue, recordID: id)

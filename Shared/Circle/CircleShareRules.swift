@@ -60,6 +60,42 @@ enum CircleShareRules {
         return copy
     }
 
+    /// The reader's own copy of a circle's book: the same book, or else another edition of it (the same title, with
+    /// or without a subtitle, by the same author), so a circle doesn't need the exact edition its owner picked. A copy
+    /// on Reading comes first, then Paused, To Read and Finished.
+    static func libraryCopy(of book: Book, in items: [LibraryItem]) -> LibraryItem? {
+        if let same = items.first(where: { $0.id == book.id }) { return same }
+        let key = editionKey(book)
+        let order: [Shelf] = [.reading, .paused, .toRead, .finished]
+        let rank = { (item: LibraryItem) in order.firstIndex(of: item.shelf) ?? order.count }
+        return items.filter { editionKey($0.book) == key }.min { rank($0) < rank($1) }
+    }
+
+    /// What joining a circle does to the library.
+    enum BookStep: Equatable {
+        /// No copy yet: the circle's book goes on Reading.
+        case add
+        /// A copy waiting on To Read or Paused moves to Reading.
+        case startReading(String)
+        /// A copy being read or already finished stays where it is.
+        case keep(String)
+    }
+
+    /// Someone who joins usually doesn't have the book yet; on Reading, their page in the circle moves as they read.
+    static func bookStep(for book: Book, in items: [LibraryItem]) -> BookStep {
+        guard let copy = libraryCopy(of: book, in: items) else { return .add }
+        switch copy.shelf {
+        case .toRead, .paused: return .startReading(copy.id)
+        case .reading, .finished: return .keep(copy.id)
+        }
+    }
+
+    /// Title without its subtitle, and author, folded as the recommender folds titles for de-duplication.
+    private static func editionKey(_ book: Book) -> String {
+        let title = book.title.split(separator: ":", maxSplits: 1).first.map(String.init) ?? book.title
+        return TasteProfile.normalizeAuthor(title) + "|" + TasteProfile.normalizeAuthor(book.author)
+    }
+
     /// The zone a shared circle lives in. One zone per circle, shared as a whole.
     static func zoneName(for circleID: UUID) -> String { zonePrefix + circleID.uuidString }
 

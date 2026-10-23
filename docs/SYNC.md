@@ -155,11 +155,30 @@ Otherwise the Invite button does not show and the app delegate leaves SwiftUI's 
   `UICloudSharingController`.
 - **Participant.** Tapping the link reaches `LeafSceneDelegate`, which accepts the share. The next fetch finds the zone
   in the shared database, adds a member for this person (`CircleShareRules.joining`, named from the share) and saves.
+  Joining also puts the circle's book on Reading (`LibraryStore.addCircleBook`), so their page moves as they read: a
+  copy they already have counts, even another edition (same title without subtitle, same author:
+  `CircleShareRules.libraryCopy`), and moves to Reading from To Read or Paused; one being read or finished stays put.
+  Only on joining, so a book they take off Reading later stays off. The circle screens find the reader's page through
+  the same copy (`LibraryStore.circleItem(for:)`).
 - **Everyone.** The circle also stays in each person's own library, so it shows offline, is backed up and syncs to
   their other devices. On every library change, each shared circle gets the reader's page from their library
-  (`CircleShareRules.withMyPage`) and is saved if it moved, after merging the server's copy. On coming to the front
-  every shared circle is fetched and merged with the sync rules (newest circle, then newest copy of each member).
+  (`CircleShareRules.withMyPage`) and is saved if it moved, after merging the server's copy. Every shared circle is
+  fetched and merged with the sync rules (newest circle, then newest copy of each member) on a silent push, on coming
+  to the front, when the Circles page opens and every 3 minutes while the app is in front. Fetches never overlap and
+  one asked for within 20 seconds of the last is skipped (a push always fetches), so `connect` is cheap to call.
   `kind` is per device: `CircleShareRules.localized` makes the member with this person's `remoteID` the `.me`.
+- **Pushes.** Once any circle is shared, each launch saves a `CKDatabaseSubscription` on the shared database
+  (`leaf-circles-shared`: circles others shared, or one accepted on another device) and a `CKRecordZoneSubscription`
+  on each zone the reader shares (`leaf-circle-<uuid>`), all silent (`shouldSendContentAvailable`, no alert). The app
+  delegate registers for remote notifications in builds with iCloud and hands these pushes to
+  `CircleSharing.refreshForPush`; it ignores the others (sync's `CKSyncEngine` takes its own). No permission prompt.
+  Silent pushes are best effort (none in Low Power Mode, after a force quit, or on most simulators), hence the polling.
+- **Zones.** The owner's circle zones sit in the same private database as `LeafZone`, and `CKSyncEngine` fetches
+  every zone there. `CloudSync` keeps to `LeafZone`: a circle's record has the same name in both, and taking the shared
+  copy's change tag for the private one would send the private record into the shared zone.
+- **Before the first unlock.** If Leaf is woken before the first unlock after a restart, neither the library nor
+  `circle-shares.json` can be read yet. Sharing waits for both (`isLoadDeferred`, `linksLoaded`), so the empty
+  stand-in is never taken for "every shared circle was deleted here".
 - **Standings.** Each member also carries a short log of where their page moved (`CircleMember.log`, at most 40
   `CircleCheckIn`s, the first one where they started), written by `withMyPage` through `CircleMember.move(to:at:)`. It
   travels inside the member, so the per-member merge keeps it; the circle screens make "pages today", goals met and
@@ -170,7 +189,9 @@ Otherwise the Invite button does not show and the app delegate leaves SwiftUI's 
   zones again on its own fetch).
 
 Needs checking on two iCloud accounts before it ships: invite by Messages, accept on the second phone (cold launch and
-while running), both reading at once, a friend removed by the owner, stop sharing, delete as owner and as participant.
+while running), the book on the joiner's Reading shelf, both reading at once, a friend's page moving while the other
+phone has the circle open (push, or within 3 minutes) and while it is in the background, a friend removed by the
+owner, stop sharing, delete as owner and as participant.
 
 ## CloudKit setup (once)
 

@@ -37,9 +37,10 @@ struct TodayCircleCard: View {
     // MARK: A circle under way
 
     private func progressCard(_ circle: ReadingCircle, more: Int) -> some View {
-        let myLog = CircleCheckIn.log(from: store.data.sessions, bookID: circle.book.id)
+        let item = store.circleItem(for: circle)
+        let myLog = CircleCheckIn.log(from: store.data.sessions, bookID: item?.id ?? circle.book.id)
         let snapshot = CirclePlanner.snapshot(
-            for: circle, myPage: store.item(circle.book.id)?.currentPage, myLog: myLog, wpm: store.wpm, now: store.now,
+            for: circle, myPage: item?.currentPage, myLog: myLog, wpm: store.wpm, now: store.now,
             calendar: store.calendar
         )
         let pages = max(1, circle.book.pages)

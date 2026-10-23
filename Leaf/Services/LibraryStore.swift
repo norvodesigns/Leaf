@@ -884,6 +884,22 @@ final class LibraryStore {
         commit()
     }
 
+    /// The reader's copy of a circle's book: that book, or another edition of it (`CircleShareRules.libraryCopy`).
+    /// Their page in the circle follows this item.
+    func circleItem(for circle: ReadingCircle) -> LibraryItem? {
+        CircleShareRules.libraryCopy(of: circle.book, in: data.items)
+    }
+
+    /// A circle's book on Reading: added when the library has no copy of it, moved there from To Read or Paused when
+    /// it has, left alone while it's being read or finished (`CircleShareRules.bookStep`).
+    func addCircleBook(_ book: Book) {
+        switch CircleShareRules.bookStep(for: book, in: data.items) {
+        case .add: add(book, to: .reading)
+        case .startReading(let id): move(id, to: .reading)
+        case .keep: break
+        }
+    }
+
     /// Brings in circles from elsewhere (the old circles.json, a shared circle's latest copy) with the sync rules:
     /// the newer copy of a circle wins, members by their own stamps, and a later deletion here keeps it deleted.
     func mergeCircles(_ incoming: [ReadingCircle]) {

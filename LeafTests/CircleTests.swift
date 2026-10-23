@@ -470,6 +470,32 @@ struct CircleTests {
         #expect(CircleShareRules.circleID(inZone: "LeafZone") == nil)
     }
 
+    @Test func joiningPutsTheBookOnReadingOnce() {
+        #expect(CircleShareRules.bookStep(for: book, in: []) == .add)
+        let other = LibraryItem(book: Book(id: "other", title: "Piranesi", author: "Susanna Clarke", pages: 272), shelf: .reading, order: 0)
+        #expect(CircleShareRules.bookStep(for: book, in: [other]) == .add)
+        #expect(CircleShareRules.bookStep(for: book, in: [LibraryItem(book: book, shelf: .toRead, order: 0)]) == .startReading(book.id))
+        #expect(CircleShareRules.bookStep(for: book, in: [LibraryItem(book: book, shelf: .paused, order: 0)]) == .startReading(book.id))
+        #expect(CircleShareRules.bookStep(for: book, in: [LibraryItem(book: book, shelf: .reading, currentPage: 120, order: 0)]) == .keep(book.id))
+        #expect(CircleShareRules.bookStep(for: book, in: [LibraryItem(book: book, shelf: .finished, order: 0)]) == .keep(book.id))
+    }
+
+    @Test func anotherEditionCountsAsTheCirclesBook() {
+        // Added by hand, with a subtitle and the author's name spelled with an accent.
+        let paperback = Book(id: "manual-circe", title: "CIRCE: A Novel", author: "Madeline Millér", pages: 393)
+        let copy = LibraryItem(book: paperback, shelf: .toRead, order: 0)
+        #expect(CircleShareRules.libraryCopy(of: book, in: [copy])?.id == "manual-circe")
+        #expect(CircleShareRules.bookStep(for: book, in: [copy]) == .startReading("manual-circe"))
+        // The exact book wins over another edition, and a copy being read over one waiting.
+        let exact = LibraryItem(book: book, shelf: .finished, order: 1)
+        #expect(CircleShareRules.libraryCopy(of: book, in: [copy, exact])?.id == book.id)
+        let reading = LibraryItem(book: Book(id: "ol-circe-2", title: "Circe", author: "Madeline Miller", pages: 400), shelf: .reading, order: 2)
+        #expect(CircleShareRules.libraryCopy(of: book, in: [copy, reading])?.id == "ol-circe-2")
+        // The same title by someone else is a different book.
+        let namesake = LibraryItem(book: Book(id: "namesake", title: "Circe", author: "Eudora Welty", pages: 40), shelf: .reading, order: 3)
+        #expect(CircleShareRules.libraryCopy(of: book, in: [namesake]) == nil)
+    }
+
     @Test func aLibraryFromBeforeCirclesStillLoads() throws {
         let back = try JSONDecoder().decode(LeafData.self, from: Data(#"{"version":2,"items":[]}"#.utf8))
         #expect(back.circles.isEmpty)

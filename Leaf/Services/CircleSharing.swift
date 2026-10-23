@@ -21,6 +21,11 @@ import UIKit
 ///   Fetched copies go through `CircleShareRules.localized` (who is "me" here) and `LibraryStore.mergeCircles` (the
 ///   sync merge: newest circle, then newest copy of each member), so two people reading at once both keep their pages.
 /// - Deleting a shared circle deletes the owner's zone, which ends the share; a participant deleting it leaves.
+/// - Friends' pages arrive by silent push (a subscription on the shared database, and one on each zone this reader
+///   shares; `LeafAppDelegate` hands the push to `refreshForPush`), on coming to the front, when the Circles page
+///   opens, and every few minutes while the app is in front. Fetches never overlap, and `connect` skips one when the
+///   last was moments ago, so it is cheap to call often.
+/// - Someone who joins gets the circle's book on Reading (`LibraryStore.addCircleBook`), so their page moves.
 ///
 /// Untested on devices: it needs two iCloud accounts. docs/SYNC.md lists what to check.
 @MainActor
@@ -62,6 +67,22 @@ final class CircleSharing {
     /// Names to join with, from invitations accepted before their circle was fetched, by zone name.
     @ObservationIgnored private var joinNames: [String: String] = [:]
     @ObservationIgnored private let linksURL: URL
+    /// False while `circle-shares.json` couldn't be read (Leaf woken before the first unlock after a restart). Nothing
+    /// is fetched or sent, and the file isn't written, until it has been, so no shared circle is taken for deleted.
+    @ObservationIgnored private var linksLoaded = false
+    /// The fetch under way, if any (true when it changed a circle here), and whether a push asked for another meanwhile.
+    @ObservationIgnored private var refreshTask: Task<Bool, Never>?
+    @ObservationIgnored private var refreshAgain = false
+    @ObservationIgnored private var lastRefresh: Date?
+    /// Fetches every few minutes while the app is in front (`startPolling`).
+    @ObservationIgnored private var pollTask: Task<Void, Never>?
+    /// Push subscriptions saved since launch, so each is sent once.
+    @ObservationIgnored private var subscribed: Set<String> = []
+
+    /// A fetch asked for sooner than this after the last one is skipped, unless a push asked.
+    static let refreshGap: TimeInterval = 20
+    /// While the app is in front, a fetch this often, for pushes that don't come (Low Power Mode, a quit app).
+    static let pollInterval: Duration = .seconds(180)
 
     init(linksURL: URL = CircleSharing.defaultLinksURL) {
         self.linksURL = linksURL
@@ -77,10 +98,14 @@ final class CircleSharing {
     /// Whether this build can share at all (the iCloud flag). The reader's own switch is `isOn(for:)`.
     static var isAvailable: Bool { CloudSync.isAvailable }
 
-    /// Off too while sync waits on a new iCloud account, so nothing goes out under it before the reader agrees.
+    /// Off too while sync waits on a new iCloud account, so nothing goes out under it before the reader agrees, and
+    /// before the library could be read (`isLoadDeferred`), whose empty stand-in has none of the circles.
     func isOn(for library: LibraryStore) -> Bool {
-        Self.isAvailable && library.preferences.syncEnabled && library.sync?.isPausedForNewAccount != true
+        Self.isAvailable && !library.isLoadDeferred && library.preferences.syncEnabled
+            && library.sync?.isPausedForNewAccount != true
     }
+
+    private func isReady(_ library: LibraryStore) -> Bool { linksLoaded && isOn(for: library) }
 
     func isShared(_ circleID: UUID) -> Bool { links[circleID] != nil }
 
@@ -88,21 +113,51 @@ final class CircleSharing {
 
     // MARK: - Lifecycle
 
-    /// Call once at launch with the library, and again whenever the app comes to the front (it fetches).
+    /// Call at launch with the library, whenever the app comes to the front and when a screen of circles opens. It
+    /// fetches, unless a fetch is under way or finished within `refreshGap`.
     func connect(_ library: LibraryStore) {
         self.library = library
-        guard isOn(for: library) else { return }
-        Task { await refresh() }
+        loadLinks()
+        requestRefresh()
+    }
+
+    /// The app came to the front: fetch every `pollInterval` while some circle is shared, until `stopPolling`.
+    func startPolling() {
+        guard pollTask == nil else { return }
+        pollTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: Self.pollInterval)
+                guard !Task.isCancelled, let self else { return }
+                if !self.links.isEmpty { self.requestRefresh() }
+            }
+        }
+    }
+
+    /// The app went to the background.
+    func stopPolling() {
+        pollTask?.cancel()
+        pollTask = nil
+    }
+
+    /// A silent push said a shared circle changed: fetch now, or once more after the fetch under way. True when it
+    /// changed a circle here.
+    func refreshForPush() async -> Bool {
+        loadLinks()
+        requestRefresh(force: true)
+        guard let task = refreshTask else { return false }
+        return await task.value
     }
 
     /// The library changed: send any shared circle whose copy moved on, a moment later so a burst of edits goes once.
     func libraryChanged() {
-        guard let library, isOn(for: library), !links.isEmpty else { return }
+        guard let library, isReady(library), !links.isEmpty else { return }
         pushTask?.cancel()
         pushTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(2))
-            guard !Task.isCancelled else { return }
-            await self?.pushChanges()
+            guard !Task.isCancelled, let self else { return }
+            // A fetch under way sends what moved when it ends; this goes after it, so the two never cross.
+            if let running = self.refreshTask { _ = await running.value }
+            await self.pushChanges()
         }
     }
 
@@ -111,7 +166,7 @@ final class CircleSharing {
     /// The share for a circle, made on first use: the circle's zone, its record and a zone-wide CKShare. Present it
     /// with `CircleShareSheet`.
     func share(for circleID: UUID) async throws -> CKShare {
-        guard let library, isOn(for: library) else { throw Failure.unavailable }
+        guard let library, isReady(library) else { throw Failure.unavailable }
         guard let found = library.data.circles.first(where: { $0.id == circleID }) else { throw Failure.noCircle }
         let me = try await currentUserName()
         let circle = CircleShareRules.claimingMe(found, me: me, now: Date())
@@ -121,6 +176,7 @@ final class CircleSharing {
         let zoneID = CKRecordZone.ID(zoneName: CircleShareRules.zoneName(for: circleID), ownerName: CKCurrentUserDefaultName)
         if let existing = try? await database.record(for: CKRecord.ID(recordName: CKRecordNameZoneWideShare, zoneID: zoneID)) as? CKShare {
             remember(Link(circleID: circleID, zoneName: zoneID.zoneName, ownerName: CKCurrentUserDefaultName, isOwner: true))
+            await subscribe()
             return existing
         }
         _ = try await database.modifyRecordZones(saving: [CKRecordZone(zoneID: zoneID)], deleting: [])
@@ -136,6 +192,7 @@ final class CircleSharing {
         }
         remember(Link(circleID: circleID, zoneName: zoneID.zoneName, ownerName: CKCurrentUserDefaultName, isOwner: true))
         inStep[circleID] = circle
+        await subscribe()
         return made ?? share
     }
 
@@ -150,7 +207,8 @@ final class CircleSharing {
 
     /// An invitation the reader tapped. The circle arrives with the next fetch, which this starts.
     func accept(_ metadata: CKShare.Metadata) async {
-        guard let library, isOn(for: library) else {
+        loadLinks()
+        guard let library, isReady(library) else {
             lastError = Failure.unavailable.errorDescription
             return
         }
@@ -162,7 +220,8 @@ final class CircleSharing {
                 joinNames[zoneID.zoneName] = PersonNameComponentsFormatter.localizedString(from: components, style: .default)
             }
             remember(Link(circleID: circleID, zoneName: zoneID.zoneName, ownerName: zoneID.ownerName, isOwner: false))
-            await refresh()
+            requestRefresh(force: true)
+            if let task = refreshTask { _ = await task.value }
         } catch {
             lastError = "Couldn’t join that circle. \(error.localizedDescription)"
         }
@@ -170,11 +229,34 @@ final class CircleSharing {
 
     // MARK: - Fetching
 
+    /// Starts a fetch unless one finished within `refreshGap` (`force`, for a push, skips that). While one is under
+    /// way nothing new starts; a forced one runs again after it.
+    private func requestRefresh(force: Bool = false) {
+        guard let library, isReady(library) else { return }
+        if refreshTask != nil {
+            if force { refreshAgain = true }
+            return
+        }
+        if !force, let lastRefresh, Date().timeIntervalSince(lastRefresh) < Self.refreshGap { return }
+        refreshTask = Task { [weak self] in
+            guard let self else { return false }
+            var changed = false
+            repeat {
+                self.refreshAgain = false
+                if await self.refresh() { changed = true }
+                self.lastRefresh = Date()
+            } while self.refreshAgain
+            self.refreshTask = nil
+            return changed
+        }
+    }
+
     /// Fetches every shared circle (and finds circles shared with this reader on another device), merges them into
-    /// the library, then sends anything this side had newer.
-    func refresh() async {
-        guard let library, isOn(for: library) else { return }
-        guard let me = try? await currentUserName() else { return }
+    /// the library, then sends anything this side had newer. True when a circle here changed.
+    private func refresh() async -> Bool {
+        guard let library, isReady(library) else { return false }
+        guard let me = try? await currentUserName() else { return false }
+        let before = library.data.circles
         if let zones = try? await container.sharedCloudDatabase.allRecordZones() {
             for zone in zones {
                 guard let circleID = CircleShareRules.circleID(inZone: zone.zoneID.zoneName), links[circleID] == nil else { continue }
@@ -186,12 +268,15 @@ final class CircleSharing {
                 let record = try await database(for: link).record(for: recordID(link.circleID, zoneID: zoneID(for: link)))
                 guard var circle = self.circle(from: record) else { continue }
                 circle = CircleShareRules.localized(circle, me: me)
-                if !link.isOwner, !circle.members.contains(where: { $0.remoteID == me }) {
+                let joining = !link.isOwner && !circle.members.contains(where: { $0.remoteID == me })
+                if joining {
                     let token = CircleStore.friendTokens[circle.members.count % CircleStore.friendTokens.count]
                     circle = CircleShareRules.joining(circle, me: me, name: joinNames[link.zoneName] ?? "", paletteToken: token, now: Date())
                     joinNames[link.zoneName] = nil
                 }
                 library.mergeCircles([circle])
+                // Only on joining: a book the reader takes off Reading later stays off.
+                if joining { library.addCircleBook(circle.book) }
                 inStep[link.circleID] = library.data.circles.first { $0.id == link.circleID }
             } catch let error as CKError where Self.isGone(error) {
                 // The owner deleted the circle or stopped sharing: the reader keeps their copy, now a local circle.
@@ -201,12 +286,14 @@ final class CircleSharing {
             }
         }
         await pushChanges()
+        await subscribe()
+        return library.data.circles != before
     }
 
     // MARK: - Sending
 
     private func pushChanges() async {
-        guard let library, isOn(for: library), let me = try? await currentUserName() else { return }
+        guard let library, isReady(library), let me = try? await currentUserName() else { return }
         for link in links.values {
             guard var circle = library.data.circles.first(where: { $0.id == link.circleID }) else {
                 // Deleted here: the owner ends the share, a participant leaves it.
@@ -215,7 +302,7 @@ final class CircleSharing {
                 continue
             }
             circle = CircleShareRules.localized(circle, me: me)
-            let page = library.item(circle.book.id).map(\.currentPage)
+            let page = library.circleItem(for: circle).map(\.currentPage)
             let moved = CircleShareRules.withMyPage(circle, page: page, now: Date())
             if moved != circle {
                 library.saveCircle(moved)
@@ -255,6 +342,51 @@ final class CircleSharing {
             forget(link.circleID)
         } catch {
             lastError = error.localizedDescription
+        }
+    }
+
+    // MARK: - Pushes
+
+    /// The shared database's subscription: a circle someone shared with this reader changed, or this reader accepted
+    /// one on another device. Each circle the reader shares has its own, on its zone (`zoneSubscriptionID`).
+    nonisolated static let sharedSubscriptionID = "leaf-circles-shared"
+    nonisolated private static let zoneSubscriptionPrefix = "leaf-circle-"
+
+    nonisolated static func zoneSubscriptionID(_ circleID: UUID) -> String { zoneSubscriptionPrefix + circleID.uuidString }
+
+    /// Whether a push is about a shared circle; the app delegate leaves every other push alone.
+    nonisolated static func isCircleSubscription(_ id: String) -> Bool {
+        id == sharedSubscriptionID || id.hasPrefix(zoneSubscriptionPrefix)
+    }
+
+    /// Asks iCloud for a silent push when a shared circle changes: one subscription on the shared database and one on
+    /// each zone this reader shares from their private database. Only once some circle is shared, and each one once a
+    /// launch (saving one again is harmless, so a launch never needs to know what the last one saved).
+    private func subscribe() async {
+        guard !links.isEmpty else { return }
+        if !subscribed.contains(Self.sharedSubscriptionID) {
+            await saveSubscriptions([CKDatabaseSubscription(subscriptionID: Self.sharedSubscriptionID)], to: container.sharedCloudDatabase)
+        }
+        let owned = links.values.filter { $0.isOwner && !subscribed.contains(Self.zoneSubscriptionID($0.circleID)) }
+        await saveSubscriptions(
+            owned.map { CKRecordZoneSubscription(zoneID: zoneID(for: $0), subscriptionID: Self.zoneSubscriptionID($0.circleID)) },
+            to: container.privateCloudDatabase
+        )
+    }
+
+    private func saveSubscriptions(_ subscriptions: [CKSubscription], to database: CKDatabase) async {
+        guard !subscriptions.isEmpty else { return }
+        for subscription in subscriptions {
+            // Silent: no alert, badge or sound, only a wake to fetch.
+            let info = CKSubscription.NotificationInfo()
+            info.shouldSendContentAvailable = true
+            subscription.notificationInfo = info
+        }
+        // On failure the next launch tries again; until then the fetches on coming to the front and every few minutes
+        // cover it.
+        guard let results = try? await database.modifySubscriptions(saving: subscriptions, deleting: []) else { return }
+        for (id, result) in results.saveResults {
+            if case .success = result { subscribed.insert(id) }
         }
     }
 
@@ -310,18 +442,33 @@ final class CircleSharing {
     }
 
     private func forget(_ circleID: UUID) {
-        guard links[circleID] != nil else { return }
+        guard let link = links[circleID] else { return }
         links[circleID] = nil
         inStep[circleID] = nil
         saveLinks()
+        if link.isOwner {
+            let id = Self.zoneSubscriptionID(circleID)
+            subscribed.remove(id)
+            Task { _ = try? await container.privateCloudDatabase.modifySubscriptions(saving: [], deleting: [id]) }
+        }
     }
 
+    /// Reads `circle-shares.json` once it can be read. A missing file is no shares yet; one that can't be read yet
+    /// (before the first unlock) is tried again on the next `connect`.
     private func loadLinks() {
-        guard let bytes = try? Data(contentsOf: linksURL), let saved = try? JSONDecoder().decode([Link].self, from: bytes) else { return }
-        links = Dictionary(saved.map { ($0.circleID, $0) }, uniquingKeysWith: { first, _ in first })
+        guard !linksLoaded else { return }
+        guard FileManager.default.fileExists(atPath: linksURL.path) else {
+            linksLoaded = true
+            return
+        }
+        guard let bytes = try? Data(contentsOf: linksURL) else { return }
+        linksLoaded = true
+        guard let saved = try? JSONDecoder().decode([Link].self, from: bytes) else { return }
+        for link in saved where links[link.circleID] == nil { links[link.circleID] = link }
     }
 
     private func saveLinks() {
+        guard linksLoaded else { return }
         do {
             try FileManager.default.createDirectory(at: linksURL.deletingLastPathComponent(), withIntermediateDirectories: true)
             let bytes = try JSONEncoder().encode(links.values.sorted { $0.circleID.uuidString < $1.circleID.uuidString })
@@ -395,6 +542,23 @@ final class LeafSceneDelegate: NSObject, UIWindowSceneDelegate {
 
 @MainActor
 final class LeafAppDelegate: NSObject, UIApplicationDelegate {
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+    ) -> Bool {
+        // Silent pushes when a shared circle changes (`CircleSharing.subscribe`). They need no permission and show
+        // nothing. Only in builds with iCloud.
+        if CircleSharing.isAvailable, !LaunchOptions.current.isScripted { application.registerForRemoteNotifications() }
+        return true
+    }
+
+    /// A silent push. A shared circle's goes to `CircleSharing`; iCloud sync's own (`CKSyncEngine`) needs nothing here.
+    func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any]) async -> UIBackgroundFetchResult {
+        guard let notification = CKNotification(fromRemoteNotificationDictionary: userInfo),
+              let id = notification.subscriptionID, CircleSharing.isCircleSubscription(id) else { return .noData }
+        return await CircleSharing.shared.refreshForPush() ? .newData : .noData
+    }
+
     func application(
         _ application: UIApplication,
         configurationForConnecting connectingSceneSession: UISceneSession,
