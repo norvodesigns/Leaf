@@ -209,6 +209,12 @@ struct RootView: View {
         case "tea.history":
             router.tab = .today
             router.teaPage = .history
+        case "tea.ratings":
+            router.tab = .you
+            router.teaPage = .ratings
+        case "tea.preferences":
+            router.tab = .you
+            router.teaPage = .preferences
         case "book.pairing":
             router.bookStage = "pairing"
             router.tab = .library

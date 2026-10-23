@@ -61,8 +61,67 @@ struct TeaPreferencesTests {
         #expect(TeaPreferences(likedFlavours: ["smoky"]).score(tea, at: .morning) == 0)
     }
 
+    @Test func everyFlavourChipFindsTeasThatTasteOfIt() {
+        for aroma in TastingAroma.all {
+            #expect(TeaCatalog.all.contains { TastingAroma.tea($0, tastesOf: aroma) }, "no tea tastes \(aroma)")
+        }
+        let tea = { (id: String) in TeaCatalog.tea(id: id)! }
+        #expect(TastingAroma.tea(tea("english-breakfast"), tastesOf: "malty"))
+        #expect(TastingAroma.tea(tea("lapsang-souchong"), tastesOf: "smoky"))
+        #expect(TastingAroma.tea(tea("peppermint"), tastesOf: "minty"))
+        #expect(TastingAroma.tea(tea("moroccan-mint"), tastesOf: "minty"))
+        #expect(TastingAroma.tea(tea("genmaicha"), tastesOf: "nutty"))
+        // A cue has to start a word: nutmeg is not nutty, and a peach is not a sweet pea.
+        #expect(!TastingAroma.tea(tea("pumpkin-spice-chai"), tastesOf: "nutty"))
+        #expect(!TastingAroma.tea(tea("oriental-beauty"), tastesOf: "grassy"))
+        #expect(TeaPreferences(likedFlavours: ["malty"]).score(tea("english-breakfast"), at: .morning) > 0)
+    }
+
+    @Test func fiveLeavesLeadAndOneLeafFalls() throws {
+        let plain = TeaSuggester.ranked(daypart: .afternoon, season: .autumn, seed: 5, limit: 60)
+        let loved = try #require(plain.last { $0.caffeine == .none })
+        let doubted = try #require(plain.first)
+        var prefs = TeaPreferences()
+        prefs.setRating(5, for: loved.id)
+        prefs.setRating(1, for: doubted.id)
+        let rated = TeaSuggester.ranked(daypart: .afternoon, season: .autumn, seed: 5, limit: 60, preferences: prefs)
+        #expect(try #require(rated.firstIndex(of: loved)) < plain.firstIndex(of: loved)!)
+        #expect(try #require(rated.firstIndex(of: doubted)) > 0)
+        // Three leaves is neutral.
+        #expect(TeaPreferences(ratings: [loved.id: 3]).score(loved, at: .afternoon) == 0)
+    }
+
+    @Test func ratingsAreClampedRemovedAndKeptApartFromLeanings() {
+        var prefs = TeaPreferences(likedFamilies: [.green], ratings: ["sencha": 9, "rooibos": 0])
+        #expect(prefs.rating(for: "sencha") == 5)
+        #expect(prefs.rating(for: "rooibos") == 1)
+        prefs.setRating(nil, for: "rooibos")
+        #expect(prefs.rating(for: "rooibos") == nil)
+        prefs.setRating(4, for: "")
+        #expect(prefs.rating(for: "") == nil)
+
+        #expect(prefs.hasLeanings)
+        let cleared = prefs.leaningsCleared
+        #expect(!cleared.hasLeanings && !cleared.isEmpty)
+        #expect(cleared.rating(for: "sencha") == 5 && cleared.likedFamilies.isEmpty)
+    }
+
+    @Test func aTinsRatingWinsOverThePagesRating() {
+        let prefs = TeaPreferences(ratings: ["sencha": 2, "rooibos": 4])
+        let cabinet = [
+            CabinetTea(catalogID: "sencha", name: "Sencha", family: .green, steepSeconds: 90, rating: 5),
+            CabinetTea(catalogID: "rooibos", name: "Rooibos", family: .rooibos, steepSeconds: 360),
+        ]
+        #expect(TeaShelf.rating(for: "sencha", cabinet: cabinet, preferences: prefs) == 5)
+        // A tin with no rating of its own leaves the page's.
+        #expect(TeaShelf.rating(for: "rooibos", cabinet: cabinet, preferences: prefs) == 4)
+        #expect(TeaShelf.rating(for: "chamomile", cabinet: cabinet, preferences: prefs) == nil)
+        let merged = prefs.withRatings(from: cabinet)
+        #expect(merged.rating(for: "sencha") == 5 && merged.rating(for: "rooibos") == 4)
+    }
+
     @Test func roundTripsAndToleratesUnknownValues() throws {
-        let prefs = TeaPreferences(likedFamilies: [.oolong, .herbal], caffeine: .low, likedFlavours: ["floral"], familiesByTime: [.morning: [.green]])
+        let prefs = TeaPreferences(likedFamilies: [.oolong, .herbal], caffeine: .low, likedFlavours: ["floral"], familiesByTime: [.morning: [.green]], ratings: ["keemun": 4])
         let data = try JSONEncoder().encode(prefs)
         #expect(try JSONDecoder().decode(TeaPreferences.self, from: data) == prefs)
 
@@ -71,5 +130,10 @@ struct TeaPreferencesTests {
         #expect(decoded.likedFamilies.isEmpty)
         #expect(decoded.caffeine == .any)
         #expect(decoded.likedFlavours == ["floral"])
+        #expect(decoded.rating(for: "keemun") == nil)
+        let rated = try JSONDecoder().decode(TeaPreferences.self, from: Data(#"{"ratings":{"keemun":7,"sencha":"lots"}}"#.utf8))
+        #expect(rated.rating(for: "keemun") == nil && rated.isEmpty)
+        let fine = try JSONDecoder().decode(TeaPreferences.self, from: Data(#"{"ratings":{"keemun":7}}"#.utf8))
+        #expect(fine.rating(for: "keemun") == 5)
     }
 }

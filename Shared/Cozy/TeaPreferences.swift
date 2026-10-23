@@ -56,8 +56,9 @@ enum TeaTimeOfDay: String, Codable, CaseIterable, Sendable {
     }
 }
 
-/// What the reader likes in a tea: kinds, caffeine, flavours, and (optionally) kinds for a time of day. Suggestions
-/// lean toward these; the caffeine choice is a limit. An empty value changes nothing.
+/// What the reader likes in a tea: kinds, caffeine, flavours, (optionally) kinds for a time of day, and the leaves
+/// they gave particular teas. Suggestions lean toward these; the caffeine choice is a limit. An empty value changes
+/// nothing.
 struct TeaPreferences: Codable, Hashable, Sendable {
     var likedFamilies: Set<TeaFamily> = []
     var caffeine: TeaCaffeineChoice = .any
@@ -65,21 +66,26 @@ struct TeaPreferences: Codable, Hashable, Sendable {
     var likedFlavours: Set<String> = []
     /// Kinds for a time of day: "herbal in the evening".
     var familiesByTime: [TeaTimeOfDay: Set<TeaFamily>] = [:]
+    /// Leaves for a tea, 1 to 5, by the id a session saves ("earl-grey", "custom.<uuid>"). A tin in the cabinet keeps
+    /// its own rating, which wins (`TeaShelf.rating`).
+    private(set) var ratings: [String: Int] = [:]
 
     init(
         likedFamilies: Set<TeaFamily> = [],
         caffeine: TeaCaffeineChoice = .any,
         likedFlavours: Set<String> = [],
-        familiesByTime: [TeaTimeOfDay: Set<TeaFamily>] = [:]
+        familiesByTime: [TeaTimeOfDay: Set<TeaFamily>] = [:],
+        ratings: [String: Int] = [:]
     ) {
         self.likedFamilies = likedFamilies
         self.caffeine = caffeine
         self.likedFlavours = likedFlavours
         self.familiesByTime = familiesByTime
+        for (id, rating) in ratings { setRating(rating, for: id) }
     }
 
     enum CodingKeys: String, CodingKey {
-        case likedFamilies, caffeine, likedFlavours, familiesByTime
+        case likedFamilies, caffeine, likedFlavours, familiesByTime, ratings
     }
 
     /// Tolerant: anything unreadable (a newer build's family, say) falls back to "no preference".
@@ -89,10 +95,36 @@ struct TeaPreferences: Codable, Hashable, Sendable {
         caffeine = (try? c.decodeIfPresent(TeaCaffeineChoice.self, forKey: .caffeine)) ?? .any
         likedFlavours = (try? c.decodeIfPresent(Set<String>.self, forKey: .likedFlavours)) ?? []
         familiesByTime = (try? c.decodeIfPresent([TeaTimeOfDay: Set<TeaFamily>].self, forKey: .familiesByTime)) ?? [:]
+        for (id, rating) in (try? c.decodeIfPresent([String: Int].self, forKey: .ratings)) ?? [:] { setRating(rating, for: id) }
     }
 
-    var isEmpty: Bool {
-        likedFamilies.isEmpty && caffeine == .any && likedFlavours.isEmpty && familiesByTime.values.allSatisfy(\.isEmpty)
+    var isEmpty: Bool { !hasLeanings && ratings.isEmpty }
+
+    /// Kinds, caffeine, flavours or times picked: what "Teas you like" sets and clears. Ratings are kept apart.
+    var hasLeanings: Bool {
+        !(likedFamilies.isEmpty && caffeine == .any && likedFlavours.isEmpty && familiesByTime.values.allSatisfy(\.isEmpty))
+    }
+
+    /// These preferences without the kinds, caffeine, flavours and times, keeping the ratings.
+    var leaningsCleared: TeaPreferences { TeaPreferences(ratings: ratings) }
+
+    // MARK: Ratings
+
+    func rating(for teaID: String) -> Int? { ratings[teaID] }
+
+    /// Gives a tea 1 to 5 leaves (clamped), or takes its rating away with nil.
+    mutating func setRating(_ rating: Int?, for teaID: String) {
+        guard !teaID.isEmpty else { return }
+        ratings[teaID] = rating.map { min(5, max(1, $0)) }
+    }
+
+    /// With the ratings on the reader's tins laid over these, so the suggester weighs a cabinet tea by its tin.
+    func withRatings(from cabinet: [CabinetTea]) -> TeaPreferences {
+        var merged = self
+        for tea in cabinet {
+            if let rating = TeaShelf.tin(id: tea.teaID, cabinet: cabinet)?.rating { merged.setRating(rating, for: tea.teaID) }
+        }
+        return merged
     }
 
     // MARK: Weights
@@ -107,6 +139,17 @@ struct TeaPreferences: Codable, Hashable, Sendable {
     static let flavourWeight = 0.8
     static let flavourCap = 2.4
 
+    /// Five leaves pull a tea forward almost as far as a liked kind; one leaf all but retires it. Three is neutral.
+    static func ratingWeight(_ rating: Int) -> Double {
+        switch rating {
+        case 5: return 2.0
+        case 4: return 1.0
+        case 2: return -1.0
+        case 1: return -2.5
+        default: return 0
+        }
+    }
+
     /// Whether the caffeine choice lets this tea be offered at this hour.
     func allows(_ tea: Tea, at daypart: Daypart) -> Bool {
         tea.caffeine <= caffeine.cap(at: daypart)
@@ -120,10 +163,10 @@ struct TeaPreferences: Codable, Hashable, Sendable {
             score += picks.contains(tea.family) ? Self.timeOfDayWeight : -Self.offTimePenalty
         }
         if !likedFlavours.isEmpty {
-            let notes = tea.notes.map { $0.lowercased() }
-            let matches = likedFlavours.filter { flavour in notes.contains { $0.contains(flavour.lowercased()) } }.count
+            let matches = likedFlavours.filter { TastingAroma.tea(tea, tastesOf: $0) }.count
             score += min(Self.flavourCap, Double(matches) * Self.flavourWeight)
         }
+        if let rating = ratings[tea.id] { score += Self.ratingWeight(rating) }
         return score
     }
 }

@@ -132,6 +132,12 @@ struct TeaPairingTests {
         "hojicha": ["hojicha"], "silver-needle": ["silver needle"], "milk-oolong": ["milk oolong"],
         "roasted-oolong": ["roasted oolong"], "chamomile": ["chamomile"], "peppermint": ["peppermint", "mint"],
         "lemon-ginger": ["lemon ginger"], "apple-cinnamon": ["apple"], "hibiscus": ["hibiscus"], "masala-chai": ["masala"],
+        "assam": ["assam"], "ceylon": ["ceylon"], "keemun": ["keemun"], "dragon-well": ["dragon well"], "gyokuro": ["gyokuro"],
+        "moroccan-mint": ["moroccan"], "kukicha": ["kukicha"], "matcha-latte": ["latte"], "white-peony": ["peony"],
+        "tieguanyin": ["tieguanyin", "iron goddess"], "oriental-beauty": ["oriental beauty"], "lavender": ["lavender"],
+        "golden-turmeric": ["turmeric"], "elderflower": ["elderflower"], "linden-blossom": ["linden"],
+        "vanilla-rooibos": ["vanilla"], "rooibos-chai": ["rooibos chai"], "pumpkin-spice-chai": ["pumpkin"],
+        "ginger-chai": ["ginger chai"],
     ]
     private static let familyWords: [String: Set<TeaFamily>] = [
         "black tea": [.black], "oolong": [.oolong], "white tea": [.white], "herbal": [.herbal], "rooibos": [.rooibos],

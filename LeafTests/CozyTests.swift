@@ -75,7 +75,7 @@ private func czCopyIsClean(_ text: String) -> Bool {
 struct CozyTeaTests {
     @Test func catalogIntegrity() {
         let teas = TeaCatalog.all
-        #expect(teas.count >= 18)
+        #expect(teas.count >= 38)
         #expect(Set(teas.map(\.id)).count == teas.count)
         #expect(TeaCatalog.tea(id: "earl-grey") != nil)
         #expect(TeaCatalog.tea(id: "sencha") != nil)
@@ -139,6 +139,13 @@ struct CozyTeaTests {
         for daypart in Daypart.allCases {
             #expect(TeaCatalog.tagged(daypart: daypart).count >= 3, "\(daypart) tagged")
             #expect(TeaSuggester.allowed(at: daypart).count >= 3, "\(daypart) allowed")
+        }
+    }
+
+    /// Most reading happens at night: the small hours still get a real choice of caffeine-free teas.
+    @Test func lateNightHasAProperChoice() {
+        for daypart in [Daypart.late, .smallHours] {
+            #expect(TeaSuggester.allowed(at: daypart).count >= 8, "\(daypart)")
         }
     }
 

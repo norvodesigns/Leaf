@@ -33,6 +33,18 @@ struct SettingsTeaSection: View {
             }
 
             NavigationLink {
+                TeaRatingsView()
+            } label: {
+                Text("Rate your teas").canopyText(.body)
+            }
+
+            NavigationLink {
+                TeaPreferencesView()
+            } label: {
+                Text("Teas you like").canopyText(.body)
+            }
+
+            NavigationLink {
                 TeaHistoryView()
             } label: {
                 Text("Tea history").canopyText(.body)
@@ -40,7 +52,7 @@ struct SettingsTeaSection: View {
 
             Picker(selection: teaBinding) {
                 Text("Suggest one").tag(String?.none)
-                ForEach(TeaCatalog.all) { tea in
+                ForEach(TeaCatalog.all.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }) { tea in
                     Text(tea.name).tag(Optional(tea.id))
                 }
                 ForEach(store.data.cabinet.filter { $0.catalogID == nil }) { tea in

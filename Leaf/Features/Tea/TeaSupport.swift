@@ -2,7 +2,7 @@ import SwiftUI
 
 /// The tea pages that open as a sheet over the tabs (from Today, Settings links push the same views).
 enum TeaPage: String, Identifiable, Hashable {
-    case cabinet, history, preferences
+    case cabinet, history, preferences, ratings
 
     var id: String { rawValue }
 }
@@ -201,6 +201,7 @@ struct TeaPageSheet: View {
                 case .cabinet: TeaCabinetView()
                 case .history: TeaHistoryView()
                 case .preferences: TeaPreferencesView()
+                case .ratings: TeaRatingsView()
                 }
             }
             .toolbar {

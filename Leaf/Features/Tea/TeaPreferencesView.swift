@@ -57,11 +57,36 @@ struct TeaPreferencesView: View {
                 }
                 .canopyCard()
 
-                if !prefs.isEmpty {
+                NavigationLink {
+                    TeaRatingsView()
+                } label: {
+                    HStack(spacing: Canopy.Space.m) {
+                        Image(systemName: "leaf")
+                            .symbolRenderingMode(.hierarchical)
+                            .foregroundStyle(CanopyAccent.clay.color)
+                            .frame(width: 28)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Rate your teas").canopyText(.body)
+                            Text("Leaves for the teas you know. The ones you love come round more often.")
+                                .canopyText(.caption)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer(minLength: Canopy.Space.s)
+                        Image(systemName: "chevron.right")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(Canopy.textTertiary)
+                    }
+                    .frame(minHeight: Canopy.Space.hitTarget)
+                    .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .canopyCard(padding: Canopy.Space.l)
+
+                if prefs.hasLeanings {
                     Button("Clear my preferences") {
                         CanopyFeel.play(.tap)
                         withAnimation(Canopy.Motion.smooth) {
-                            prefs = TeaPreferences()
+                            prefs = prefs.leaningsCleared
                             showsTimes = false
                         }
                     }
@@ -75,6 +100,10 @@ struct TeaPreferencesView: View {
         .paperBackground()
         .navigationTitle("Teas you like")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            // Ratings may have changed on the ratings page since this page was made.
+            prefs = CozySettings.teaPreferences
+        }
         .onChange(of: prefs) { _, new in
             CozySettings.teaPreferences = new
         }

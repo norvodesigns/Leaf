@@ -78,12 +78,17 @@ struct TeaCabinetView: View {
             .settingsRows()
             Section {
                 NavigationLink {
+                    TeaRatingsView()
+                } label: {
+                    Text("Rate your teas").leafStyle(.uiBody)
+                }
+                NavigationLink {
                     TeaHistoryView()
                 } label: {
                     Text("Tea history").leafStyle(.uiBody)
                 }
             } footer: {
-                Text("The teas you read with most, the books they went with, and your tasting notes.")
+                Text("Leaves for any tea, yours or Leaf’s; the teas you read with most, the books they went with, and your tasting notes.")
                     .leafStyle(.caption)
             }
             .settingsRows()
@@ -246,8 +251,10 @@ struct TeaCatalogPicker: View {
             } else {
                 Button {
                     CanopyFeel.play(.saved)
+                    var tin = CabinetTea(tin: tea, now: store.now)
+                    tin.rating = CozySettings.teaPreferences.rating(for: tea.id)
                     Motion.animate(Motion.paper) {
-                        _ = store.addCabinetTea(CabinetTea(tin: tea, now: store.now))
+                        _ = store.addCabinetTea(tin)
                     }
                 } label: {
                     Image(systemName: "plus.circle")
@@ -417,8 +424,9 @@ struct TeaFormView: View {
             tea.notes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
             tea.isOutOf = isOutOf
             store.updateCabinetTea(tea)
+            saveRating(for: tea.teaID)
         } else {
-            store.addCabinetTea(CabinetTea(
+            let added = store.addCabinetTea(CabinetTea(
                 name: trimmedName,
                 brand: brand.trimmingCharacters(in: .whitespacesAndNewlines),
                 family: family,
@@ -427,7 +435,16 @@ struct TeaFormView: View {
                 rating: rating,
                 addedAt: store.now
             ))
+            saveRating(for: added.teaID)
         }
         dismiss()
+    }
+
+    /// The ratings page keeps the same leaves, so a tea rated here reads the same there.
+    private func saveRating(for teaID: String) {
+        var prefs = CozySettings.teaPreferences
+        guard prefs.rating(for: teaID) != rating else { return }
+        prefs.setRating(rating, for: teaID)
+        CozySettings.teaPreferences = prefs
     }
 }

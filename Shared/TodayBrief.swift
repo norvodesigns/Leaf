@@ -150,7 +150,7 @@ enum TodayBriefBuilder {
         let daypart = Daypart.of(now, calendar: calendar)
         let season = Season.of(now, calendar: calendar)
         let lastTea = data.sessions.sorted { $0.startedAt > $1.startedAt }.first { $0.teaID != nil }?.teaID
-        let tea = TeaSuggester.suggest(daypart: daypart, season: season, weather: input.weather, lastTeaID: lastTea, favoriteTeaID: prefs.favoriteTeaID, seed: seed, preferences: input.teaPreferences)
+        let tea = TeaSuggester.suggest(daypart: daypart, season: season, weather: input.weather, lastTeaID: lastTea, favoriteTeaID: prefs.favoriteTeaID, seed: seed, preferences: input.teaPreferences.withRatings(from: data.cabinet))
         let steep = TeaSuggester.steepSeconds(for: tea, strength: .regular)
 
         // The voice.

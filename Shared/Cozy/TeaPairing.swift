@@ -136,10 +136,11 @@ enum TeaPairing {
         ),
         Rule(
             genres: ["poetry"],
-            teas: ["jasmine-green": 4.5, "silver-needle": 3.5, "sencha": 3],
+            teas: ["jasmine-green": 4.5, "silver-needle": 3.5, "sencha": 3, "white-peony": 3, "dragon-well": 2.5],
             families: [.green: 2, .white: 3],
             line: "Poetry wants something delicate: a light green, sipped between poems.",
-            lines: [.white: "Poetry wants something delicate: a pale white tea, sipped between poems."]
+            lines: [.white: "Poetry wants something delicate: a pale white tea, sipped between poems."],
+            teaLines: ["dragon-well": "Dragon Well for poetry: chestnut and spring, sipped between poems."]
         ),
         Rule(
             genres: ["fantasy"], themes: ["fantasy worlds", "dragons", "magic", "quests"],
@@ -151,13 +152,14 @@ enum TeaPairing {
         ),
         Rule(
             genres: ["science-fiction"], themes: ["space & aliens", "time travel", "robots & ai"],
-            teas: ["matcha": 3, "sencha": 2.5, "genmaicha": 2],
+            teas: ["matcha": 3, "sencha": 2.5, "genmaicha": 2, "gyokuro": 2],
             families: [.matcha: 3, .green: 1.5],
             line: "Bright green tea for the far future.",
             lines: [.matcha: "Matcha for the far future: bright, green and wide awake."],
             teaLines: [
                 "sencha": "Sencha for the far future: bright, grassy and clear-headed.",
                 "genmaicha": "Genmaicha for the far future: toasted rice, like rations on a long voyage.",
+                "gyokuro": "Gyokuro for the far future: deep green, savoury and wide awake.",
             ]
         ),
         Rule(
@@ -172,24 +174,27 @@ enum TeaPairing {
         ),
         Rule(
             genres: ["romance"], themes: ["love stories", "second chances", "enemies to lovers"],
-            teas: ["jasmine-green": 3, "hibiscus": 2, "milk-oolong": 1.5],
+            teas: ["jasmine-green": 3, "hibiscus": 2, "lavender": 2, "milk-oolong": 1.5, "oriental-beauty": 1.5],
             families: [.herbal: 1],
             line: "A gentle herbal for a love story: soft, sweet and caffeine free.",
             lines: [.oolong: "A creamy oolong for a love story: soft and a little sweet."],
             teaLines: [
                 "jasmine-green": "Jasmine for a love story: soft, floral and a little sweet.",
                 "hibiscus": "Hibiscus for a love story: rosy, tart and a little sweet.",
+                "lavender": "Lavender for a love story: soft, floral and caffeine free.",
+                "oriental-beauty": "Oriental Beauty for a love story: honeyed, fruity and a little sweet.",
             ]
         ),
         Rule(
             genres: ["historical", "history"], themes: ["world war ii", "ancient world", "royalty & courts", "history & the past"],
-            teas: ["earl-grey": 3, "darjeeling": 2.5, "lapsang-souchong": 2],
+            teas: ["earl-grey": 3, "darjeeling": 2.5, "lapsang-souchong": 2, "keemun": 2],
             families: [.black: 2],
             line: "A black tea with a past of its own, for a book about the past.",
             teaLines: [
                 "earl-grey": "Earl Grey for history: a tea with a past of its own.",
                 "darjeeling": "Darjeeling for history: the tea of hill stations and long letters home.",
                 "lapsang-souchong": "Smoky Lapsang for history: said to be the first black tea of all.",
+                "keemun": "Keemun for history: a black tea the old clipper ships raced home.",
             ]
         ),
         Rule(
@@ -204,18 +209,20 @@ enum TeaPairing {
         ),
         Rule(
             genres: ["children", "young-adult"],
-            teas: ["rooibos": 3, "apple-cinnamon": 2.5, "chamomile": 2],
+            teas: ["rooibos": 3, "vanilla-rooibos": 3, "apple-cinnamon": 2.5, "chamomile": 2],
             families: [.rooibos: 3, .herbal: 2],
             line: "Rooibos for a younger read: sweet, gentle and caffeine free.",
-            lines: [.herbal: "A sweet herbal for a younger read: gentle and caffeine free."]
+            lines: [.herbal: "A sweet herbal for a younger read: gentle and caffeine free."],
+            teaLines: ["vanilla-rooibos": "Vanilla rooibos for a younger read: sweet as a bedtime story, and caffeine free."]
         ),
         Rule(
             genres: ["nature", "travel"], themes: ["gardens & nature", "travel & places", "road trips", "seaside & islands"],
-            teas: ["genmaicha": 2.5, "sencha": 2, "peppermint": 1.5],
+            teas: ["genmaicha": 2.5, "sencha": 2, "moroccan-mint": 2, "peppermint": 1.5],
             families: [.green: 2],
             line: "Something green for the outdoors: it tastes of a walk in the woods.",
             teaLines: [
                 "genmaicha": "Genmaicha for the outdoors: toasty and grassy, like a walk in the woods.",
+                "moroccan-mint": "Moroccan tea for the outdoors: sweet, green and poured from up high.",
                 "peppermint": "Fresh mint for the outdoors: it tastes of a cool morning.",
             ]
         ),
@@ -243,42 +250,49 @@ enum TeaPairing {
         ),
         Rule(
             genres: ["humor"], themes: ["feel-good", "humor", "friendship", "found family"],
-            teas: ["lemon-ginger": 2, "earl-grey": 1, "hibiscus": 1],
+            teas: ["lemon-ginger": 2, "earl-grey": 1, "hibiscus": 1, "elderflower": 1],
             families: [.herbal: 1],
             line: "Something bright for a feel-good book: a cup that cheers.",
             teaLines: [
                 "lemon-ginger": "Lemon ginger for a feel-good book: bright and warming.",
                 "earl-grey": "Earl Grey for a feel-good book: bright with bergamot.",
                 "hibiscus": "Hibiscus for a feel-good book: rosy and bright.",
+                "elderflower": "Elderflower for a feel-good book: light, floral and bright.",
             ]
         ),
         Rule(
             themes: ["rainy days", "scotland & ireland"],
-            teas: ["lapsang-souchong": 1.5, "hojicha": 1.5, "english-breakfast": 1],
+            teas: ["lapsang-souchong": 1.5, "hojicha": 1.5, "english-breakfast": 1, "golden-turmeric": 1],
             line: "A smoky, toasty cup for a rainy-day book: fog on the glass, kettle on.",
-            teaLines: ["english-breakfast": "A strong cup for a rainy-day book: fog on the glass, kettle on."]
+            teaLines: [
+                "english-breakfast": "A strong cup for a rainy-day book: fog on the glass, kettle on.",
+                "golden-turmeric": "Golden turmeric for a rainy-day book: warm hands while the windows stream.",
+            ]
         ),
         Rule(
             themes: ["christmas", "winter"],
-            teas: ["masala-chai": 2, "apple-cinnamon": 2],
+            teas: ["masala-chai": 2, "apple-cinnamon": 2, "rooibos-chai": 1.5],
             families: [.chai: 1.5],
             line: "Spiced tea for a winter book: cinnamon, clove and a warm cup in cold hands."
         ),
         Rule(
             genres: ["food"], themes: ["food & cooking", "tea & cafes"],
-            teas: ["milk-oolong": 1.5, "masala-chai": 1.5, "earl-grey": 1],
+            teas: ["milk-oolong": 1.5, "masala-chai": 1.5, "pumpkin-spice-chai": 1.5, "earl-grey": 1],
             line: "Something creamy for a book that loves its food: a cup to go with the recipes.",
-            teaLines: ["earl-grey": "Earl Grey for a book that loves its food: made for a slice of cake."]
+            teaLines: [
+                "earl-grey": "Earl Grey for a book that loves its food: made for a slice of cake.",
+                "pumpkin-spice-chai": "Pumpkin spice chai for a book that loves its food: it smells like the bakery.",
+            ]
         ),
         Rule(
             maxPages: 160,
-            teas: ["silver-needle": 1.5, "jasmine-green": 1, "peppermint": 1],
+            teas: ["silver-needle": 1.5, "white-peony": 1.5, "jasmine-green": 1, "peppermint": 1],
             families: [.white: 1.5, .green: 1],
             line: "A short book and a light tea: both done before they go cold."
         ),
         Rule(
             minPages: 600,
-            teas: ["milk-oolong": 2, "roasted-oolong": 2, "rooibos": 1.5],
+            teas: ["milk-oolong": 2, "roasted-oolong": 2, "rooibos": 1.5, "vanilla-rooibos": 1.5],
             families: [.oolong: 2, .rooibos: 1.5],
             line: "A long book wants a forgiving tea: oolong gives cup after cup.",
             lines: [.rooibos: "A long book wants a forgiving tea: rooibos never turns bitter, however long it sits."]

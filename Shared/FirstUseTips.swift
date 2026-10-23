@@ -66,7 +66,7 @@ enum FirstUseTip: String, CaseIterable, Codable, Sendable {
         case .bookPage:
             return "Tap your page to tell Leaf where your bookmark is. The plan picks up from there."
         case .youCorner:
-            return "How your reading is going, at a glance. Further down: the teas you like, your tea cabinet and settings."
+            return "How your reading is going, at a glance. Just below: rate your teas, the teas you like, your cabinet and settings."
         }
     }
 

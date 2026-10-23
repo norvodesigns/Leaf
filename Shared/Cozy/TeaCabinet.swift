@@ -175,6 +175,33 @@ enum TastingStrength: String, Codable, CaseIterable, Sendable {
 /// The aroma words a tasting card offers. Saved as plain strings, so a word added later never breaks old notes.
 enum TastingAroma {
     static let all = ["malty", "floral", "smoky", "fruity", "citrus", "grassy", "nutty", "spicy", "honeyed", "earthy", "creamy", "minty"]
+
+    /// The words in a tin's tasting notes that mean each aroma: "malty" is "malt", "smoky" is "pine smoke". Each cue
+    /// has to start a word, so "nuts" never finds "nutmeg".
+    static let cues: [String: [String]] = [
+        "malty": ["malt"],
+        "floral": ["floral", "flower", "blossom", "jasmine", "orchid", "rose", "lavender", "honeysuckle", "elderflower"],
+        "smoky": ["smok", "campfire"],
+        "fruity": ["fruit", "apple", "peach", "grape", "muscatel", "cranberry", "longan", "melon", "honeydew", "pear", "berry", "tart"],
+        "citrus": ["citrus", "lemon", "bergamot", "orange"],
+        "grassy": ["grass", "green", "hay", "sweet pea"],
+        "nutty": ["nuts", "nutty", "chestnut", "toasted rice", "almond"],
+        "spicy": ["spice", "spicy", "ginger", "cinnamon", "clove", "cardamom", "pepper", "nutmeg"],
+        "honeyed": ["honey"],
+        "earthy": ["earth", "wood", "mineral", "roast", "turmeric", "cocoa"],
+        "creamy": ["cream", "butter", "vanilla", "milk"],
+        "minty": ["mint", "spearmint"],
+    ]
+
+    /// Whether a tea's notes taste of this aroma word.
+    static func tea(_ tea: Tea, tastesOf aroma: String) -> Bool {
+        let aroma = aroma.lowercased()
+        let words = [aroma] + (cues[aroma] ?? [])
+        return tea.notes.contains { note in
+            let spaced = " " + note.lowercased()
+            return words.contains { spaced.contains(" " + $0) }
+        }
+    }
 }
 
 /// A few words about a cup, written after a session with tea. Kept like a journal entry and synced the same way.
@@ -303,6 +330,11 @@ enum TeaShelf {
         return teas
     }
 
+    /// The leaves the reader gave a tea: on their tin when they keep one and rated it, else on the ratings page.
+    static func rating(for teaID: String, cabinet: [CabinetTea], preferences: TeaPreferences) -> Int? {
+        tin(id: teaID, cabinet: cabinet)?.rating ?? preferences.rating(for: teaID)
+    }
+
     /// Whether the reader can make this tea at all: a tea of theirs that hasn't run out, or (while they keep no teas
     /// in stock) any of Leaf's.
     static func isAvailable(_ id: String, cabinet: [CabinetTea]) -> Bool {
@@ -342,7 +374,7 @@ enum TeaShelf {
     ) -> Choices {
         var choices = rankedChoices(
             cabinet: cabinet, daypart: daypart, season: season, favoriteTeaID: favoriteTeaID, lastTeaID: lastTeaID,
-            seed: seed, limit: limit, preferences: preferences
+            seed: seed, limit: limit, preferences: preferences.withRatings(from: cabinet)
         )
         if let pinned = offerable(pinnedTeaID, cabinet: cabinet, daypart: daypart) {
             choices.teas.removeAll { $0.id == pinned.id }
