@@ -145,14 +145,16 @@ struct NookSceneThumbnail: View {
     }
 }
 
-/// Darkens the top, where the timer sits while a scene is on, and the bottom, where the controls are; the middle is
-/// left to the scene.
+/// Darkens the top half, where the timer's ring sits while a scene is on, and the bottom, where the controls are; the
+/// band between is left to the scene.
 private struct NookScrim: View {
     var body: some View {
         LinearGradient(
             stops: [
                 .init(color: Color.black.opacity(0.5), location: 0),
-                .init(color: Color.black.opacity(0), location: 0.3),
+                .init(color: Color.black.opacity(0.36), location: 0.2),
+                .init(color: Color.black.opacity(0.16), location: 0.44),
+                .init(color: Color.black.opacity(0), location: 0.58),
                 .init(color: Color.black.opacity(0), location: 0.72),
                 .init(color: Color.black.opacity(0.42), location: 1),
             ],

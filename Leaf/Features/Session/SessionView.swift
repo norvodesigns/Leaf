@@ -28,7 +28,6 @@ struct SessionView: View {
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
 
     @ScaledMetric(relativeTo: .headline) private var controlHeight: CGFloat = 54
-    @ScaledMetric(relativeTo: .largeTitle) private var compactTimerSize: CGFloat = 56
 
     private var session: ActiveSession? { store.activeSession ?? frozen }
 
@@ -128,31 +127,26 @@ struct SessionView: View {
                 .opacity(isEnding ? 0 : (isDimmed ? 0.25 : 1))
                 .allowsHitTesting(!isEnding)
 
-            // With a scene on, the timer moves up under the top bar so the scene has the middle of the screen.
-            if sceneIsOn && !isEnding {
-                face(session: session, compact: true)
-                    .padding(.top, Space.l)
-                    .transition(.opacity)
-            }
-
-            Spacer(minLength: Space.l)
-
             if !isEnding {
-                if !sceneIsOn {
-                    face(session: session, compact: false)
-                        .transition(.opacity)
-                    Spacer(minLength: Space.l)
-                }
+                // Plain centres the face. With a scene on, the same face sits high, just under the top bar, so the
+                // scene has the rest of the screen.
+                Spacer(minLength: Space.l)
+                    .frame(maxHeight: sceneIsOn ? Space.l : .infinity)
+                face(session: session)
+                Spacer(minLength: Space.l)
                 extras
                     .firstUseTip(.sessionNook, edge: .top, floating: true)
                     .opacity(isDimmed ? 0.25 : 1)
                     .padding(.bottom, Space.l)
+            } else {
+                Spacer(minLength: Space.l)
             }
 
             controls(session: session, book: book)
         }
         .padding(.horizontal, Space.margin)
         .padding(.bottom, Space.l)
+        .animation(reduceMotion ? nil : Canopy.Motion.smooth, value: sceneIsOn)
     }
 
     private func topBar(session: ActiveSession, book: Book) -> some View {
@@ -192,28 +186,29 @@ struct SessionView: View {
     /// A scene other than plain is on.
     private var sceneIsOn: Bool { nookScene != .plain }
 
-    private func face(session: ActiveSession, compact: Bool) -> some View {
+    private func face(session: ActiveSession) -> some View {
         TimelineView(.periodic(from: session.startedAt, by: 1)) { context in
             let clock = SessionClock(session: session, store: store, at: context.date)
-            VStack(spacing: compact ? Space.xs : Space.l) {
-                if compact {
-                    // A small ring beside a smaller timer, high on the screen.
-                    HStack(spacing: Space.m) {
-                        ProgressRing(progress: clock.ringProgress, diameter: 40, lineWidth: 3, showsHead: true)
+            VStack(spacing: Space.l) {
+                ProgressRing.session(progress: clock.ringProgress)
+                    .overlay {
                         timerText(clock: clock, session: session)
-                            .font(.system(size: compactTimerSize, weight: .light, design: .serif).monospacedDigit())
-                            .foregroundStyle(timerColor(clock: clock, isPaused: session.isPaused))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.6)
+                            .leafStyle(.timer, color: timerColor(clock: clock, isPaused: session.isPaused))
+                            .padding(.horizontal, Space.xxl)
                     }
-                } else {
-                    ProgressRing.session(progress: clock.ringProgress)
-                        .overlay {
-                            timerText(clock: clock, session: session)
-                                .leafStyle(.timer, color: timerColor(clock: clock, isPaused: session.isPaused))
-                                .padding(.horizontal, Space.xxl)
+                    .background {
+                        if sceneIsOn {
+                            // A soft shade inside the ring, so the digits read on a bright sky.
+                            Circle()
+                                .fill(RadialGradient(
+                                    colors: [Color.black.opacity(0.34), Color.black.opacity(0)],
+                                    center: .center,
+                                    startRadius: 30,
+                                    endRadius: 165
+                                ))
+                                .transition(.opacity)
                         }
-                }
+                    }
                 VStack(spacing: Space.xs) {
                     if let tea = store.tea(id: session.teaID) {
                         Text(cupLine(clock: clock, tea: tea))
@@ -228,6 +223,8 @@ struct SessionView: View {
                             .leafStyle(.caption)
                     }
                 }
+                // Under the ring the scene shows through: a soft shadow keeps the small lines readable on it.
+                .shadow(color: Color.black.opacity(sceneIsOn ? 0.55 : 0), radius: 6, y: 1)
                 .opacity(isDimmed ? 0.25 : 1)
             }
             .accessibilityElement(children: .ignore)
