@@ -127,10 +127,15 @@ struct SessionView: View {
                 .allowsHitTesting(!isEnding)
 
             if !isEnding {
-                // Plain centres the face. With a scene on, the same face sits high, just under the top bar, so the
+                // Plain centres the face between two bare spacers (a framed top spacer took all the free space and
+                // pushed the ring down). With a scene on, the same face sits high, just under the top bar, so the
                 // scene has the rest of the screen.
-                Spacer(minLength: Space.l)
-                    .frame(maxHeight: sceneIsOn ? Space.l : .infinity)
+                if sceneIsOn {
+                    Spacer(minLength: Space.l)
+                        .frame(maxHeight: Space.l)
+                } else {
+                    Spacer(minLength: Space.l)
+                }
                 face(session: session)
                 Spacer(minLength: Space.l)
                 extras
