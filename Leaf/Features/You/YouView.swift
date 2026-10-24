@@ -7,6 +7,8 @@ struct YouView: View {
     @Environment(LibraryStore.self) private var store
     @Environment(AppRouter.self) private var router
     @Environment(\.dynamicTypeSize) private var typeSize
+    /// The tile badge grows with the text, so a large-text icon stays inside its circle.
+    @ScaledMetric(relativeTo: .subheadline) private var badge: CGFloat = 34
     @State private var desk = PlanDesk()
     /// Kept in UserDefaults, which SwiftUI doesn't watch: read again whenever a tea page closes.
     @State private var teaPrefs = CozySettings.teaPreferences
@@ -160,7 +162,7 @@ struct YouView: View {
                 Image(systemName: tile.systemImage)
                     .font(.system(.subheadline, weight: .semibold))
                     .foregroundStyle(tile.accent.color)
-                    .frame(width: 34, height: 34)
+                    .frame(width: badge, height: badge)
                     .background(tile.accent.soft, in: .circle)
                     .accessibilityHidden(true)
                 Text(tile.title)

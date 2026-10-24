@@ -138,37 +138,39 @@ struct TeaRatingsView: View {
         }
     }
 
-    @ViewBuilder
+    /// The name and its detail on one line, the leaves under the name. Beside the leaves, names ran to three lines.
     private func row(_ line: Line) -> some View {
-        let name = VStack(alignment: .leading, spacing: 2) {
-            Text(line.tea.name)
-                .canopyText(.body)
-                .fixedSize(horizontal: false, vertical: true)
-            Text(line.detail)
-                .canopyText(.caption)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        let leaves = TeaLeafRating(rating: ratingBinding(for: line.tea))
-            .accessibilityLabel("Rating for \(line.tea.name)")
-        Group {
-            if typeSize.isAccessibilitySize {
-                VStack(alignment: .leading, spacing: Canopy.Space.xs) {
-                    HStack(spacing: Canopy.Space.m) {
-                        TeaSwatch(tea: line.tea, size: 22)
-                        name
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: Canopy.Space.m) {
+                TeaSwatch(tea: line.tea, size: 22)
+                if typeSize.isAccessibilitySize {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(line.tea.name)
+                            .canopyText(.body)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(line.detail)
+                            .canopyText(.caption)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                    leaves
-                }
-            } else {
-                HStack(spacing: Canopy.Space.m) {
-                    TeaSwatch(tea: line.tea, size: 22)
-                    name
-                    Spacer(minLength: Canopy.Space.xs)
-                    leaves
+                } else {
+                    HStack(alignment: .firstTextBaseline, spacing: Canopy.Space.s) {
+                        Text(line.tea.name)
+                            .canopyText(.body)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .layoutPriority(1)
+                        Spacer(minLength: Canopy.Space.s)
+                        Text(line.detail)
+                            .canopyText(.caption)
+                            .multilineTextAlignment(.trailing)
+                    }
                 }
             }
+            TeaLeafRating(rating: ratingBinding(for: line.tea))
+                .accessibilityLabel("Rating for \(line.tea.name)")
+                // Each leaf is centred in a 36 pt button, so this puts the first leaf under the name.
+                .padding(.leading, 24)
         }
-        .padding(.vertical, Canopy.Space.xs)
+        .padding(.top, Canopy.Space.s)
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)
     }
@@ -234,7 +236,7 @@ struct TeaRatingsView: View {
             .compactMap { tin -> Line? in
                 guard shown.insert(tin.teaID).inserted else { return nil }
                 let tea = (TeaShelf.tin(id: tin.teaID, cabinet: store.data.cabinet) ?? tin).tea
-                return Line(tea: tea, detail: tin.isOutOf ? "\(tea.family.title) · run out" : "\(tea.family.title) · in your cabinet")
+                return Line(tea: tea, detail: tin.isOutOf ? "\(tea.family.title) · run out" : tea.family.title)
             }
         let cabinetShown = cabinet.filter { keep($0.tea) }
         if !cabinetShown.isEmpty {
@@ -253,10 +255,9 @@ struct TeaRatingsView: View {
         return shelves
     }
 
-    /// "4 h 10 min over 12 sittings"
+    /// "4 h 10 min" read with it.
     private func triedDetail(_ line: TeaHistory.TeaLine, tea: Tea) -> String {
-        guard line.minutes > 0 else { return tea.family.title }
-        return "\(LeafFormat.duration(minutes: line.minutes)) over \(line.sessions) \(line.sessions == 1 ? "sitting" : "sittings")"
+        line.minutes > 0 ? LeafFormat.duration(minutes: line.minutes) : tea.family.title
     }
 }
 
