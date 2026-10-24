@@ -1,0 +1,1 @@
+sizes (KB, unsigned, uncompressed): Leaf.app 83716, Leaf executable 10760, LeafWatch.app 2508, LeafWatch executable 1632
