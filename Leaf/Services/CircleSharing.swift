@@ -2,6 +2,7 @@ import Foundation
 import Observation
 #if canImport(CloudKit)
 import CloudKit
+import StoreKit
 import SwiftUI
 import UIKit
 
@@ -45,11 +46,14 @@ final class CircleSharing {
     enum Failure: LocalizedError {
         case unavailable
         case noCircle
+        /// iCloud turned it down, in words for the reader (`explain`).
+        case refused(String)
 
         var errorDescription: String? {
             switch self {
             case .unavailable: "Sharing needs iCloud. Turn it on in Settings › iCloud."
             case .noCircle: "That circle isn’t on this phone any more."
+            case .refused(let reason): reason
             }
         }
     }
@@ -78,6 +82,8 @@ final class CircleSharing {
     @ObservationIgnored private var pollTask: Task<Void, Never>?
     /// Push subscriptions saved since launch, so each is sent once.
     @ObservationIgnored private var subscribed: Set<String> = []
+    /// Whether this is a TestFlight or Xcode build, once known (`isTestBuild`).
+    @ObservationIgnored private var testBuild: Bool?
 
     /// A fetch asked for sooner than this after the last one is skipped, unless a push asked.
     static let refreshGap: TimeInterval = 20
@@ -164,8 +170,18 @@ final class CircleSharing {
     // MARK: - Sharing a circle
 
     /// The share for a circle, made on first use: the circle's zone, its record and a zone-wide CKShare. Present it
-    /// with `CircleShareSheet`.
+    /// with `CircleShareSheet`. What it throws reads well in an alert.
     func share(for circleID: UUID) async throws -> CKShare {
+        do {
+            return try await makeShare(for: circleID)
+        } catch let error as Failure {
+            throw error
+        } catch {
+            throw Failure.refused(await explain(error, .inviting))
+        }
+    }
+
+    private func makeShare(for circleID: UUID) async throws -> CKShare {
         guard let library, isReady(library) else { throw Failure.unavailable }
         guard let found = library.data.circles.first(where: { $0.id == circleID }) else { throw Failure.noCircle }
         let me = try await currentUserName()
@@ -186,10 +202,15 @@ final class CircleSharing {
         share.publicPermission = .none
         let (saved, _) = try await database.modifyRecords(saving: [record, share], deleting: [], savePolicy: .allKeys)
         var made: CKShare?
+        var failures: [Error] = []
         for (_, result) in saved {
-            let value = try result.get()
-            if let value = value as? CKShare { made = value }
+            switch result {
+            case .success(let value): if let value = value as? CKShare { made = value }
+            case .failure(let error): failures.append(error)
+            }
         }
+        // The two save together, so when one is turned down the other only says "Atomic failure".
+        if let failure = Self.cause(among: failures) { throw failure }
         remember(Link(circleID: circleID, zoneName: zoneID.zoneName, ownerName: CKCurrentUserDefaultName, isOwner: true))
         inStep[circleID] = circle
         await subscribe()
@@ -223,7 +244,7 @@ final class CircleSharing {
             requestRefresh(force: true)
             if let task = refreshTask { _ = await task.value }
         } catch {
-            lastError = "Couldn’t join that circle. \(error.localizedDescription)"
+            lastError = await explain(error, .joining)
         }
     }
 
@@ -282,7 +303,7 @@ final class CircleSharing {
                 // The owner deleted the circle or stopped sharing: the reader keeps their copy, now a local circle.
                 forget(link.circleID)
             } catch {
-                lastError = error.localizedDescription
+                lastError = await explain(error, .updating)
             }
         }
         await pushChanges()
@@ -341,8 +362,74 @@ final class CircleSharing {
         } catch let error as CKError where Self.isGone(error) {
             forget(link.circleID)
         } catch {
-            lastError = error.localizedDescription
+            lastError = await explain(error, .updating)
         }
+    }
+
+    // MARK: - Errors
+
+    enum Doing { case inviting, joining, updating }
+
+    /// What the reader is told when iCloud turns something down. TestFlight and Xcode builds add iCloud's own words,
+    /// so a tester's screenshot says what happened.
+    private func explain(_ error: Error, _ doing: Doing) async -> String {
+        let cloud = Self.cloudError(error)
+        let words = Self.words(for: cloud?.code, doing)
+        guard await isTestBuild() else { return words }
+        let detail = cloud.map { ($0.userInfo["ServerErrorDescription"] as? String ?? $0.localizedDescription) + " (CKError \($0.code.rawValue))" }
+        return words + "\n\nFor testers: " + (detail ?? error.localizedDescription)
+    }
+
+    static func words(for code: CKError.Code?, _ doing: Doing) -> String {
+        switch code {
+        case .networkUnavailable?, .networkFailure?:
+            return "You’re offline. Try again once you’re connected."
+        case .notAuthenticated?:
+            return "Sign in to iCloud in Settings, then try again."
+        case .accountTemporarilyUnavailable?:
+            return "iCloud needs you to sign in again. Open Settings and check your Apple Account."
+        case .quotaExceeded?:
+            return "Your iCloud storage is full. Free up some space, then try again."
+        case .serviceUnavailable?, .requestRateLimited?, .zoneBusy?:
+            return "iCloud is busy right now. Try again in a minute."
+        case .managedAccountRestricted?:
+            return "Sharing is turned off for this Apple Account."
+        case .tooManyParticipants?:
+            return "This circle has as many people as it can hold."
+        default:
+            switch doing {
+            case .inviting: return "iCloud couldn’t set up the invitation just now. Try again in a little while."
+            case .joining: return "Couldn’t join that circle. Open the invitation again in a little while."
+            case .updating: return "Couldn’t bring your circles up to date. Leaf will try again."
+            }
+        }
+    }
+
+    /// The error that says what went wrong, from items saved together: the one turned down, not the others' "Atomic
+    /// failure".
+    static func cause(among errors: [Error]) -> Error? {
+        errors.first { ($0 as? CKError)?.code != .batchRequestFailed } ?? errors.first
+    }
+
+    /// The CloudKit error behind `error`, from inside a partial failure if need be.
+    static func cloudError(_ error: Error) -> CKError? {
+        guard let cloud = error as? CKError else { return nil }
+        guard cloud.code == .partialFailure, let items = cloud.partialErrorsByItemID?.values,
+              let inner = cause(among: Array(items)) as? CKError else { return cloud }
+        return inner
+    }
+
+    /// TestFlight builds run against the App Store's sandbox, Xcode builds against Xcode's.
+    private func isTestBuild() async -> Bool {
+        #if DEBUG
+        return true
+        #else
+        if let testBuild { return testBuild }
+        let environment = try? await AppTransaction.shared.unsafePayloadValue.environment
+        let known = environment.map { $0 == .sandbox || $0 == .xcode } ?? false
+        testBuild = known
+        return known
+        #endif
     }
 
     // MARK: - Pushes

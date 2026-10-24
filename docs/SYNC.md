@@ -206,6 +206,12 @@ owner, stop sharing, delete as owner and as participant.
   Development the record types appear on first save; Production does not create them. Types: `LeafItem`,
   `LeafSession`, `LeafJournal`, `LeafPreferences`, `LeafSpeedTest`, `LeafDismissal`, `LeafChallenge`,
   `LeafTombstone`, `LeafTea`, `LeafTasting` (the last two new with books and tea), `LeafCircle` (new 2026-10-22), each with `payload` (encrypted bytes), `updatedAt` (date/time) and `schema` (int64).
+- **`cloudkit.share` too, for circles.** It is CloudKit's own type for a share, and it can't be added by hand: it
+  appears in Development the first time a share is saved there. Without it in Production every invitation fails with
+  "Cannot create new type cloudkit.share in production schema" (the circle's record says only "Atomic failure"). To
+  get it: in Xcode, Product › Scheme › Edit Scheme › Run › Build Configuration **Release** (iCloud on, with
+  development signing, so Development), run on a simulator signed in to iCloud, make a circle and tap Invite. Check
+  that `cloudkit.share` is in Development › Record Types, then Deploy Schema Changes. Set the scheme back to Debug.
 
 ## Erase and account changes
 
