@@ -289,9 +289,10 @@ struct CircleGoalCard: View {
 
 // MARK: - The track
 
-/// The race through the book: one line from the first page to the last, a tick at each goal (the next one flagged in
-/// Dusk with its page underneath), and everyone's face where they've read to. Faces that would sit on top of each
-/// other step up a row; the reader is drawn last, on top.
+/// The race to the next goal: one line from the first page to a little past the goal (or whoever is furthest), the
+/// goal standing across it as a Dusk finish line with its page underneath, earlier goals as ticks, and everyone's face
+/// where they've read to. Faces that would sit on top of each other step up a row; the reader is drawn last, on top.
+/// With no goal ahead the line is the whole book.
 struct CircleTrack: View {
     let circle: ReadingCircle
     let snapshot: CircleSnapshot
@@ -300,8 +301,22 @@ struct CircleTrack: View {
 
     private var pages: Int { max(1, circle.book.pages) }
 
+    /// The page at the right end. A goal 100 pages into a 400-page book would otherwise crowd everyone into the
+    /// first quarter of the line.
+    private var scale: Int {
+        guard let goal = snapshot.nextMeeting else { return pages }
+        let furthest = snapshot.members.map(\.page).max() ?? 0
+        return min(pages, Int((Double(max(goal.throughPage, furthest)) * 1.12).rounded(.up)))
+    }
+
+    /// Where a page sits along the line, 0 to 1.
+    private func share(_ page: Int) -> CGFloat {
+        CGFloat(min(1, max(0, Double(page) / Double(max(1, scale)))))
+    }
+
     var body: some View {
-        let goals = CirclePlanner.normalized(circle.meetings, pages: pages)
+        let goals = CirclePlanner.normalized(circle.meetings, pages: pages).filter { $0.throughPage <= scale }
+        let next = snapshot.nextMeeting
         let rowHeight = face + 4
         GeometryReader { proxy in
             let width = proxy.size.width
@@ -317,22 +332,31 @@ struct CircleTrack: View {
                 if let me = snapshot.me {
                     Capsule()
                         .fill(CanopyAccent.forest.color.opacity(0.55))
-                        .frame(width: max(4, usable * CGFloat(me.fraction)), height: 4)
-                        .position(x: inset + usable * CGFloat(me.fraction) / 2, y: lineY)
+                        .frame(width: max(4, usable * share(me.page)), height: 4)
+                        .position(x: inset + usable * share(me.page) / 2, y: lineY)
                 }
-                ForEach(Array(goals.enumerated()), id: \.element.id) { index, goal in
-                    let x = inset + usable * CGFloat(goal.throughPage) / CGFloat(pages)
-                    let isNext = index == snapshot.nextMeetingIndex
-                    Capsule()
-                        .fill(isNext ? CanopyAccent.dusk.color : Canopy.textTertiary.opacity(0.6))
-                        .frame(width: isNext ? 3 : 2, height: isNext ? 16 : 10)
-                        .position(x: x, y: lineY)
-                    if isNext {
+                ForEach(goals) { goal in
+                    let x = inset + usable * share(goal.throughPage)
+                    if goal.id == next?.id {
+                        // The finish line stands taller than the faces, so it shows above and below them.
+                        Capsule()
+                            .fill(CanopyAccent.dusk.color.opacity(0.85))
+                            .frame(width: 2.5, height: lineY + 6)
+                            .position(x: x, y: (lineY + 6) / 2)
+                        Image(systemName: "flag.fill")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(CanopyAccent.dusk.color)
+                            .position(x: x + 7, y: 6)
                         Text("p. \(goal.throughPage)")
                             .font(.system(.caption2, design: .rounded, weight: .semibold).monospacedDigit())
                             .foregroundStyle(CanopyAccent.dusk.color)
                             .fixedSize()
                             .position(x: min(max(x, 24), width - 24), y: lineY + face / 2 + 10)
+                    } else {
+                        Capsule()
+                            .fill(Canopy.textTertiary.opacity(0.6))
+                            .frame(width: 2, height: 10)
+                            .position(x: x, y: lineY)
                     }
                 }
                 ForEach(placed, id: \.progress.id) { spot in
@@ -359,7 +383,7 @@ struct CircleTrack: View {
         var lastX: [CGFloat] = [-.infinity, -.infinity, -.infinity]
         var spots: [Spot] = []
         for progress in ordered {
-            let x = width * CGFloat(progress.fraction)
+            let x = width * share(progress.page)
             let row = lastX.firstIndex { x - $0 >= face * 0.9 } ?? (lastX.indices.min { lastX[$0] < lastX[$1] } ?? 0)
             lastX[row] = x
             spots.append(Spot(progress: progress, x: x, row: row))
