@@ -305,7 +305,7 @@ for appearance in light dark; do
     shot ft3-tip-session-tuck 7 -LeafDemo YES -LeafScreen session -leaf.cozy.nookScene rain -LeafTips session.minimize
     shot ft4-tip-plan 9 -LeafDemo YES -LeafScreen plan -LeafScenario sidebyside -LeafTips plan.times
     shot ft5-tip-library 6 -LeafDemo YES -LeafScreen library -LeafTips library.add
-    shot ft6-tip-book 7 -LeafDemo YES -LeafScreen book:OL27482W -LeafTips book.page
+    shot ft6-tip-book 7 -LeafDemo YES -LeafScreen book.edition -LeafTips book.page
     shot ft7-tip-you 9 -LeafDemo YES -LeafScreen you -LeafTips you.corner
     shot lt-ft2-tip-session 7 -LeafDemo YES -LeafScreen session -LeafTips session.nook -UIPreferredContentSizeCategoryName UICTContentSizeCategoryAccessibilityL
     # Polish pass: every main screen at an accessibility text size (lt-*), to catch truncation and clipped layouts.

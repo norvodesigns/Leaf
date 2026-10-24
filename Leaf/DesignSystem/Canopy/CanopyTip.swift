@@ -22,6 +22,7 @@ struct CanopyTip: View {
     let onClose: () -> Void
 
     @ScaledMetric(relativeTo: .subheadline) private var badge: CGFloat = 32
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     init(title: String, message: String, systemImage: String, accent: CanopyAccent = .forest, pointer: CanopyTipPointer? = nil, onClose: @escaping () -> Void) {
         self.title = title
@@ -34,13 +35,16 @@ struct CanopyTip: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: Canopy.Space.m) {
-            Image(systemName: systemImage)
-                .font(.system(.subheadline, weight: .semibold))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(accent.color)
-                .frame(width: badge, height: badge)
-                .background(accent.soft, in: .circle)
-                .accessibilityHidden(true)
+            // At the largest text sizes the symbol steps aside so the words get the width.
+            if !typeSize.isAccessibilitySize {
+                Image(systemName: systemImage)
+                    .font(.system(.subheadline, weight: .semibold))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(accent.color)
+                    .frame(width: badge, height: badge)
+                    .background(accent.soft, in: .circle)
+                    .accessibilityHidden(true)
+            }
             VStack(alignment: .leading, spacing: Canopy.Space.xxs) {
                 Text(title)
                     .canopyText(.headline)
