@@ -4,7 +4,8 @@
 === REPORT FOR LEAD ===
 Package: First-use tips (owner's ask 2026-10-23: "a nice tutorial that is not intrusive but walks you through the
   basic fundamentals of the app as you explore yourself")
-Status: done on main; needs a CI run to compile and to see the ft-* screenshots
+Status: done. Commits 91e6e27, f15e3ea (tuck-away note clear of the timer), 0d635d9 (floating notes lift by their
+  own height; Library points up at plus). CI run 40052878904 (a850f35): build, tests, watch, archive, screenshots green
 What it does:
   Seven short glass notes, each shown beside the one thing worth knowing on a screen, the first time the reader gets
   there. One per screen at a time, one per visit. A note goes for good when it's closed or when the reader does what
@@ -33,11 +34,10 @@ Touched: one modifier line each in TodayNook, SessionView (2 + the two sheets), 
   BookDetailView, YouView; AppRouter (finish hooks), MainTabs (tucked-away hook), SettingsView (row + erase),
   LaunchOptions (-LeafTips), scripts/ci_screenshots.sh (ft1 to ft7, ft2 light and dark, lt-ft2 at a large size),
   docs/design/DESIGN_SYSTEM.md (§1 exception, §10 component, §12 rules).
-Verified: scripts/linux_tests.sh 912 tests green (9 new); scripts/check_pbxproj.py OK. Not compiled for iOS here
-  (no Mac): CI is the first build.
-Could not verify (device or CI only):
-  How the notes look (ft-* shots); the timer's notes floating over a scene and over the plain ring on a small phone;
-  hit-testing the close button where a floating note hangs past its row.
+Verified: scripts/linux_tests.sh green (9 new); scripts/check_pbxproj.py OK; ft1 to ft7 and lt-ft2 checked by eye.
+  The first shots caught the timer's note sitting on Pause / Done (an ignored alignment guide); fixed in 0d635d9.
+Could not verify (device only):
+  The close button where a floating note hangs past its row; the Focus In arrival; the note on a small phone (SE).
 Next package you recommend: look at the ft-* shots with the owner and tune the words.
 === END REPORT ===
 ```
