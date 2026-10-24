@@ -50,6 +50,8 @@ struct CirclesPage: View {
                 }
             }
         }
+        // Where the You tab scrolls to when Today's card (or a screenshot) asks for circles.
+        .id("circles")
         .onAppear {
             circles.loadIfDeferred()
             takeFocus()

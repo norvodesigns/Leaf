@@ -178,7 +178,7 @@ struct RootView: View {
             case "plan.circles.prompts": router.planStage = "prompts"
             case "plan.circles.standings": router.planStage = "members"
             case "plan.circles.goals": router.planStage = "schedule"
-            case "plan.circles": break
+            case "plan.circles": router.planStage = "circles"
             default: router.circleStage = String(key.dropFirst("plan.circles.".count))
             }
         case "plan.challenges", "plan.stamps":

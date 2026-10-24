@@ -208,12 +208,13 @@ final class AppRouter {
         FirstUseTips.shared.finish(.todayStart)
     }
 
-    /// The Circles page under You, on one circle or opening a sheet ("new").
+    /// The Circles page under You, scrolled to it, on one circle or opening a sheet ("new").
     func openCircles(focus circleID: UUID? = nil, stage: String? = nil) {
         circleFocus = circleID
         circleStage = stage
         tab = .you
         planSection = .circles
+        planStage = "circles"
     }
 
     /// Goes to Search ready to add a book.
