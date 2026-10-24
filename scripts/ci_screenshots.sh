@@ -109,7 +109,7 @@ if [ "$MODE" = store ]; then
   shot store-4-insights 10 "${pd[@]}" -LeafScreen plan.insights -LeafScenario year
   shot store-5-library 6 "${pd[@]}" -LeafScreen library
   shot store-6-tea 6 "${pd[@]}" -LeafScreen tea.cabinet
-  shot store-7-circles 7 "${pd[@]}" -LeafScreen plan.circles
+  shot store-7-circles 7 "${pd[@]}" -LeafScreen plan.circles.standings
   for f in "$OUT"/store-[0-9]*.png; do
     [ -f "$f" ] || continue
     size="$(sips -g pixelWidth -g pixelHeight "$f" | awk '/pixelWidth/{w=$2} /pixelHeight/{h=$2} END{print w "x" h}')"
