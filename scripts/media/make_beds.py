@@ -115,8 +115,8 @@ def encode(x, name):
 report = {}
 
 
-def finish(name, x, target, notes, release=0.060):
-    x = level(x, target, release=release)
+def finish(name, x, target, notes, release=0.060, ceiling_db=-4.5):
+    x = level(x, target, ceiling_db, release)
     peak = 20 * np.log10(np.abs(x).max())
     path = encode(x, name)
     report[name] = {"seconds": round(len(x) / SR, 2), "lufs": round(lufs(x), 2), "peak_dbfs": round(float(peak), 2),
@@ -126,16 +126,16 @@ def finish(name, x, target, notes, release=0.060):
 
 SHARED = -18.0
 
-# Fireplace: a comforting crackle, not a wash of noise (the owner, 2026-10-23: "too much overwhelming background white
-# noise"). The crackles of a small log fire (#2857, its top softened), its steady hiss turned down 16 dB, over the low
-# warmth of a bigger one (#2856 under 300 Hz, 6 dB down, no hiss left in it). Crackles want headroom: levelled to
-# -21 LUFS (it lands near -22) with a 5 ms release, so only the loudest pops are trimmed and the bed never ducks.
-crackle = quiet_hiss(load("bsb-2857.flac", 1, 44, "highpass=f=35,treble=g=-3:f=7000"))
-warmth = load("bsb-2856.flac", 3, 46, "highpass=f=35,lowpass=f=300,lowpass=f=300")
-n = min(len(crackle), len(warmth))
-fire = crackle[:n] + warmth[:n] * 10 ** (-6 / 20)
-finish("ambience-fireplace", fire, SHARED - 3, "BigSoundBank #2857 1-44 s, hiss lowered, with #2856 under 300 Hz",
-       release=0.005)
+# Fireplace: soft, gentle and relaxing, "the perfect balance of crackles and white noise, not too much of anything"
+# (the owner, 2026-10-23, after a first bed that was mostly noise and a second that was mostly crackle). A log fire
+# burning steadily (#2856): its top rounded off (6 dB down above 5 kHz, nothing over 9 kHz) and its steady hiss
+# lowered 10 dB, so what's left is the fire's warm rush with its crackles in it. Levelled to -20 LUFS, a little under
+# the others, with peaks held at -8 dBFS and a 25 ms release: the sharpest pops are rounded, none is flattened into
+# the bed, and the bed never pumps.
+fire = quiet_hiss(load("bsb-2856.flac", 3, 73, "highpass=f=35,treble=g=-6:f=5000,lowpass=f=9000"),
+                  floor_lo_db=-2, floor_hi_db=-10)
+finish("ambience-fireplace", fire, SHARED - 2, "BigSoundBank #2856, 3-73 s, top rounded, hiss lowered",
+       release=0.025, ceiling_db=-8)
 
 # Rain: steady medium rain on canvas, no thunder in this stretch (#0820), softened a little at the top.
 rain = load("bsb-0820.wav", 80, 142, "highpass=f=70,treble=g=-3:f=7000")
